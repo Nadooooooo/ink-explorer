@@ -3526,6 +3526,12 @@ main > .empty {
 .pool-detail-grid h2 {
   font-size: 26px;
   margin: 8px 0 16px;
+  overflow-wrap: anywhere;
+}
+@media (min-width: 761px) and (max-width: 800px) {
+  .pool-detail-grid h2 {
+    font-size: 23px;
+  }
 }
 .pool-detail-grid .copyable {
   display: flex;
