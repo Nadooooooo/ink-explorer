@@ -1,0 +1,73 @@
+{
+  "name": "ink-explorer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Open source explorer for the Ink community, covering Mainnet and Sepolia.",
+  "license": "MIT",
+  "keywords": [
+    "ink",
+    "ethereum",
+    "blockchain",
+    "explorer",
+    "op-stack",
+    "blockscout"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc -b && vite build",
+    "check": "tsc -b --pretty false",
+    "test": "npm run build",
+    "start": "node --env-file-if-exists=.env server/server.mjs",
+    "test:ws": "node scripts/test-websocket.mjs",
+    "test:network-live": "node scripts/network-live-test.mjs",
+    "test:a11y": "node scripts/a11y-test.mjs",
+    "test:i18n": "node scripts/i18n-test.mjs",
+    "test:ui": "node scripts/smoke-test.mjs",
+    "test:security": "node scripts/security-test.mjs",
+    "test:identicons": "node scripts/identicon-test.mjs",
+    "test:content": "node scripts/content-quality-test.mjs",
+    "test:performance": "node scripts/performance-test.mjs",
+    "test:lighthouse": "node scripts/lighthouse-audit.mjs",
+    "test:loading": "node scripts/loading-regression-test.mjs",
+    "test:contracts": "node scripts/contract-interaction-test.mjs",
+    "test:networks": "node scripts/network-browser-test.mjs",
+    "test:node-testnet": "node --env-file-if-exists=.env.sepolia scripts/testnet-node-status.mjs",
+    "test:node-readiness": "node --test scripts/node-readiness-test.mjs",
+    "test:layout": "node scripts/layout-stress-test.mjs",
+    "test:style": "node scripts/style-consistency-test.mjs",
+    "test:space": "node scripts/space-usage-test.mjs",
+    "test:responsive": "node scripts/responsive-interactions-test.mjs",
+    "capture": "node scripts/capture.mjs",
+    "cache:nfts": "node scripts/cache-nfts.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/plus-jakarta-sans": "5.3.0",
+    "@fontsource/dm-mono": "5.3.0",
+    "blo": "2.0.0",
+    "ethers": "6.17.0",
+    "ipaddr.js": "2.5.0",
+    "lucide-react": "1.41.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "undici": "7.29.1",
+    "ws": "8.21.3"
+  },
+  "devDependencies": {
+    "@foundry-rs/anvil": "1.7.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "@types/ws": "8.18.1",
+    "@vitejs/plugin-react": "6.1.1",
+    "axe-core": "4.13.0",
+    "lighthouse": "13.5.0",
+    "playwright": "1.63.0",
+    "puppeteer-core": "25.10.0",
+    "solc": "0.8.37",
+    "typescript": "7.0.2",
+    "vite": "8.2.2"
+  }
+}

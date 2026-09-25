@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --include=dev
+      - run: npm audit --audit-level=high
+      - run: npm run check
+      - run: npm run build
+      - run: npm run test:node-readiness
+      - name: Test server security boundary
+        run: |
+          npm start &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in {1..20}; do
+            curl --fail --silent http://127.0.0.1:4188/api/health >/dev/null && break
+            sleep 1
+          done
+          npm run test:security

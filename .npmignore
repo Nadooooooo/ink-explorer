@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+!.env.sepolia.example
+*.log
+screenshots/
+reports/
+data/
+design/concepts/
+*.tsbuildinfo
+.DS_Store
+.idea/
+.vscode/
+docs/*_REVIEW_20*.md
+docs/FUNCTIONAL_COMPETITIVE_AUDIT_20*.md

@@ -1,0 +1,12 @@
+{
+  "name": "Ink Explorer",
+  "short_name": "Ink Explorer",
+  "description": "Explore blocks, transactions, addresses and contracts on Ink.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f4fd",
+  "theme_color": "#6f32ff",
+  "icons": [
+    { "src": "/brand/ink-symbol.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

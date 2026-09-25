@@ -1,0 +1,169 @@
+.network-picker {
+  display: inline-flex;
+  min-width: 0;
+}
+.network-picker select {
+  max-width: 180px;
+  padding: 4px 22px 4px 6px;
+  min-height: 30px;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid #ad7cfb66;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.network-picker option {
+  color: #201432;
+  background: #fff;
+}
+.contract-interaction {
+  padding: clamp(16px, 3vw, 32px);
+  min-width: 0;
+}
+.contract-interaction > p {
+  margin: 12px 0;
+  color: var(--text-secondary, #625a72);
+  overflow-wrap: anywhere;
+}
+.contract-interaction label {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0;
+  font-size: 14px;
+  min-width: 0;
+}
+.contract-interaction :is(input, select, textarea) {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid #d6c5f4;
+  border-radius: 10px;
+  background: #fff;
+  color: #201432;
+  padding: 10px 12px;
+  font: inherit;
+}
+.contract-interaction textarea {
+  resize: vertical;
+}
+.contract-interaction button {
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 10px;
+}
+.contract-interaction button:not(.primary-action) {
+  background: #f5efff;
+  border: 1px solid #d6c5f4;
+  color: #5624ac;
+}
+.contract-interaction button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.contract-wallet {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+  overflow-wrap: anywhere;
+}
+.contract-wallet span {
+  min-width: 0;
+}
+.contract-method {
+  border: 1px solid #d6c5f4;
+  border-radius: 14px;
+  padding: 0 16px;
+  margin: 12px 0;
+  background: #fcfaff;
+  min-width: 0;
+}
+.contract-method > summary {
+  cursor: pointer;
+  padding: 16px 0;
+  min-height: 48px;
+  overflow-wrap: anywhere;
+}
+.contract-method > summary span {
+  font-family: var(--font-mono, monospace);
+  font-size: 14px;
+}
+.contract-method > summary small {
+  margin-inline-start: 12px;
+  color: #6c508c;
+}
+.contract-method[open] {
+  padding-bottom: 16px;
+}
+.contract-method :is(pre, code, p, a) {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.contract-method pre {
+  padding: 14px;
+  background: #eee7fa;
+  border-radius: 10px;
+  font-size: 13px;
+  margin: 14px 0;
+}
+.contract-method a {
+  display: block;
+  margin: 8px 0;
+  color: #6520cf;
+}
+.contract-error {
+  color: #a91943;
+  margin: 14px 0;
+}
+.transaction-review {
+  border-top: 1px solid #d6c5f4;
+  margin-top: 16px;
+  padding-top: 16px;
+}
+.transaction-review p {
+  margin: 8px 0;
+}
+.sync-progress {
+  border: 1px solid #d6c5f4;
+  border-radius: 16px;
+  padding: 24px;
+  margin: 20px 0;
+  background: #fcfaff;
+}
+.sync-progress p {
+  margin: 12px 0;
+  color: #625a72;
+  line-height: 1.6;
+}
+.sync-progress dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+  gap: 16px;
+}
+.sync-progress dd {
+  margin: 8px 0 0;
+  font-size: 22px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .network-picker select {
+    min-height: 44px;
+    max-width: 175px;
+  }
+  .network-ribbon {
+    height: auto;
+    min-height: 44px;
+  }
+  .network-ribbon > div {
+    gap: 8px;
+  }
+  .home-intro {
+    padding-top: 14px;
+  }
+  .home-title {
+    padding-bottom: 12px;
+  }
+}
