@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-When this repository is public, use **Security → Report a vulnerability** on GitHub. Maintainers must enable private vulnerability reporting before public release. If that option is unavailable, open an issue asking for a private reporting channel without including the vulnerability, exploit steps or personal information. Include the affected route or component, reproduction steps and impact only in the private report.
+Use **Security → Report a vulnerability** on GitHub to send a private report to the maintainers. Do not post vulnerability details, exploit steps or personal information in a public issue. Include the affected route or component, reproduction steps and impact in the private report. If the reporting button is unavailable, open a short issue asking for a private reporting channel without including the vulnerability itself.
 
 ## Trust boundaries
 
