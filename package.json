@@ -69,5 +69,10 @@
     "solc": "0.8.37",
     "typescript": "7.0.2",
     "vite": "8.2.2"
+  },
+  "overrides": {
+    "solc": {
+      "tmp": "0.2.7"
+    }
   }
 }
