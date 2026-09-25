@@ -30,7 +30,7 @@ Open `http://127.0.0.1:4188`. The default public Blockscout services provide ind
 | Change | Start here |
 | --- | --- |
 | Routes, page state and tables | `src/App.tsx` |
-| Labels and translations | `src/i18n.ts` |
+| Labels and translations | `src/i18n.ts`, `src/page-copy.ts`, `src/dynamic-copy.ts` |
 | Layout and responsive styles | `src/styles.css`, `src/contracts.css` |
 | API proxy, cache and node checks | `server/server.mjs` |
 | Contract calls and wallet interaction | `src/ContractInteraction.tsx`, `server/contract-rpc.mjs` |
@@ -42,7 +42,7 @@ Read [the architecture notes](docs/ARCHITECTURE.md) before changing a data sourc
 
 For code changes, run `npm run check` and `npm run build`. Run `npm run test:node-readiness` when changing node status. Start the built server before `npm run test:security` or browser suites. Run the checks relevant to the area you changed: `test:ui`, `test:a11y`, `test:i18n`, `test:responsive` and `test:contracts` are available. Browser suites need Chrome; some use live upstream data or local nodes. Explain in the pull request which checks you ran and which you could not run.
 
-For a new route or control, cover its main interaction and keyboard behavior. Check a narrow phone viewport and a desktop viewport for overflow. New navigation or entity labels should start in English and be reflected in `src/i18n.ts`. Label external data and preserve the distinction between indexed history and local node health.
+For a new route or control, cover its main interaction and keyboard behavior. Check a narrow phone viewport and a desktop viewport for overflow. Write project documentation in English. Add user-facing copy to `src/i18n.ts`, `src/page-copy.ts` or `src/dynamic-copy.ts` with English as the source and translations for every language offered in the interface. Keep variable values in named placeholders so translated word order can differ. Label external data and preserve the distinction between indexed history and local node health.
 
 Browser scripts use a public Ink NFT contract and select a holder from live indexed data at runtime. The selected address can change; keep captured pages under the ignored `screenshots/` folder and do not commit account-specific fixtures.
 

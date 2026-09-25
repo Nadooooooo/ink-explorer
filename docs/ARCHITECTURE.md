@@ -20,7 +20,7 @@ Cache entries are capped in memory. The server prunes upstream disk snapshots ol
 | Analytics and node status | `Analytics`, `NetworkPage` |
 | Route selection and locale | `route`, `pageMetadata`, `App` |
 
-Contract write UI lives separately in `src/ContractInteraction.tsx`; network constants live in `src/network.ts`; translations live in `src/i18n.ts`. `src/styles.css` starts with shared tokens and component rules, then contains later responsive and visual refinements. Put new rules near the relevant component and check whether a later media query overrides them. Extract a component when a page family grows substantially rather than extending the main file indefinitely.
+Contract write UI lives separately in `src/ContractInteraction.tsx`; network constants live in `src/network.ts`; translations live in `src/i18n.ts`, `src/page-copy.ts` and `src/dynamic-copy.ts`. `src/styles.css` starts with shared tokens and component rules, then contains later responsive and visual refinements. Put new rules near the relevant component and check whether a later media query overrides them. Extract a component when a page family grows substantially rather than extending the main file indefinitely.
 
 ## Data sources
 

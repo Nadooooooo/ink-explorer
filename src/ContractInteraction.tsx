@@ -8,6 +8,7 @@ import {
 } from "ethers";
 import { API, network, networkPath } from "./network";
 import { exactJson, parseArgument } from "./contract-abi";
+import { formatMessage, message, type Locale } from "./i18n";
 
 type Provider = {
   request: (args: { method: string; params?: unknown[] }) => Promise<any>;
@@ -37,9 +38,11 @@ async function rpc(method: string, params: unknown[]): Promise<RpcResult> {
     throw new Error("Response belongs to another network");
   return value;
 }
-function errorText(error: any, abi?: Interface) {
+function errorText(error: any, abi?: Interface, locale: Locale = "en") {
+  if (error.message === "Contract query failed" || error.message === "Response belongs to another network")
+    return message(locale, error.message);
   if (error.code === 4001 || error.code === "ACTION_REJECTED")
-    return "Request rejected in wallet. Nothing was submitted.";
+    return message(locale, "walletRejected");
   if (typeof error.data === "string" && abi) {
     try {
       const decoded = abi.parseError(error.data);
@@ -51,7 +54,7 @@ function errorText(error: any, abi?: Interface) {
   return (
     error.shortMessage ||
     error.message ||
-    "The request failed. Please try again."
+    message(locale, "requestFailed")
   );
 }
 
@@ -62,6 +65,7 @@ function Method({
   wallet,
   mode,
   hidden,
+  locale,
 }: {
   fragment: FunctionFragment;
   abi: Interface;
@@ -69,7 +73,10 @@ function Method({
   wallet?: Wallet;
   mode: "read" | "write";
   hidden: boolean;
+  locale: Locale;
 }) {
+  const ct = (key: string) => message(locale, key);
+  const cf = (key: string, values: Record<string, string | number>) => formatMessage(locale, key, values);
   const [inputs, setInputs] = useState<string[]>(fragment.inputs.map(() => ""));
   const [value, setValue] = useState("0");
   const [sender, setSender] = useState("");
@@ -114,14 +121,14 @@ function Method({
           setReceiptStatus(
             response.result
               ? Number(response.result.status) === 1
-                ? "Confirmed successfully"
-                : "Transaction reverted onchain"
-              : "Submitted · awaiting confirmation",
+                ? ct("txConfirmed")
+                : ct("txReverted")
+              : ct("txAwaiting"),
           );
       } catch {
         if (active)
           setReceiptStatus(
-            "Submitted · confirmation check unavailable; use the transaction link",
+            ct("confirmationUnavailable"),
           );
       }
     };
@@ -146,7 +153,7 @@ function Method({
           return parseArgument(input, inputs[index]);
         } catch (error: any) {
           throw new Error(
-            `${input.name || `Argument ${index + 1}`}: ${error.message}`,
+            `${input.name || cf("argumentNumber", { number: index + 1 })}: ${error.message}`,
           );
         }
       });
@@ -156,18 +163,18 @@ function Method({
       };
       if (mode === "write") {
         if (!wallet || wallet.chain !== network.chainId)
-          throw new Error(`Connect a wallet on ${network.name}`);
+          throw new Error(cf("connectWalletOn", { network: network.name }));
         tx.from = wallet.account;
         if (fragment.payable) {
           if (!/^\d+(?:\.\d{1,18})?$/.test(value))
             throw new Error(
-              "ETH value must be a non-negative decimal with at most 18 places",
+              ct("invalidEthValue"),
             );
           tx.value = toQuantity(parseEther(value));
         }
       } else if (sender) {
         if (!/^0x[\da-f]{40}$/i.test(sender))
-          throw new Error("Invalid caller address");
+          throw new Error(ct("invalidCaller"));
         tx.from = sender;
       }
       const response = await rpc("eth_call", [tx, "latest"]);
@@ -180,10 +187,10 @@ function Method({
             ? fragment.outputs
                 .map(
                   (output, index) =>
-                    `${output.name || `Output ${index + 1}`} (${output.type}): ${exactJson(decoded[index])}`,
+                    `${output.name || cf("outputNumber", { number: index + 1 })} (${output.type}): ${exactJson(decoded[index])}`,
                 )
                 .join("\n")
-            : "Call succeeded with no return values.",
+            : ct("callNoReturn"),
         );
       } else {
         const estimate = await rpc("eth_estimateGas", [tx]);
@@ -194,11 +201,11 @@ function Method({
           chainId: toQuantity(network.chainId),
         });
         setResult(
-          `Simulation succeeded. Estimated gas: ${BigInt(estimate.result).toString()}. Review the transaction below, then confirm in your wallet.`,
+          cf("simulationSucceeded", { gas: BigInt(estimate.result).toString() }),
         );
       }
     } catch (error) {
-      if (request === generation.current) setError(errorText(error, abi));
+      if (request === generation.current) setError(errorText(error, abi, locale));
     } finally {
       if (request === generation.current) setBusy(false);
     }
@@ -220,7 +227,7 @@ function Method({
         Number(chain) !== network.chainId ||
         accounts[0]?.toLowerCase() !== prepared.from.toLowerCase()
       )
-        throw new Error("Wallet account or network changed. Simulate again.");
+        throw new Error(ct("walletChangedSimulate"));
       const hash = await wallet.provider.request({
         method: "eth_sendTransaction",
         params: [prepared],
@@ -229,12 +236,12 @@ function Method({
       // Keep its hash visible even when the prepared form was invalidated.
       if (!mounted.current) return;
       if (!/^0x[\da-f]{64}$/i.test(hash))
-        throw new Error("Wallet returned an invalid transaction hash");
+        throw new Error(ct("invalidTxHash"));
       setTxHash(hash);
       setPrepared(undefined);
-      setReceiptStatus("Submitted · awaiting confirmation");
+      setReceiptStatus(ct("txAwaiting"));
     } catch (error) {
-      if (mounted.current) setError(errorText(error, abi));
+      if (mounted.current) setError(errorText(error, abi, locale));
     } finally {
       signing.current = false;
       if (mounted.current) setAwaitingWallet(false);
@@ -255,7 +262,7 @@ function Method({
       >
         {fragment.inputs.map((input, index) => (
           <label key={index}>
-            {input.name || `Argument ${index + 1}`}{" "}
+            {input.name || cf("argumentNumber", { number: index + 1 })}{" "}
             <code>{input.format("full")}</code>
             <input
               value={inputs[index]}
@@ -280,7 +287,7 @@ function Method({
         ))}
         {mode === "read" && (
           <label>
-            Caller address (optional)
+            {ct("callerOptional")}
             <input
               value={sender}
               placeholder="0x…"
@@ -293,7 +300,7 @@ function Method({
         )}
         {mode === "write" && fragment.payable && (
           <label>
-            ETH to send
+            {ct("ethToSend")}
             <input
               value={value}
               disabled={awaitingWallet}
@@ -314,13 +321,13 @@ function Method({
           }
         >
           {busy
-            ? "Working…"
+            ? ct("working")
             : mode === "read"
-              ? "Query"
-              : "Simulate transaction"}
+              ? ct("query")
+              : ct("simulateTransaction")}
         </button>
       </form>
-      {awaitingWallet && <p role="status">Waiting for the wallet response…</p>}
+      {awaitingWallet && <p role="status">{ct("waitingWallet")}</p>}
       {error && (
         <p role="alert" className="contract-error">
           {error}
@@ -333,24 +340,24 @@ function Method({
       )}
       {source && (
         <small>
-          Read from{" "}
+          {ct("readFrom")}{" "}
           {source === "local"
-            ? "the local node"
-            : "Ink public RPC (local node not ready)"}{" "}
+            ? ct("localNode")
+            : ct("publicRpcFallback")}{" "}
           · {network.name}
         </small>
       )}
       {prepared && (
         <div className="transaction-review">
-          <h3>Review transaction</h3>
+          <h3>{ct("reviewTransaction")}</h3>
           <p>
-            {network.name} · Chain {network.chainId}
+            {network.name} · {ct("chain")} {network.chainId}
           </p>
-          <p>To: {prepared.to}</p>
-          <p>From: {prepared.from}</p>
-          <p>Value: {fragment.payable ? value : "0"} ETH · plus network fee</p>
+          <p>{ct("to")}: {prepared.to}</p>
+          <p>{ct("from")}: {prepared.from}</p>
+          <p>{ct("value")}: {fragment.payable ? value : "0"} ETH · {ct("plusNetworkFee")}</p>
           <details>
-            <summary>Encoded call data</summary>
+            <summary>{ct("encodedCallData")}</summary>
             <pre>{prepared.data}</pre>
           </details>
           <button
@@ -359,7 +366,7 @@ function Method({
             disabled={busy || awaitingWallet}
             onClick={send}
           >
-            Confirm in wallet
+            {ct("confirmInWallet")}
           </button>
         </div>
       )}
@@ -372,7 +379,7 @@ function Method({
             target="_blank"
             rel="noreferrer"
           >
-            View on Blockscout
+            {ct("viewOnBlockscout")}
           </a>
         </div>
       )}
@@ -384,11 +391,15 @@ export default function ContractInteraction({
   address,
   contract,
   mode,
+  locale,
 }: {
   address: string;
   contract: Record<string, any>;
   mode: "read" | "write";
+  locale: Locale;
 }) {
+  const ct = (key: string) => message(locale, key);
+  const cf = (key: string, values: Record<string, string | number>) => formatMessage(locale, key, values);
   const [wallet, setWallet] = useState<Wallet>();
   const [walletError, setWalletError] = useState("");
   const [connecting, setConnecting] = useState(false);
@@ -405,7 +416,7 @@ export default function ContractInteraction({
     const changed = () => {
       setWallet(undefined);
       setWalletError(
-        "Wallet changed. Reconnect to refresh the account and network.",
+        ct("walletChangedReconnect"),
       );
     };
     wallet.provider.on?.("accountsChanged", changed);
@@ -426,7 +437,7 @@ export default function ContractInteraction({
       signal: controller.signal,
     })
       .then(async (response) => {
-        if (!response.ok) throw new Error("Implementation ABI unavailable");
+        if (!response.ok) throw new Error(ct("implementationUnavailable"));
         return response.json();
       })
       .then((value) => {
@@ -465,7 +476,7 @@ export default function ContractInteraction({
       const provider = (window as unknown as { ethereum?: Provider }).ethereum;
       if (!provider)
         throw new Error(
-          "Open this page in a wallet browser or install an Ethereum wallet extension to write contracts.",
+          ct("walletRequired"),
         );
       await provider.request({ method: "eth_requestAccounts" });
       let chain = Number(await provider.request({ method: "eth_chainId" }));
@@ -498,31 +509,31 @@ export default function ContractInteraction({
       chain = Number(await provider.request({ method: "eth_chainId" }));
       const accounts = await provider.request({ method: "eth_accounts" });
       if (chain !== network.chainId || !/^0x[\da-f]{40}$/i.test(accounts[0]))
-        throw new Error(`Select an account on ${network.name} in your wallet`);
+        throw new Error(cf("selectAccountOn", { network: network.name }));
       setWallet({ provider, account: accounts[0], chain });
     } catch (error) {
-      setWalletError(errorText(error));
+      setWalletError(errorText(error, undefined, locale));
     } finally {
       setConnecting(false);
     }
   };
   return (
     <section className="contract-interaction">
-      <h2>{mode === "read" ? "Read contract" : "Write contract"}</h2>
+      <h2>{ct(mode === "read" ? "readContract" : "writeContract")}</h2>
       <p>
-        {network.name} · Chain {network.chainId} ·{" "}
+        {network.name} · {ct("chain")} {network.chainId} ·{" "}
         {mode === "read"
-          ? "Query current state without a wallet or transaction fee."
-          : "Simulate first, then review and sign in your wallet. Transactions can change state and spend ETH."}
+          ? ct("readIntro")
+          : ct("writeIntro")}
       </p>
-      <p className="contract-target">Target: {address}</p>
+      <p className="contract-target">{ct("target")}: {address}</p>
       {mode === "write" && (
         <div className="contract-wallet">
           {wallet ? (
             <>
               <span>{wallet.account}</span>
               <button type="button" onClick={() => setWallet(undefined)}>
-                Disconnect
+                {ct("disconnect")}
               </button>
             </>
           ) : (
@@ -532,31 +543,30 @@ export default function ContractInteraction({
               disabled={connecting}
               onClick={connect}
             >
-              {connecting ? "Connecting…" : `Connect wallet · ${network.name}`}
+              {connecting ? ct("connecting") : cf("connectWallet", { network: network.name })}
             </button>
           )}
           {walletError && <p role="alert">{walletError}</p>}
         </div>
       )}
       <label>
-        Contract interface
+        {ct("contractInterface")}
         <select
           value={abiSource}
           onChange={(event) => setAbiSource(event.target.value)}
         >
-          <option value="direct">Contract ABI</option>
+          <option value="direct">{ct("contractAbi")}</option>
           {implementations.map((item: any) => (
             <option key={item.address_hash} value={item.address_hash}>
-              As proxy · {item.name || item.address_hash}
+              {ct("asProxy")} · {item.name || item.address_hash}
             </option>
           ))}
-          <option value="custom">Custom ABI</option>
+          <option value="custom">{ct("customAbi")}</option>
         </select>
       </label>
       {abiSource !== "direct" && abiSource !== "custom" && (
         <p>
-          Using implementation {abiSource}. Calls and transactions still target
-          the proxy {address}.
+          {cf("usingImplementation", { implementation: abiSource, proxy: address })}
         </p>
       )}
       {abiSource === "custom" && (
@@ -566,7 +576,7 @@ export default function ContractInteraction({
             try {
               const value = JSON.parse(custom);
               if (!Array.isArray(value) || !value.length)
-                throw new Error("Paste a non-empty JSON ABI array");
+                throw new Error(ct("pasteAbiArray"));
               value.forEach((entry) => Fragment.from(entry));
               new Interface(value);
               setCustomAbi(value);
@@ -587,9 +597,9 @@ export default function ContractInteraction({
             />
           </label>
           <p>
-            A custom ABI is supplied by you and is not proof of verification.
+            {ct("customAbiNotice")}
           </p>
-          <button type="submit">Use ABI</button>
+          <button type="submit">{ct("useAbi")}</button>
         </form>
       )}
       {abiError && <p role="alert">{abiError}</p>}
@@ -599,13 +609,13 @@ export default function ContractInteraction({
           abiSource !== "custom" &&
           !implementation &&
           !abiError
-            ? "Loading implementation ABI…"
-            : "No ABI available. You can supply a custom ABI to interact with this address."}
+            ? ct("loadingImplementationAbi")
+            : ct("noAbiAvailable")}
         </p>
       ) : (
         <>
           <label>
-            Filter functions
+            {ct("filterFunctions")}
             <input
               type="search"
               value={filter}
@@ -613,8 +623,7 @@ export default function ContractInteraction({
             />
           </label>
           <p>
-            Integers use base units. Arrays and tuples use JSON arrays; quote
-            large integers to preserve precision.
+            {ct("integerHelp")}
           </p>
           {functions.map((fragment) => (
               <Method
@@ -624,11 +633,12 @@ export default function ContractInteraction({
                 address={address}
                 wallet={wallet}
                 mode={mode}
+                locale={locale}
                 hidden={!matchesFilter(fragment)}
               />
             ))}
           {!functions.some(matchesFilter) && (
-            <p role="status">No matching {mode} functions.</p>
+            <p role="status">{cf("noMatchingFunctions", { mode: ct(mode === "read" ? "readMode" : "writeMode") })}</p>
           )}
         </>
       )}

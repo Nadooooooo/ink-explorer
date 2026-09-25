@@ -48,7 +48,7 @@ import {
   Languages,
   Image as ImageIcon,
 } from "lucide-react";
-import { isLocale, localeNames, locales, message, type Locale } from "./i18n";
+import { formatMessage, isLocale, localeNames, locales, message, type Locale } from "./i18n";
 import { EntityMark } from "./EntityMark";
 import { mediaUrl } from "./media";
 import { API, basePath, network, networkPath, isTestnet } from "./network";
@@ -70,6 +70,16 @@ const ADDRESS = /^0x[a-fA-F0-9]{40}$/;
 const TX = /^0x[a-fA-F0-9]{64}$/;
 let activeLocale: Locale = "en";
 const t = (key: string) => message(activeLocale, key);
+const tf = (key: string, values: Record<string, string | number>) => formatMessage(activeLocale, key, values);
+function activityLabel(type: string) {
+  const keys: Record<string, string> = {
+    "token-transfers": "transfers", "token transfer": "token transfer",
+    "internal-transactions": "internal", internal: "internal", logs: "logs",
+    state: "stateChanges", trace: "rawTrace", nft: "nfts", tokens: "assets",
+    transactions: "transactions", "NFT transfer": "NFT transfer",
+  };
+  return t(keys[type] || type.replaceAll("-", " "));
+}
 
 // Chain values arrive as strings to preserve integer precision. Formatting is
 // centralized so every surface follows the selected locale consistently.
@@ -175,7 +185,7 @@ function labelOf(value: any) {
 async function get<T = any>(path: string): Promise<T> {
   const res = await fetch(`${API}${path}`);
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error || "Data source unavailable");
+  if (!res.ok) throw new Error(body.error || t("Data source unavailable"));
   return body;
 }
 
@@ -356,14 +366,14 @@ function Header({
   }, [open]);
   return (
     <>
-      <div className="network-ribbon" role="region" aria-label="Network and live status">
+      <div className="network-ribbon" role="region" aria-label={t("networkStatus")}>
         <div>
           <label className="network-picker">
-            <span className="sr-only">Network</span>
-            <select aria-label="Network" value={isTestnet ? "sepolia" : "mainnet"}
+            <span className="sr-only">{t("network")}</span>
+            <select aria-label={t("network")} value={isTestnet ? "sepolia" : "mainnet"}
               onChange={event => { location.href = `${event.target.value === "sepolia" ? "/testnet" : ""}/${activeLocale === "en" ? "" : `?lang=${activeLocale}`}`; }}>
               <option value="mainnet">Ink Mainnet</option>
-              <option value="sepolia">Ink Sepolia · Testnet</option>
+              <option value="sepolia">Ink Sepolia · {t("testnetLabel")}</option>
             </select>
           </label>
           <span>CHAIN ID {network.chainId}</span>
@@ -373,8 +383,8 @@ function Header({
         </div>
         <div>
           {live.block?.height
-            ? `HEAD #${num(live.block.height)}`
-            : "WAITING FOR CHAIN HEAD"}
+            ? `${t("chainHead")} #${num(live.block.height)}`
+            : t("waitingChainHead")}
         </div>
       </div>
       <header ref={headerRef}>
@@ -382,7 +392,7 @@ function Header({
         <nav
           id="primary-navigation"
           className={open ? "open" : ""}
-          aria-label="Primary"
+          aria-label={t("primaryNavigation")}
         >
           {links.map(([href, label, key]) => (
             <button
@@ -607,7 +617,7 @@ function Metric({
 }
 
 function dateText(value?: string) {
-  if (!value) return "Observation";
+  if (!value) return t("Observation");
   const d = new Date(`${value.length === 10 ? `${value}T00:00:00` : value}`);
   return Number.isNaN(d.getTime())
     ? value
@@ -643,7 +653,7 @@ function Sparkline({
   formatValue = compact,
   selectedLabel,
   onSelectLabel,
-  ariaLabel = "Trend chart",
+  ariaLabel =t("Trend chart"),
   approximateLast = false,
 }: {
   points: number[];
@@ -665,8 +675,7 @@ function Sparkline({
   useEffect(() => setLocal(null), [seriesKey]);
   if (clean.length < 2)
     return (
-      <div className="chart-empty" role="status" style={{ minHeight: height }}>
-        Not enough data
+      <div className="chart-empty" role="status" style={{ minHeight: height }}>{t("Not enough data")}
       </div>
     );
   const min = Math.min(...clean),
@@ -716,7 +725,7 @@ function Sparkline({
       style={{ height: `clamp(${height}px, 10vw, ${height * 1.25}px)` }}
       tabIndex={0}
       role="group"
-      aria-label={`${ariaLabel}. Tap or drag to inspect values; use arrow keys when focused.`}
+      aria-label={tf("{label}. Tap or drag to inspect values; use arrow keys when focused.", { label: ariaLabel })}
       onKeyDown={key}
       onPointerDown={(e) => {
         e.currentTarget.setPointerCapture(e.pointerId);
@@ -796,9 +805,9 @@ function Sparkline({
           <small>
             {relativeDate(labels[active])}
             {delta != null
-              ? ` · ${delta >= 0 ? "+" : ""}${delta.toFixed(1)}% vs prior`
+              ? tf(" · {delta}% vs prior", { delta: `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}` })
               : ""}
-            {approximateLast && active === clean.length - 1 ? " · partial" : ""}
+            {approximateLast && active === clean.length - 1 ? t(" · partial") : ""}
           </small>
         </div>
       )}
@@ -842,7 +851,7 @@ function TxRow({ tx }: { tx: AnyRow }) {
         <div>
           <Copyable value={tx.hash} link={`/tx/${tx.hash}`} />
           <small>
-            {age(tx.timestamp)} · block{" "}
+            {age(tx.timestamp)} · {t("block")}{" "}
             <button onClick={() => go(`/block/${tx.block_number}`)}>
               {num(tx.block_number)}
             </button>
@@ -869,10 +878,10 @@ function TxRow({ tx }: { tx: AnyRow }) {
         <strong>{eth(tx.value)}</strong>
         <small>
           {tx.fee?.value != null
-            ? `Fee ${eth(tx.fee.value, 7)}`
+            ? `${t("fee")} ${eth(tx.fee.value, 7)}`
             : tx._live
-              ? "Fee indexing"
-              : "Fee —"}
+              ? t("feeIndexing")
+              : `${t("fee")} —`}
         </small>
       </div>
     </div>
@@ -892,19 +901,19 @@ function BlockRow({ block }: { block: AnyRow }) {
         </div>
       </div>
       <div>
-        <small>Transactions</small>
+        <small>{t("transactions")}</small>
         <strong>{num(block.transactions_count)}</strong>
       </div>
       <div>
-        <small>Gas used</small>
+        <small>{t("gasUsed")}</small>
         <strong>{unit(block.gas_used_percentage, "%")}</strong>
       </div>
       <div>
-        <small>Size</small>
+        <small>{t("size")}</small>
         <strong>{bytes(block.size)}</strong>
       </div>
       <div className="block-fee">
-        <small>Fees</small>
+        <small>{t("fees")}</small>
         <strong>{eth(block.transaction_fees, 7)}</strong>
       </div>
     </div>
@@ -963,7 +972,7 @@ function Home({ live }: { live: LiveData }) {
     <>
       <section className="home-intro">
         <div className="home-title">
-          <span className="kicker">{network.name.toUpperCase()}{isTestnet ? " · TESTNET" : ""}</span>
+          <span className="kicker">{network.name.toUpperCase()}{isTestnet ? ` · ${t("testnetLabel")}` : ""}</span>
           <h1>
             {network.name} <small>{t("liveIndex")}</small>
           </h1>
@@ -971,22 +980,22 @@ function Home({ live }: { live: LiveData }) {
         </div>
         <div className="head-console">
           <div>
-            <span>{nodeStatus?.synced ? "LATEST BLOCK" : nodeStatus?.stale ? "LOCAL NODE HEAD · BEHIND" : nodeStatus?.online ? "LOCAL NODE HEAD · SYNCING" : "LOCAL NODE HEAD · WAITING"}</span>
+            <span>{t(nodeStatus?.synced ? "latestNodeBlock" : nodeStatus?.stale ? "nodeBehind" : nodeStatus?.online ? "nodeSyncing" : "nodeWaiting")}</span>
             <strong>#{num(live.block?.height ?? nodeStatus?.head)}</strong>
           </div>
           <dl>
             <div>
-              <dt>Safe</dt>
+              <dt>{t("safe")}</dt>
               <dd>#{num(nodeStatus?.safeBlock)}</dd>
             </div>
             <div>
-              <dt>Finalized</dt>
+              <dt>{t("finalized")}</dt>
               <dd>#{num(nodeStatus?.finalizedBlock)}</dd>
             </div>
             <div>
               <dt>WebSocket</dt>
               <dd className={live.connected ? "positive" : "negative"}>
-                {live.connected ? "LIVE" : "RETRY"}
+                {live.connected ? t("live") : t("retryShort")}
               </dd>
             </div>
           </dl>
@@ -1014,60 +1023,60 @@ function HomeData({ data }: { data: any }) {
           <Metric
             label={t("latestBlock")}
             value={num(data.network.head || s.total_blocks)}
-            note={`${num(data.network.finalityLag)} blocks to finality`}
+            note={tf("blocksToFinality", { count: num(data.network.finalityLag) })}
             icon={<Blocks />}
           />
           <Metric
-            label="Transactions"
+            label={t("transactions")}
             value={compact(s.total_transactions)}
-            note={`${compact(s.transactions_today)} in the last day`}
+            note={tf("inLastDay", { count: compact(s.transactions_today) })}
             icon={<Zap />}
           />
           <Metric
             label={t("uniqueAddresses")}
             value={compact(s.total_addresses)}
-            note="indexed accounts"
+            note={t("indexedAccounts")}
             icon={<WalletCards />}
           />
           <Metric
             label={t("networkLoad")}
             value={unit(s.network_utilization_percentage, "%")}
-            note="of current gas capacity"
+            note={t("gasCapacity")}
             icon={<Gauge />}
           />
           <Metric
             label={t("medianGas")}
             value={unit(s.gas_prices?.average, " Gwei")}
-            note={data.network.synced ? `${num(data.network.gasPriceWei)} wei reference` : "Public index estimate · local node syncing"}
+            note={data.network.synced ? tf("weiReference", { count: num(data.network.gasPriceWei) }) : t("publicIndexSyncing")}
             icon={<Fuel />}
           />
         </section>
         <section className="signal-grid">
           <div className="signal-main">
             <SectionTitle
-              eyebrow="LAST 30 DAYS"
-              title="Daily transactions"
+              eyebrow={t("last30Days")}
+              title={t("dailyTransactions")}
               action={
                 <button className="arrow-link" onClick={() => go("/analytics")}>
-                  View analytics <ArrowUpRight />
+                  {t("viewAnalytics")} <ArrowUpRight />
                 </button>
               }
             />
             <div className="chart-head">
               <div>
                 <strong>{compact(chart.at(-1)?.transactions_count)}</strong>
-                <span>transactions / day</span>
+                <span>{t("transactionsPerDay")}</span>
               </div>
               <div className={delta >= 0 ? "positive" : "negative"}>
                 {delta >= 0 ? "+" : ""}
-                {delta.toFixed(1)}% <small>7d / prev. 7d</small>
+                {delta.toFixed(1)}% <small>{t("previous7Days")}</small>
               </div>
             </div>
             <Sparkline
               points={chart.map((d: any) => Number(d.transactions_count))}
               labels={chart.map((d: any) => d.date)}
               height={160}
-              ariaLabel="Daily Ink transactions over the last 30 days"
+              ariaLabel={t("dailyTransactionsChart")}
             />
             <div className="chart-axis">
               <span>{chart[0]?.date}</span>
@@ -1078,19 +1087,19 @@ function HomeData({ data }: { data: any }) {
       </div>
       <section className="live-section">
         <SectionTitle
-          eyebrow="LIVE"
-          title="Latest blocks and transactions"
+          eyebrow={t("live")}
+          title={t("latestBlocksTransactions")}
           action={
             <span className="live-refresh">
-              <i /> refreshes every 10 seconds
+              <i /> {t("refreshEvery10s")}
             </span>
           }
         />
         <div className="live-columns">
           <div className="panel">
             <div className="panel-head">
-              <h3>Blocks</h3>
-              <button onClick={() => go("/blocks")}>View all</button>
+              <h3>{t("blocks")}</h3>
+              <button onClick={() => go("/blocks")}>{t("viewAll")}</button>
             </div>
             {data.blocks.slice(0, 6).map((b: any) => (
               <BlockRow key={b.hash} block={b} />
@@ -1098,8 +1107,8 @@ function HomeData({ data }: { data: any }) {
           </div>
           <div className="panel">
             <div className="panel-head">
-              <h3>Transactions</h3>
-              <button onClick={() => go("/txs")}>View all</button>
+              <h3>{t("transactions")}</h3>
+              <button onClick={() => go("/txs")}>{t("viewAll")}</button>
             </div>
             {data.transactions.slice(0, 6).map((t: any) => (
               <TxRow key={t.hash} tx={t} />
@@ -1192,9 +1201,9 @@ function SearchResults({ query }: { query: string }) {
   return (
     <>
       <PageIntro
-        eyebrow="SEARCH"
-        title={query ? `Results for “${query}”` : t("search")}
-        text="Search addresses, contracts, tokens, blocks and transactions on Ink."
+        eyebrow={t("search").toUpperCase()}
+        title={query ? tf("resultsFor", { query }) : t("search")}
+        text={t("searchDescription")}
       >
         <SearchBox compact />
       </PageIntro>
@@ -1221,7 +1230,7 @@ function SearchResults({ query }: { query: string }) {
                       item.symbol ||
                       item.address?.name ||
                       item.type ||
-                      "Search result"}
+                      t("searchResult")}
                   </strong>
                   <small className="mono">
                     {item.address_hash ||
@@ -1236,7 +1245,7 @@ function SearchResults({ query }: { query: string }) {
             );
           })
         ) : (
-          <Empty>No results for this search.</Empty>
+          <Empty>{t("noSearchResults")}</Empty>
         )}
       </div>
     </>
@@ -1408,7 +1417,7 @@ function LedgerList({
   return (
     <>
       <PageIntro
-        eyebrow={type === "blocks" ? "INK BLOCKS" : "INK TRANSACTIONS"}
+        eyebrow={t(type === "blocks" ? "inkBlocks" : "inkTransactions")}
         title={t(type)}
         text={type === "blocks" ? t("blocksIntro") : t("txIntro")}
       >
@@ -1423,7 +1432,7 @@ function LedgerList({
               setParams("");
             }}
           >
-            All transactions
+            {t("allTransactions")}
           </button>
           <button
             className={mode === "tokens" ? "active" : ""}
@@ -1432,7 +1441,7 @@ function LedgerList({
               setParams("");
             }}
           >
-            Token transfers
+            {t("transfers")}
           </button>
           <button
             className={mode === "internal" ? "active" : ""}
@@ -1441,14 +1450,14 @@ function LedgerList({
               setParams("");
             }}
           >
-            Internal calls
+            {t("internal")}
           </button>
         </div>
       )}
       <div className="table-shell">
         <div className="table-toolbar">
           <span>
-            {data ? `${data.items?.length || 0} shown` : "Loading records"}
+            {data ? tf("shown", { count: num(data.items?.length || 0) }) : t("loadingRecords")}
           </span>
           <span
             aria-live="polite"
@@ -1463,9 +1472,9 @@ function LedgerList({
             {!params &&
             (type === "blocks" || (type === "transactions" && mode === "all"))
               ? live?.connected
-                ? `Live · head #${num(live.block?.height)}`
-                : "Reconnecting…"
-              : "Ink index"}
+                ? tf("liveHead", { number: num(live.block?.height) })
+                : t("reconnecting")
+              : t("sourceIndex")}
           </span>
         </div>
         {!data && !error ? (
@@ -1575,32 +1584,32 @@ function BlockDetail({ id }: { id: string }) {
   return (
     <>
       <DetailHeader
-        kind="BLOCK"
+        kind={t("blockKind")}
         title={`#${num(block.height)}`}
-        subtitle={`Produced ${age(block.timestamp)} · ${new Date(block.timestamp).toLocaleString()}`}
-        status={<StatusPill ok>Finalized</StatusPill>}
+        subtitle={tf("produced", { age: age(block.timestamp), date: new Date(block.timestamp).toLocaleString(activeLocale) })}
+        status={<StatusPill ok>{t("finalized")}</StatusPill>}
       />
       <section className="detail-layout">
         <dl className="definitions">
-          <Definition label="Block hash" wide>
+          <Definition label={t("blockHash")} wide>
             <Copyable value={block.hash} display={block.hash} />
           </Definition>
-          <Definition label="Transactions">
+          <Definition label={t("transactions")}>
             {num(block.transactions_count)}
           </Definition>
-          <Definition label="Gas used">
+          <Definition label={t("gasUsed")}>
             {num(block.gas_used)}{" "}
             <small>({unit(block.gas_used_percentage, "%")})</small>
           </Definition>
-          <Definition label="Gas limit">{num(block.gas_limit)}</Definition>
-          <Definition label="Base fee">
+          <Definition label={t("gasLimit")}>{num(block.gas_limit)}</Definition>
+          <Definition label={t("baseFee")}>
             {num(block.base_fee_per_gas)} wei
           </Definition>
-          <Definition label="Total fees">
+          <Definition label={t("totalFees")}>
             {eth(block.transaction_fees, 8)}
           </Definition>
-          <Definition label="Size">{bytes(block.size)}</Definition>
-          <Definition label="Parent block" wide>
+          <Definition label={t("size")}>{bytes(block.size)}</Definition>
+          <Definition label={t("parentBlock")} wide>
             <Copyable
               value={block.parent_hash}
               display={block.parent_hash}
@@ -1610,13 +1619,13 @@ function BlockDetail({ id }: { id: string }) {
         </dl>
         <div className="detail-feed">
           <div className="panel-head">
-            <h3>Transactions in this block</h3>
-            <span>{num(block.transactions_count)} total</span>
+            <h3>{t("transactionsInBlock")}</h3>
+            <span>{tf("total", { count: num(block.transactions_count) })}</span>
           </div>
           {txs?.items?.length ? (
             txs.items.map((t: any) => <TxRow key={t.hash} tx={t} />)
           ) : (
-            <Empty>This block has no transactions.</Empty>
+            <Empty>{t("blockEmpty")}</Empty>
           )}
         </div>
       </section>
@@ -1675,12 +1684,12 @@ function TxDetail({ id }: { id: string }) {
   return (
     <>
       <DetailHeader
-        kind="TRANSACTION"
+        kind={t("transactionKind")}
         title={short(tx.hash, 14, 12)}
         subtitle={tx.hash}
         status={
           <StatusPill ok={tx.status === "ok"}>
-            {tx.status === "ok" ? "Confirmed" : "Failed"}
+            {tx.status === "ok" ? t("confirmed") : t("failed")}
           </StatusPill>
         }
       />
@@ -1736,28 +1745,28 @@ function TxDetail({ id }: { id: string }) {
       </div>
       {tab === "overview" && (
         <dl className="definitions standalone">
-          <Definition label="Transaction hash" wide>
+          <Definition label={t("transactionHash")} wide>
             <Copyable value={tx.hash} display={tx.hash} />
           </Definition>
-          <Definition label="Block">
+          <Definition label={t("block")}>
             <button
               className="text-link"
               onClick={() => go(`/block/${tx.block_number}`)}
             >
               {num(tx.block_number)}
             </button>{" "}
-            · {num(tx.confirmations)} confirmations
+            · {tf("confirmations", { count: num(tx.confirmations) })}
           </Definition>
-          <Definition label="Timestamp">
-            {new Date(tx.timestamp).toLocaleString()} ({age(tx.timestamp)})
+          <Definition label={t("timestamp")}>
+            {new Date(tx.timestamp).toLocaleString(activeLocale)} ({age(tx.timestamp)})
           </Definition>
-          <Definition label="From" wide>
+          <Definition label={t("from")} wide>
             <span className="flow-party">
               <EntityMark address={from} label={labelOf(tx.from)} />
               <Copyable value={from} display={from} link={`/address/${from}`} />
             </span>
           </Definition>
-          <Definition label="To" wide>
+          <Definition label={t("to")} wide>
             <span className="flow-party">
               <EntityMark address={to} label={labelOf(tx.to)} />
               <Copyable
@@ -1767,24 +1776,24 @@ function TxDetail({ id }: { id: string }) {
               />
             </span>
           </Definition>
-          <Definition label="Value">{eth(tx.value, 8)}</Definition>
-          <Definition label="Transaction fee">
+          <Definition label={t("value")}>{eth(tx.value, 8)}</Definition>
+          <Definition label={t("transactionFee")}>
             {eth(tx.fee?.value, 10)}
           </Definition>
-          <Definition label="Gas used">
+          <Definition label={t("gasUsed")}>
             {num(tx.gas_used)} / {num(tx.gas_limit)}
           </Definition>
-          <Definition label="Gas price">{num(tx.gas_price)} wei</Definition>
-          <Definition label="Method">
+          <Definition label={t("gasPrice")}>{num(tx.gas_price)} wei</Definition>
+          <Definition label={t("method")}>
             <Method tx={tx} />
           </Definition>
-          <Definition label="Nonce">{num(tx.nonce)}</Definition>
+          <Definition label={t("nonce")}>{num(tx.nonce)}</Definition>
         </dl>
       )}
       {tab === "input" && (
         <div className="code-panel">
           <div>
-            <span>METHOD</span>
+            <span>{t("METHOD")}</span>
             <strong>{tx.method || "—"}</strong>
           </div>
           <pre>{tx.raw_input || "0x"}</pre>
@@ -1792,12 +1801,12 @@ function TxDetail({ id }: { id: string }) {
       )}
       {tab === "l2" && (
         <dl className="definitions standalone">
-          <Definition label="L1 data fee">{eth(tx.l1_fee, 10)}</Definition>
-          <Definition label="L1 gas used">{num(tx.l1_gas_used)}</Definition>
-          <Definition label="L1 gas price">
+          <Definition label={t("L1 data fee")}>{eth(tx.l1_fee, 10)}</Definition>
+          <Definition label={t("L1 gas used")}>{num(tx.l1_gas_used)}</Definition>
+          <Definition label={t("L1 gas price")}>
             {num(tx.l1_gas_price)} wei
           </Definition>
-          <Definition label="L2 execution fee">
+          <Definition label={t("L2 execution fee")}>
             {eth(
               tx.fee?.value && tx.l1_fee
                 ? BigInt(tx.fee.value) - BigInt(tx.l1_fee)
@@ -1821,7 +1830,7 @@ function TxDetail({ id }: { id: string }) {
             ))
           ) : (
             <Empty>
-              {related.error || `No ${tab} recorded for this transaction.`}
+              {related.error || tf("No {type} recorded for this transaction.", { type: activityLabel(tab) })}
             </Empty>
           )}
         </div>
@@ -1836,7 +1845,7 @@ function TxDetail({ id }: { id: string }) {
             ))
           ) : (
             <Empty>
-              {related.error || "No balance or storage changes indexed."}
+              {related.error || t("No balance or storage changes indexed.")}
             </Empty>
           )}
         </div>
@@ -1844,11 +1853,11 @@ function TxDetail({ id }: { id: string }) {
       {tab === "trace" && (
         <div className="code-panel">
           <div>
-            <span>EXECUTION TRACE</span>
+            <span>{t("EXECUTION TRACE")}</span>
             <strong>
               {related?.items?.length
-                ? `${related.items.length} calls`
-                : "Unavailable"}
+                ? tf("{count} calls", { count: num(related.items.length) })
+                : t("Unavailable")}
             </strong>
           </div>
           {!related ? (
@@ -1857,8 +1866,7 @@ function TxDetail({ id }: { id: string }) {
             <pre>{JSON.stringify(related.items, null, 2)}</pre>
           ) : (
             <Empty>
-              {related.error ||
-                "No raw execution trace is available for this transaction."}
+              {related.error || t("No raw execution trace is available for this transaction.")}
             </Empty>
           )}
         </div>
@@ -1993,7 +2001,7 @@ function AddressDetail({ id }: { id: string }) {
       />
       <section className="address-summary">
         <Metric
-          label="ETH balance"
+          label={t("ETH balance")}
           value={eth(balance, 6)}
           note={money(
             balance == null || address?.exchange_rate == null
@@ -2002,19 +2010,19 @@ function AddressDetail({ id }: { id: string }) {
           )}
         />
         <Metric
-          label="Transactions"
+          label={t("Transactions")}
           value={compact(counters.transactions_count)}
-          note={`${compact(counters.token_transfers_count)} token transfers`}
+          note={tf("{count} token transfers", { count: compact(counters.token_transfers_count) })}
         />
         <Metric
-          label="Token holdings"
+          label={t("Token holdings")}
           value={num(tokens.length)}
-          note="known assets"
+          note={t("known assets")}
         />
         <Metric
-          label="Gas consumed"
+          label={t("Gas consumed")}
           value={compact(counters.gas_usage_count)}
-          note={`updated at #${num(address?.block_number_balance_updated_at)}`}
+          note={tf("updated at #{block}", { block: num(address?.block_number_balance_updated_at) })}
         />
       </section>
       <div className="tabs">
@@ -2068,8 +2076,8 @@ function AddressDetail({ id }: { id: string }) {
           >
             {t("contractSource")}
           </button>
-          <button className={tab === "read" ? "active" : ""} onClick={() => setTab("read")}>Read contract</button>
-          <button className={tab === "write" ? "active" : ""} onClick={() => setTab("write")}>Write contract</button>
+          <button className={tab === "read" ? "active" : ""} onClick={() => setTab("read")}>{t("readContract")}</button>
+          <button className={tab === "write" ? "active" : ""} onClick={() => setTab("write")}>{t("writeContract")}</button>
           </>
         )}
       </div>
@@ -2086,8 +2094,8 @@ function AddressDetail({ id }: { id: string }) {
             </h2>
             <p>
               {address?.is_contract
-                ? "This address contains contract bytecode. Source verification, proxy and deployment details come from Ink’s public explorer index."
-                : "No contract bytecode is deployed here. Balances and activity are public; this explorer does not identify the owner."}
+                ? t("This address contains contract bytecode. Source verification, proxy and deployment details come from Ink’s public explorer index.")
+                : t("No contract bytecode is deployed here. Balances and activity are public; this explorer does not identify the owner.")}
             </p>
             {pool && (
               <button
@@ -2101,7 +2109,7 @@ function AddressDetail({ id }: { id: string }) {
           </div>
           <dl>
             <Definition label={t("reputation")}>
-              {address?.is_scam ? "Flagged" : address?.reputation || "ok"}
+              {address?.is_scam ? t("Flagged") : address?.reputation || "ok"}
             </Definition>
             <Definition label={t("tokenStandard")}>
               {address?.token
@@ -2109,7 +2117,7 @@ function AddressDetail({ id }: { id: string }) {
                 : "—"}
             </Definition>
             <Definition label={t("proxyType")}>
-              {address?.proxy_type || "Not a proxy"}
+              {address?.proxy_type || t("Not a proxy")}
             </Definition>
             <Definition label={t("implementation")}>
               {implementation ? (
@@ -2130,8 +2138,7 @@ function AddressDetail({ id }: { id: string }) {
                   value={address.creator_address_hash}
                   link={`/address/${address.creator_address_hash}`}
                 />
-              ) : (
-                "Genesis / unavailable"
+              ) : (t("Genesis / unavailable")
               )}
             </Definition>
             <Definition label={t("creationTx")}>
@@ -2140,8 +2147,7 @@ function AddressDetail({ id }: { id: string }) {
                   value={address.creation_transaction_hash}
                   link={`/tx/${address.creation_transaction_hash}`}
                 />
-              ) : (
-                "Genesis / unavailable"
+              ) : (t("Genesis / unavailable")
               )}
             </Definition>
           </dl>
@@ -2161,7 +2167,7 @@ function AddressDetail({ id }: { id: string }) {
           ) : (
             <>
               {["read", "write"].includes(tab) && !data.error ? (
-                <Suspense fallback={<Loading />}><ContractInteraction key={`${id}-${tab}`} address={id} contract={data} mode={tab === "read" ? "read" : "write"} /></Suspense>
+                <Suspense fallback={<Loading />}><ContractInteraction key={`${id}-${tab}`} address={id} contract={data} mode={tab === "read" ? "read" : "write"} locale={activeLocale} /></Suspense>
               ) : tab === "contract" && !data.error ? (
                 <ContractSource contract={data} />
               ) : tab === "tokens" && data.items?.length ? (
@@ -2197,7 +2203,7 @@ function AddressDetail({ id }: { id: string }) {
               ) : (
                 <Empty>
                   {data.error ||
-                    `No ${tab.replace("-", " ")} indexed for this address.`}
+                    tf("No {type} indexed for this address.", { type: activityLabel(tab) })}
                 </Empty>
               )}
               {data.items?.length && tab !== "contract" ? (
@@ -2245,7 +2251,7 @@ function AssetHolding({ item }: { item: AnyRow }) {
           <i>{t.symbol?.[0] || "?"}</i>
         )}
         <span>
-          <strong>{t.name || "Unknown asset"}</strong>
+          <strong>{t.name || t("Unknown asset")}</strong>
           <small>
             {t.symbol} · {t.type}
           </small>
@@ -2256,7 +2262,7 @@ function AssetHolding({ item }: { item: AnyRow }) {
         <small>
           {t.exchange_rate && amount !== undefined
             ? money(amount * Number(t.exchange_rate))
-            : "No price data"}
+            : t("No price data")}
         </small>
       </span>
       <ArrowUpRight />
@@ -2310,7 +2316,7 @@ function NftItem({ item }: { item: AnyRow }) {
           </div>
         )}
       </div>
-      <span>{item.metadata?.name || token.name || "NFT collection"}</span>
+      <span>{item.metadata?.name || token.name || t("NFT collection")}</span>
       <strong>#{tokenId || "—"}</strong>
     </button>
   );
@@ -2320,7 +2326,7 @@ function ContractSource({ contract }: { contract: AnyRow }) {
     ...(contract.source_code
       ? [
           {
-            file_path: contract.file_path || "Contract source",
+            file_path: contract.file_path || t("Contract source"),
             source_code: contract.source_code,
           },
         ]
@@ -2332,38 +2338,38 @@ function ContractSource({ contract }: { contract: AnyRow }) {
       <div className="source-head">
         <div>
           <StatusPill ok={Boolean(contract.source_code)}>
-            {contract.is_fully_verified ? t("fullyVerified") : contract.source_code ? t("verified") : "Not verified"}
+            {contract.is_fully_verified ? t("fullyVerified") : contract.source_code ? t("verified") : t("Not verified")}
           </StatusPill>
           <h3>{contract.name || t("smartContract")}</h3>
-          <span>{contract.file_path || "Source code"}</span>
+          <span>{contract.file_path || t("Source code")}</span>
         </div>
         <dl>
           <div>
-            <dt>Compiler</dt>
+            <dt>{t("Compiler")}</dt>
             <dd>{contract.compiler_version || "—"}</dd>
           </div>
           <div>
-            <dt>Language</dt>
+            <dt>{t("Language")}</dt>
             <dd>{contract.language || "Solidity"}</dd>
           </div>
           <div>
-            <dt>Optimizer</dt>
+            <dt>{t("Optimizer")}</dt>
             <dd>
               {contract.optimization_enabled
-                ? `${num(contract.optimization_runs || contract.optimizations_runs)} runs`
-                : "Disabled"}
+                ? tf("{count} runs", { count: num(contract.optimization_runs || contract.optimizations_runs) })
+                : t("Disabled")}
             </dd>
           </div>
           <div>
-            <dt>License</dt>
-            <dd>{contract.license_type || "Not specified"}</dd>
+            <dt>{t("License")}</dt>
+            <dd>{contract.license_type || t("Not specified")}</dd>
           </div>
           <div>
-            <dt>ABI entries</dt>
+            <dt>{t("ABI entries")}</dt>
             <dd>{num(contract.abi?.length)}</dd>
           </div>
           <div>
-            <dt>Bytecode</dt>
+            <dt>{t("Bytecode")}</dt>
             <dd>
               {contract.deployed_bytecode
                 ? bytes(
@@ -2381,16 +2387,16 @@ function ContractSource({ contract }: { contract: AnyRow }) {
             open={index === 0}
             key={`${source.file_path}-${index}`}
           >
-            <summary>{source.file_path || `Source ${index + 1}`}</summary>
+            <summary>{source.file_path || tf("Source {number}", { number: index + 1 })}</summary>
             <pre>{source.source_code}</pre>
           </details>
         ))
       ) : (
-        <Empty>Source is not available.</Empty>
+        <Empty>{t("Source is not available.")}</Empty>
       )}
       {sources.length > 1 && (
         <footer>
-          {num(sources.length)} source files are included in the verified build.
+          {tf("{count} source files are included in the verified build.", { count: num(sources.length) })}
         </footer>
       )}
     </div>
@@ -2407,7 +2413,7 @@ function GenericActivity({ item, type }: { item: AnyRow; type: string }) {
           src={item.token?.icon_url}
           label={item.token?.symbol || type}
         />
-        <span className="method">{type.replaceAll("-", " ")}</span>
+        <span className="method">{activityLabel(type)}</span>
       </span>
       <div>
         {hash ? (
@@ -2418,7 +2424,7 @@ function GenericActivity({ item, type }: { item: AnyRow; type: string }) {
         <small>
           {item.timestamp
             ? age(item.timestamp)
-            : item.method || item.type || "Chain event"}
+            : item.method || item.type || t("Chain event")}
         </small>
       </div>
       <div className="generic-address">
@@ -2460,17 +2466,17 @@ function StateChange({ item }: { item: AnyRow }) {
         />
         <small>
           {item.token?.symbol || item.token_id
-            ? `Token ${item.token?.symbol || ""} ${item.token_id || ""}`
-            : "Native balance or contract storage"}
+            ? tf("Token {symbol} {id}", { symbol: item.token?.symbol || "", id: item.token_id || "" })
+            : t("Native balance or contract storage")}
         </small>
       </div>
       <div>
-        <small>Before</small>
+        <small>{t("Before")}</small>
         <strong className="mono">{item.balance_before ?? "—"}</strong>
       </div>
       <ArrowRight />
       <div>
-        <small>Change</small>
+        <small>{t("Change")}</small>
         <strong
           className={
             String(item.change || "").startsWith("-") ? "negative" : "positive"
@@ -2494,7 +2500,7 @@ function Tokens() {
   return (
     <>
       <PageIntro
-        eyebrow="TOKENS & NFTS"
+        eyebrow={t("TOKENS & NFTS")}
         title={t("tokens")}
         text={t("tokenDirectory")}
       >
@@ -2502,8 +2508,8 @@ function Tokens() {
       </PageIntro>
       <div className="table-shell">
         <div className="table-toolbar">
-          <span>Sorted by circulating market cap</span>
-          <span>Ink index</span>
+          <span>{t("Sorted by circulating market cap")}</span>
+          <span>{t("Ink index")}</span>
         </div>
         {!data && !error ? (
           <Loading />
@@ -2512,11 +2518,11 @@ function Tokens() {
         ) : (
           <div className="token-table">
             <div className="token-table-head">
-              <span>Asset</span>
-              <span>Type</span>
-              <span>Price</span>
-              <span>Holders</span>
-              <span>Market cap</span>
+              <span>{t("Asset")}</span>
+              <span>{t("Type")}</span>
+              <span>{t("Price")}</span>
+              <span>{t("Holders")}</span>
+              <span>{t("Market cap")}</span>
             </div>
             {data.items?.map((token: any) => (
               <button
@@ -2531,7 +2537,7 @@ function Tokens() {
                     <i>{token.symbol?.slice(0, 1)}</i>
                   )}
                   <span>
-                    <strong>{token.name || "Unknown token"}</strong>
+                    <strong>{token.name || t("Unknown token")}</strong>
                     <small>{token.symbol}</small>
                   </span>
                 </span>
@@ -2595,19 +2601,19 @@ function TokenDetail({ id }: { id: string }) {
           </div>
         </div>
         <div className="token-price">
-          <span>Reference price</span>
+          <span>{t("Reference price")}</span>
           <strong>{money(token.exchange_rate)}</strong>
         </div>
       </section>
       <section className="address-summary">
         <Metric label={t("holders")} value={num(token.holders_count)} />
         <Metric
-          label="Total supply"
+          label={t("Total supply")}
           value={compact(scaled(token.total_supply, token.decimals))}
-          note={`${token.decimals} decimals`}
+          note={tf("{count} decimals", { count: num(token.decimals) })}
         />
         <Metric
-          label="Market cap"
+          label={t("Market cap")}
           value={money(token.circulating_market_cap)}
         />
         <Metric label={t("volume24h")} value={money(token.volume_24h)} />
@@ -2619,8 +2625,7 @@ function TokenDetail({ id }: { id: string }) {
             setTab("transfers");
             setParams("");
           }}
-        >
-          Transfers
+        >{t("Transfers")}
         </button>
         <button
           className={tab === "holders" ? "active" : ""}
@@ -2628,8 +2633,7 @@ function TokenDetail({ id }: { id: string }) {
             setTab("holders");
             setParams("");
           }}
-        >
-          Holders
+        >{t("Holders")}
         </button>
         {token.type !== "ERC-20" && (
           <button
@@ -2638,8 +2642,7 @@ function TokenDetail({ id }: { id: string }) {
               setTab("instances");
               setParams("");
             }}
-          >
-            Token instances
+          >{t("Token instances")}
           </button>
         )}
       </div>
@@ -2674,7 +2677,7 @@ function TokenDetail({ id }: { id: string }) {
             </div>
           )
         ) : (
-          <Empty>{data.error || `No ${tab} found.`}</Empty>
+          <Empty>{data.error || tf("No {type} found.", { type: activityLabel(tab) })}</Empty>
         )}
         {data?.next_page_params && (
           <Pagination
@@ -2791,15 +2794,15 @@ function NftDetail({ id, tokenId }: { id: string; tokenId: string }) {
                 "—"
               )}
             </Definition>
-            <Definition label="Transfers">
+            <Definition label={t("Transfers")}>
               {num(instance.transfers_count || transfers?.items?.length)}
             </Definition>
-            <Definition label="Collection">
+            <Definition label={t("Collection")}>
               <button className="text-link" onClick={() => go(`/token/${id}`)}>
                 {token.name} ({token.symbol})
               </button>
             </Definition>
-            <Definition label="Contract">
+            <Definition label={t("Contract")}>
               <Copyable value={id} link={`/address/${id}`} />
             </Definition>
           </dl>
@@ -2809,8 +2812,7 @@ function NftDetail({ id, tokenId }: { id: string; tokenId: string }) {
               href={instance.external_app_url}
               target="_blank"
               rel="noreferrer"
-            >
-              External collection <ExternalLink />
+            >{t("External collection")} <ExternalLink />
             </a>
           )}
         </div>
@@ -2829,7 +2831,7 @@ function NftDetail({ id, tokenId }: { id: string; tokenId: string }) {
                 <span>
                   {attribute.trait_type ||
                     attribute.key ||
-                    `Attribute ${index + 1}`}
+                    tf("Attribute {number}", { number: index + 1 })}
                 </span>
                 <strong>{String(attribute.value ?? "—")}</strong>
               </article>
@@ -2838,7 +2840,7 @@ function NftDetail({ id, tokenId }: { id: string; tokenId: string }) {
         </section>
       )}
       <section className="nft-activity">
-        <SectionTitle eyebrow="TRANSFERS" title={t("latestActivity")} />
+        <SectionTitle eyebrow={t("TRANSFERS")} title={t("latestActivity")} />
         <div className="table-shell">
           {transfers?.items?.length ? (
             transfers.items.map((item: any, index: number) => (
@@ -2858,10 +2860,8 @@ function NftDetail({ id, tokenId }: { id: string; tokenId: string }) {
         <pre>{JSON.stringify(instance.metadata || {}, null, 2)}</pre>
       </details>
       <section className="methodology">
-        <span>CHECK BEFORE USE</span>
-        <p>
-          Confirm the contract address before interacting. Collection owners may
-          be able to change NFT metadata or media.
+        <span>{t("CHECK BEFORE USE")}</span>
+        <p>{t("Confirm the contract address before interacting. Collection owners may be able to change NFT metadata or media.")}
         </p>
       </section>
     </>
@@ -2890,7 +2890,7 @@ function PoolPair({ pool, large = false }: { pool: AnyRow; large?: boolean }) {
       </span>
       <span>
         {large ? <h1>{name}</h1> : <strong>{name}</strong>}
-        {large && <small>{pool.dex?.name || "Decentralised exchange"}</small>}
+        {large && <small>{pool.dex?.name || t("Decentralised exchange")}</small>}
       </span>
     </span>
   );
@@ -2913,10 +2913,10 @@ async function getPoolCatalogue() {
       ]),
     ).toString();
     if (seenCursors.has(query))
-      throw new Error("Pool catalogue returned a repeated cursor");
+      throw new Error(t("Pool catalogue returned a repeated cursor"));
     seenCursors.add(query);
   }
-  throw new Error("Pool catalogue exceeded the safe pagination limit");
+  throw new Error(t("Pool catalogue exceeded the safe pagination limit"));
 }
 
 function Pools() {
@@ -3128,7 +3128,7 @@ function Pools() {
   return (
     <>
       <PageIntro
-        eyebrow="DEX POOLS"
+        eyebrow={t("DEX POOLS")}
         title={t("poolDirectory")}
         text={t("poolIntro")}
       />
@@ -3356,10 +3356,8 @@ function Pools() {
         )}
       </div>
       <section className="methodology">
-        <span>MARKET DATA</span>
-        <p>
-          Pool and price data comes from Blockscout Contract Info and
-          GeckoTerminal. Thin markets can show delayed or misleading values.
+        <span>{t("MARKET DATA")}</span>
+        <p>{t("Pool and price data comes from Blockscout Contract Info and GeckoTerminal. Thin markets can show delayed or misleading values.")}
         </p>
       </section>
     </>
@@ -3402,7 +3400,7 @@ function PoolDetail({ id }: { id: string }) {
     <>
       <section className="pool-hero">
         <div>
-          <span>LIQUIDITY POOL · {network.name.toUpperCase()}</span>
+          <span>{t("pool").toUpperCase()} · {network.name.toUpperCase()}</span>
           <PoolPair pool={pool} large />
           <Copyable value={id} display={id} />
         </div>
@@ -3425,12 +3423,12 @@ function PoolDetail({ id }: { id: string }) {
         <Metric
           label={t("liquidity")}
           value={money(pool.liquidity)}
-          note="USD value reported by market index"
+          note={t("USD value reported by market index")}
         />
         <Metric
           label={t("volume24h")}
           value={money(pool.volume_usd_24h)}
-          note="Reported 24-hour volume"
+          note={t("Reported 24-hour volume")}
         />
         <Metric
           label={t("feeTier")}
@@ -3440,7 +3438,7 @@ function PoolDetail({ id }: { id: string }) {
         <Metric
           label={t("transactions")}
           value={compact(counters.transactions_count)}
-          note={`${compact(counters.token_transfers_count)} token transfers`}
+          note={tf("{count} token transfers", { count: compact(counters.token_transfers_count) })}
         />
       </section>
       <section className="pool-detail-grid">
@@ -3454,11 +3452,11 @@ function PoolDetail({ id }: { id: string }) {
           />
           <dl>
             <div>
-              <dt>Market cap</dt>
+              <dt>{t("Market cap")}</dt>
               <dd>{money(pool.base_token_market_cap_usd)}</dd>
             </div>
             <div>
-              <dt>Fully diluted value</dt>
+              <dt>{t("Fully diluted value")}</dt>
               <dd>{money(pool.base_token_fully_diluted_valuation_usd)}</dd>
             </div>
           </dl>
@@ -3473,30 +3471,29 @@ function PoolDetail({ id }: { id: string }) {
           />
           <dl>
             <div>
-              <dt>Market cap</dt>
+              <dt>{t("Market cap")}</dt>
               <dd>{money(pool.quote_token_market_cap_usd)}</dd>
             </div>
             <div>
-              <dt>Fully diluted value</dt>
+              <dt>{t("Fully diluted value")}</dt>
               <dd>{money(pool.quote_token_fully_diluted_valuation_usd)}</dd>
             </div>
           </dl>
         </article>
         <article className="pool-contract">
-          <span>POOL CONTRACT</span>
+          <span>{t("POOL CONTRACT")}</span>
           <h2>
             {address?.implementations?.[0]?.name ||
-              address?.name ||
-              "Automated market maker"}
+              address?.name || t("Automated market maker")}
           </h2>
           <dl>
             <div>
               <dt>{t("verified")}</dt>
-              <dd>{address?.is_verified ? "Yes" : "No"}</dd>
+              <dd>{address?.is_verified ? t("Yes") : t("No")}</dd>
             </div>
             <div>
               <dt>{t("proxyType")}</dt>
-              <dd>{address?.proxy_type || "None"}</dd>
+              <dd>{address?.proxy_type || t("None")}</dd>
             </div>
             <div>
               <dt>{t("reputation")}</dt>
@@ -3510,7 +3507,7 @@ function PoolDetail({ id }: { id: string }) {
         </article>
       </section>
       <section className="live-section pool-activity">
-        <SectionTitle eyebrow="POOL TRANSACTIONS" title={t("latestActivity")} />
+        <SectionTitle eyebrow={t("POOL TRANSACTIONS")} title={t("latestActivity")} />
         <div className="panel">
           {transactions?.items?.length ? (
             transactions.items
@@ -3522,10 +3519,8 @@ function PoolDetail({ id }: { id: string }) {
         </div>
       </section>
       <section className="methodology">
-        <span>CHECK BEFORE USE</span>
-        <p>
-          Confirm both token addresses. Liquidity and volume come from
-          third-party market data and can change quickly.
+        <span>{t("CHECK BEFORE USE")}</span>
+        <p>{t("Confirm both token addresses. Liquidity and volume come from third-party market data and can change quickly.")}
         </p>
       </section>
     </>
@@ -3551,7 +3546,7 @@ function HolderRow({
           display={labelOf(item.address) || short(addr, 10, 8)}
           link={`/address/${addr}`}
         />
-        <small>{item.address?.is_contract ? "Contract" : "Account"}</small>
+        <small>{item.address?.is_contract ? t("Contract") : t("Account")}</small>
       </div>
       <strong>
         {num(value, 6)} <small>{symbol}</small>
@@ -3584,9 +3579,9 @@ function AdvancedPage() {
   return (
     <>
       <PageIntro
-        eyebrow="BRIDGE & AA"
-        title="Advanced activity"
-        text="Ink deposits, withdrawals and ERC‑4337 user operations."
+        eyebrow={t("BRIDGE & AA")}
+        title={t("Advanced activity")}
+        text={t("Ink deposits, withdrawals and ERC‑4337 user operations.")}
       >
         <div className="advanced-mark">
           <Layers3 />
@@ -3604,8 +3599,7 @@ function AdvancedPage() {
             setMode("deposits");
             setParams("");
           }}
-        >
-          L1 → L2 deposits
+        >{t("L1 → L2 deposits")}
         </button>
         <button
           className={mode === "withdrawals" ? "active" : ""}
@@ -3613,8 +3607,7 @@ function AdvancedPage() {
             setMode("withdrawals");
             setParams("");
           }}
-        >
-          L2 → L1 withdrawals
+        >{t("L2 → L1 withdrawals")}
         </button>
         <button
           className={mode === "userops" ? "active" : ""}
@@ -3622,8 +3615,7 @@ function AdvancedPage() {
             setMode("userops");
             setParams("");
           }}
-        >
-          User operations
+        >{t("User operations")}
         </button>
       </div>
       <section className="protocol-note">
@@ -3631,26 +3623,26 @@ function AdvancedPage() {
         <div>
           <strong>
             {mode === "deposits"
-              ? "Messages entering Ink"
+              ? t("Messages entering Ink")
               : mode === "withdrawals"
-                ? "Messages exiting Ink"
-                : "ERC‑4337 smart accounts"}
+                ? t("Messages exiting Ink")
+                : t("ERC‑4337 smart accounts")}
           </strong>
           <p>
             {mode === "deposits"
-              ? "Deposits originate on Ethereum and are executed as transactions on Ink."
+              ? t("Deposits originate on Ethereum and are executed as transactions on Ink.")
               : mode === "withdrawals"
-                ? "Withdrawals pass through the Optimism proving and challenge lifecycle before finalization."
-                : "Bundled operations executed through an EntryPoint contract, with their fee and inclusion transaction."}
+                ? t("Withdrawals pass through the Optimism proving and challenge lifecycle before finalization.")
+                : t("Bundled operations executed through an EntryPoint contract, with their fee and inclusion transaction.")}
           </p>
         </div>
       </section>
       <div className="table-shell advanced-list">
         <div className="table-toolbar">
           <span>
-            {data ? `${data.items?.length || 0} shown` : "Loading records"}
+            {data ? tf("shown", { count: num(data.items?.length || 0) }) : t("Loading records")}
           </span>
-          <span>Ink index</span>
+          <span>{t("Ink index")}</span>
         </div>
         {!data && !error ? (
           <Loading />
@@ -3665,7 +3657,7 @@ function AdvancedPage() {
             />
           ))
         ) : (
-          <Empty>No records found.</Empty>
+          <Empty>{t("No records found.")}</Empty>
         )}
         {data?.next_page_params && (
           <Pagination
@@ -3693,7 +3685,7 @@ function ProtocolRow({ item, mode }: { item: AnyRow; mode: string }) {
     return (
       <div className="protocol-row">
         <StatusPill ok={Boolean(item.status)}>
-          {item.status ? "Success" : "Failed"}
+          {item.status ? t("Success") : t("Failed")}
         </StatusPill>
         <div>
           <Copyable value={item.hash} display={short(item.hash, 10, 8)} />
@@ -3702,11 +3694,11 @@ function ProtocolRow({ item, mode }: { item: AnyRow; mode: string }) {
           </small>
         </div>
         <div>
-          <small>Smart account</small>
+          <small>{t("Smart account")}</small>
           <Copyable value={addr} link={`/address/${addr}`} />
         </div>
         <div>
-          <small>Included in</small>
+          <small>{t("Included in")}</small>
           <Copyable
             value={item.transaction_hash}
             link={`/tx/${item.transaction_hash}`}
@@ -3728,18 +3720,18 @@ function ProtocolRow({ item, mode }: { item: AnyRow; mode: string }) {
         </small>
       </div>
       <div>
-        <small>{withdrawal ? "From" : "L1 origin"}</small>
+        <small>{withdrawal ? t("From") : t("L1 origin")}</small>
         <Copyable
           value={withdrawal ? addressOf(item.from) : item.l1_transaction_origin}
           link={withdrawal ? `/address/${addressOf(item.from)}` : undefined}
         />
       </div>
       <div>
-        <small>L1 transaction</small>
+        <small>{t("L1 transaction")}</small>
         {item.l1_transaction_hash ? (
           <Copyable value={item.l1_transaction_hash} />
         ) : (
-          <span>{item.status || "Pending"}</span>
+          <span>{item.status || t("Pending")}</span>
         )}
       </div>
       <strong>
@@ -3755,57 +3747,48 @@ function DevelopersPage() {
   return (
     <>
       <PageIntro
-        eyebrow="API & STREAM"
-        title="Developer API"
-        text="Read-only explorer routes, live WebSocket events and local node status."
+        eyebrow={t("API & STREAM")}
+        title={t("Developer API")}
+        text={t("Read-only explorer routes, live WebSocket events and local node status.")}
       />
       <section className="developer-grid">
         <article>
           <TerminalSquare />
-          <span>EXPLORER API</span>
-          <h2>Chain data</h2>
+          <span>{t("EXPLORER API")}</span>
+          <h2>{t("Chain data")}</h2>
           <code>{API}/explorer/blocks</code>
           <code>{API}/explorer/transactions</code>
           <code>{API}/explorer/tokens</code>
-          <p>
-            Blockscout API v2 data. Responses are cached locally; the last valid
-            response is used during rate limits.
+          <p>{t("Blockscout API v2 data. Responses are cached locally; the last valid response is used during rate limits.")}
           </p>
         </article>
         <article>
           <Activity />
-          <span>LIVE STREAM</span>
+          <span>{t("LIVE STREAM")}</span>
           <h2>WebSocket</h2>
           <code>{location.protocol === "https:" ? "wss" : "ws"}://{location.host}{API}/live</code>
           <code>ink-observer.live.v1</code>
           <code>{API}/live/status</code>
-          <p>
-            New block and node-status messages every two seconds. Frames include
-            sequence IDs and timestamps; clients reconnect automatically.
+          <p>{t("New block and node-status messages every two seconds. Frames include sequence IDs and timestamps; clients reconnect automatically.")}
           </p>
         </article>
         <article>
           <BarChart3 />
-          <span>NODE & STATS</span>
-          <h2>Node and charts</h2>
+          <span>{t("NODE & STATS")}</span>
+          <h2>{t("Node and charts")}</h2>
           <code>{API}/network</code>
           <code>{API}/stats/counters</code>
           <code>{API}/stats/lines/activeAccounts</code>
-          <p>
-            Current OP-Reth status, Blockscout counters and the time series used
-            on the analytics page.
+          <p>{t("Current OP-Reth status, Blockscout counters and the time series used on the analytics page.")}
           </p>
         </article>
       </section>
       <section className="methodology">
-        <span>SECURITY</span>
+        <span>{t("SECURITY")}</span>
         <p>
-          Indexed data uses GET and WebSocket. POST {API}/contract-rpc only
-          allows reads and simulations; the server cannot sign or broadcast.
+          {t("Indexed data uses GET and WebSocket. POST /contract-rpc only allows reads and simulations; the server cannot sign or broadcast.").replace("/contract-rpc", `${API}/contract-rpc`)}
         </p>
-        <p>
-          Your wallet submits a contract transaction only after you confirm
-          it. Keep local node credentials on the server.
+        <p>{t("Your wallet submits a contract transaction only after you confirm it. Keep local node credentials on the server.")}
         </p>
       </section>
     </>
@@ -3823,7 +3806,7 @@ function Contracts() {
   return (
     <>
       <PageIntro
-        eyebrow="VERIFIED SOURCE"
+        eyebrow={t("VERIFIED SOURCE")}
         title={`${t("verified")} ${t("contracts").toLowerCase()}`}
         text={t("contractDirectory")}
       >
@@ -3857,7 +3840,7 @@ function Contracts() {
               </span>
               <footer>
                 <span>{contract.language || "Solidity"}</span>
-                <span>{contract.compiler_version || "Source available"}</span>
+                <span>{contract.compiler_version || t("Source available")}</span>
               </footer>
             </button>
           ))
@@ -3985,7 +3968,7 @@ function Analytics() {
         (e) => request === dataRequest.current && setError(e.message),
       );
   }, [period, grain, refresh]);
-  if (!data && !error) return <Loading label="Calculating network signals" />;
+  if (!data && !error) return <Loading label={t("Calculating network signals")} />;
   if (error) return <ErrorState error={error} />;
   const ordered = (rows: any[]) =>
     [...rows].sort((a, b) => String(a.date).localeCompare(String(b.date)));
@@ -4066,9 +4049,9 @@ function Analytics() {
   return (
     <>
       <PageIntro
-        eyebrow="NETWORK STATS"
-        title="Ink analytics"
-        text="Compare transactions, active accounts, fees and success rate. Select a range or inspect any chart point."
+        eyebrow={t("NETWORK STATS")}
+        title={t("Ink analytics")}
+        text={t("Compare transactions, active accounts, fees and success rate. Select a range or inspect any chart point.")}
       >
         <div className="analytics-controls">
           <div className="period-switch">
@@ -4090,13 +4073,13 @@ function Analytics() {
           </div>
           <div className="analytics-actions">
             <button onClick={toggleData} className={showData ? "active" : ""}>
-              <Table2 /> Data
+              <Table2 />{t("Data")}
             </button>
             <button onClick={exportCsv}>
               <Download /> CSV
             </button>
             <button
-              aria-label="Refresh analytics"
+              aria-label={t("Refresh analytics")}
               onClick={() => setRefresh((v) => v + 1)}
             >
               <RefreshCw />
@@ -4106,45 +4089,41 @@ function Analytics() {
       </PageIntro>
       <section className="analytics-counters">
         <Metric
-          label="Active accounts"
+          label={t("Active accounts")}
           value={compact(last("active"))}
-          note={`latest ${grain.toLowerCase()}`}
+          note={tf("latest {grain}", { grain: t(grain === "DAY" ? "Daily" : "Weekly") })}
         />
         <Metric
-          label="Contracts today"
+          label={t("Contracts today")}
           value={compact(counter.lastNewContracts?.value)}
-          note={`${compact(counter.lastNewVerifiedContracts?.value)} verified`}
+          note={tf("{count} verified", { count: compact(counter.lastNewVerifiedContracts?.value) })}
         />
         <Metric
-          label="Account abstraction"
+          label={t("Account abstraction")}
           value={compact(counter.totalUserOps?.value)}
-          note={`${compact(counter.totalAccountAbstractionWallets?.value)} AA wallets`}
+          note={tf("{count} AA wallets", { count: compact(counter.totalAccountAbstractionWallets?.value) })}
         />
         <Metric
-          label="Fees · 24h"
+          label={t("Fees · 24h")}
           value={unit(counter.txnsFee24h?.value, " ETH", 4)}
-          note={`${unit(counter.averageTxnFee24h?.value, " ETH", 8)} average`}
+          note={tf("{value} average", { value: unit(counter.averageTxnFee24h?.value, " ETH", 8) })}
         />
         <Metric
-          label="Token contracts"
+          label={t("Token contracts")}
           value={compact(counter.totalTokens?.value)}
-          note={`${compact(counter.totalVerifiedContracts?.value)} verified contracts`}
+          note={tf("{count} verified contracts", { count: compact(counter.totalVerifiedContracts?.value) })}
         />
       </section>
       <section className="analytics-freshness">
         <span>
-          {grain === "DAY" ? "Daily" : "Weekly"} grain · {c.length} observations
+          {tf("{grain} granularity · {count} observations", { grain: t(grain === "DAY" ? "Daily" : "Weekly"), count: num(c.length) })}
         </span>
-        <span>
-          Updated {new Date(data.updatedAt).toLocaleTimeString()} · latest
-          interval may be partial
-        </span>
+        <span>{tf("Updated {time} · latest interval may be partial", { time: new Date(data.updatedAt).toLocaleTimeString(activeLocale) })}</span>
       </section>
       <section className="analytics-lead">
         <div>
           <span>
-            {grain === "DAY" ? "DAILY" : "WEEKLY"} TRANSACTIONS ·{" "}
-            {period === 365 ? "1 YEAR" : `${period} DAYS`}
+            {tf("{grain} TRANSACTIONS · {period}", { grain: t(grain === "DAY" ? "Daily" : "Weekly").toUpperCase(), period: period === 365 ? t("1 YEAR") : tf("{count} DAYS", { count: num(period) }) })}
           </span>
           <strong>{compact(focused >= 0 ? vals[focused] : vals.at(-1))}</strong>
           <Sparkline
@@ -4153,7 +4132,7 @@ function Analytics() {
             height={220}
             selectedLabel={focusDate}
             onSelectLabel={setFocusDate}
-            ariaLabel={`${grain.toLowerCase()} transactions over ${period} days`}
+            ariaLabel={tf("{grain} transactions over {days} days", { grain: t(grain === "DAY" ? "Daily" : "Weekly"), days: num(period) })}
             approximateLast={Boolean(c.at(-1)?.is_approximate)}
           />
           <div className="chart-axis">
@@ -4163,21 +4142,21 @@ function Analytics() {
         </div>
         <aside>
           <Metric
-            label="Period average"
+            label={t("Period average")}
             value={compact(avg)}
-            note={`${grain.toLowerCase()} transactions`}
+            note={tf("{grain} transactions", { grain: t(grain === "DAY" ? "Daily" : "Weekly") })}
           />
           <Metric
-            label="Period total"
+            label={t("Period total")}
             value={compact(total)}
-            note={`${c.length} observations`}
+            note={tf("{count} observations", { count: num(c.length) })}
           />
           <Metric
-            label="Period high"
+            label={t("Period high")}
             value={compact(peak)}
             note={
               peak === undefined
-                ? "Observation unavailable"
+                ? t("Observation unavailable")
                 : dateText(c[vals.indexOf(peak)]?.date)
             }
           />
@@ -4186,22 +4165,22 @@ function Analytics() {
       {showData && (
         <section className="analytics-data" ref={dataTableRef}>
           <div className="panel-head">
-            <h3>Exact values</h3>
+            <h3>{t("Exact values")}</h3>
             <span>
-              {period} day range · {grain.toLowerCase()} grain
+              {tf("{count} DAY RANGE", { count: num(period) })} · {t(grain === "DAY" ? "Daily" : "Weekly")}
             </span>
           </div>
           <div>
             <table>
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Transactions</th>
-                  <th>Active accounts</th>
-                  <th>New accounts</th>
-                  <th>Success</th>
-                  <th>Avg. fee</th>
-                  <th>Blocks</th>
+                  <th>{t("Date")}</th>
+                  <th>{t("Transactions")}</th>
+                  <th>{t("Active accounts")}</th>
+                  <th>{t("New accounts")}</th>
+                  <th>{t("Success")}</th>
+                  <th>{t("Avg. fee")}</th>
+                  <th>{t("Blocks")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -4234,7 +4213,7 @@ function Analytics() {
         <div className="analytic-card">
           <div className="analytic-label">
             <Gauge />
-            <span>Recent block utilization</span>
+            <span>{t("Recent block utilization")}</span>
             <strong>
               {unit(
                 util.length
@@ -4250,36 +4229,36 @@ function Analytics() {
             labels={utilLabels}
             color="#0c8b68"
             formatValue={(v) => `${v.toFixed(2)}%`}
-            ariaLabel="Gas utilization for recent blocks"
+            ariaLabel={t("Gas utilization for recent blocks")}
           />
-          <p>Gas used as a share of capacity in the latest indexed blocks.</p>
+          <p>{t("Gas used as a share of capacity in the latest indexed blocks.")}</p>
         </div>
         <div className="analytic-card">
           <div className="analytic-label">
             <Fuel />
-            <span>Gas price</span>
+            <span>{t("Gas price")}</span>
             <strong>{unit(data.stats.gas_prices?.average, " Gwei")}</strong>
           </div>
           <div className="gas-scale">
             <span>
               <i style={{ width: "34%" }} />
-              Slow · {unit(data.stats.gas_prices?.slow, " Gwei")}
+              {t("Slow")} · {unit(data.stats.gas_prices?.slow, " Gwei")}
             </span>
             <span>
               <i style={{ width: "58%" }} />
-              Standard · {unit(data.stats.gas_prices?.average, " Gwei")}
+              {t("Standard")} · {unit(data.stats.gas_prices?.average, " Gwei")}
             </span>
             <span>
               <i style={{ width: "82%" }} />
-              Fast · {unit(data.stats.gas_prices?.fast, " Gwei")}
+              {t("Fast")} · {unit(data.stats.gas_prices?.fast, " Gwei")}
             </span>
           </div>
-          <p>Slow, standard and fast estimates reported by Blockscout.</p>
+          <p>{t("Slow, standard and fast estimates reported by Blockscout.")}</p>
         </div>
         <div className="analytic-card">
           <div className="analytic-label">
             <Timer />
-            <span>Block cadence</span>
+            <span>{t("Block cadence")}</span>
             <strong>
               {unit(
                 finiteNumber(data.stats.average_block_time) === null
@@ -4300,25 +4279,25 @@ function Analytics() {
             <i />
             <i />
           </div>
-          <p>Average time between indexed Ink blocks.</p>
+          <p>{t("Average time between indexed Ink blocks.")}</p>
         </div>
         <div className="analytic-card dark">
           <div className="analytic-label">
             <TrendingUp />
-            <span>All-time totals</span>
+            <span>{t("All-time totals")}</span>
             <strong>{compact(data.stats.total_transactions)}</strong>
           </div>
           <dl>
             <div>
-              <dt>Blocks indexed</dt>
+              <dt>{t("Blocks indexed")}</dt>
               <dd>{compact(data.stats.total_blocks)}</dd>
             </div>
             <div>
-              <dt>Gas used today</dt>
+              <dt>{t("Gas used today")}</dt>
               <dd>{compact(data.stats.gas_used_today)}</dd>
             </div>
             <div>
-              <dt>ETH reference</dt>
+              <dt>{t("ETH reference")}</dt>
               <dd>{money(data.stats.coin_price)}</dd>
             </div>
           </dl>
@@ -4326,14 +4305,14 @@ function Analytics() {
       </section>
       <section className="stat-library">
         <SectionTitle
-          eyebrow={`${period} DAY RANGE`}
-          title="Accounts, fees and reliability"
+          eyebrow={tf("{count} DAY RANGE", { count: num(period) })}
+          title={t("Accounts, fees and reliability")}
         />
         <div className="stat-chart-grid">
           <StatChart
-            title={`${grain === "DAY" ? "Daily" : "Weekly"} active accounts`}
+            title={tf("{grain} active accounts", { grain: t(grain === "DAY" ? "Daily" : "Weekly") })}
             value={compact(last("active"))}
-            note="Accounts active during each interval."
+            note={t("Accounts active during each interval.")}
             points={series("active")}
             labels={labelsFor("active")}
             color="#7136f3"
@@ -4341,9 +4320,9 @@ function Analytics() {
             onSelectLabel={setFocusDate}
           />
           <StatChart
-            title="New accounts"
+            title={t("New accounts")}
             value={compact(last("newAccounts"))}
-            note="Addresses first seen during each interval."
+            note={t("Addresses first seen during each interval.")}
             points={series("newAccounts")}
             labels={labelsFor("newAccounts")}
             color="#d45b31"
@@ -4351,14 +4330,14 @@ function Analytics() {
             onSelectLabel={setFocusDate}
           />
           <StatChart
-            title="Transaction success"
+            title={t("Transaction success")}
             value={unit(
               last("success") === undefined
                 ? undefined
                 : last("success")! * 100,
               "%",
             )}
-            note="Transactions completed without a revert."
+            note={t("Transactions completed without a revert.")}
             points={success}
             labels={labelsFor("success")}
             formatValue={(v) => `${v.toFixed(2)}%`}
@@ -4367,9 +4346,9 @@ function Analytics() {
             onSelectLabel={setFocusDate}
           />
           <StatChart
-            title="Average transaction fee"
+            title={t("Average transaction fee")}
             value={unit(last("fees"), " ETH", 9)}
-            note="Average execution and L1 data fee."
+            note={t("Average execution and L1 data fee.")}
             points={series("fees")}
             labels={labelsFor("fees")}
             formatValue={(v) => `${v.toFixed(9)} ETH`}
@@ -4378,9 +4357,9 @@ function Analytics() {
             onSelectLabel={setFocusDate}
           />
           <StatChart
-            title="Blocks produced"
+            title={t("Blocks produced")}
             value={compact(last("newBlocks"))}
-            note="Blocks added during each interval."
+            note={t("Blocks added during each interval.")}
             points={series("newBlocks")}
             labels={labelsFor("newBlocks")}
             color="#2b70c9"
@@ -4388,26 +4367,25 @@ function Analytics() {
             onSelectLabel={setFocusDate}
           />
           <div className="stat-chart statement">
-            <span>7-DAY COMPARISON</span>
+            <span>{t("7-DAY COMPARISON")}</span>
             <strong>
               {last("active") === undefined
-                ? "The latest active-account comparison is unavailable."
+                ? t("The latest active-account comparison is unavailable.")
                 : last("active")! >
                     series("active")
                       .slice(-8, -1)
                       .reduce((a: number, b: number) => a + b, 0) /
                       Math.max(1, series("active").slice(-8, -1).length)
-                  ? "Active accounts are above the previous 7-day average."
-                  : "Active accounts are below the previous 7-day average."}
+                  ? t("Active accounts are above the previous 7-day average.")
+                  : t("Active accounts are below the previous 7-day average.")}
             </strong>
-            <p>
-              Select any chart to compare the same date across all five series.
+            <p>{t("Select any chart to compare the same date across all five series.")}
             </p>
           </div>
         </div>
       </section>
       <section className="counter-library">
-        <SectionTitle eyebrow="TOTALS" title="Network totals" />
+        <SectionTitle eyebrow={t("TOTALS")} title={t("Network totals")} />
         <div>
           {data.counters.map((item: any) => (
             <article key={item.id}>
@@ -4423,11 +4401,8 @@ function Analytics() {
         </div>
       </section>
       <section className="methodology">
-        <span>DATA SOURCES</span>
-        <p>
-          Charts and totals come from Ink’s Blockscout statistics API. Head,
-          peers and finality come from the OP-Reth and OP Node running on this
-          machine. The latest interval may be incomplete.
+        <span>{t("DATA SOURCES")}</span>
+        <p>{t("Charts and totals come from Ink’s Blockscout statistics API. Head, peers and finality come from the OP-Reth and OP Node running on this machine. The latest interval may be incomplete.")}
         </p>
       </section>
     </>
@@ -4462,52 +4437,49 @@ function NetworkPage({ live }: { live: LiveData }) {
   return (
     <>
       <PageIntro
-        eyebrow="LOCAL NODE"
-        title="Network health"
-        text="OP-Reth and OP Node status reported by this machine."
+        eyebrow={t("LOCAL NODE")}
+        title={t("Network health")}
+        text={t("OP-Reth and OP Node status reported by this machine.")}
       />
       <section className="health-banner">
         <div>
           <Activity />
           <div>
-            <span>STATUS</span>
-            <h2>{data.online ? data.synced ? `Synced to ${network.name}` : data.stale ? `${network.name} node behind` : `Syncing ${network.name}` : `${network.name} node unavailable`}</h2>
-            <p>
-              Checked {new Date(data.sampledAt).toLocaleTimeString()} ·
-              refreshes every five seconds
-            </p>
+            <span>{t("STATUS")}</span>
+            <h2>{data.online ? data.synced ? tf("Synced to {network}", { network: network.name }) : data.stale ? tf("{network} node behind", { network: network.name }) : tf("Syncing {network}", { network: network.name }) : tf("{network} node unavailable", { network: network.name })}</h2>
+            <p>{tf("Checked {time} · refreshes every five seconds", { time: new Date(data.sampledAt).toLocaleTimeString(activeLocale) })}</p>
           </div>
         </div>
-        <StatusPill ok={data.online && data.synced}>{data.online ? data.synced ? "Operational" : data.stale ? "Behind" : "Syncing" : "Unavailable"}</StatusPill>
+        <StatusPill ok={data.online && data.synced}>{data.online ? data.synced ? t("Operational") : data.stale ? t("Behind") : t("Syncing") : t("Unavailable")}</StatusPill>
       </section>
-      {data.online && data.sync && data.syncProgress && <section className="sync-progress" aria-label="Node synchronization progress">
-        <h2>Downloading and executing chain history</h2>
-        <p>The explorer index remains available while this local node synchronizes. These counters measure downloads since the node started, not overall synchronization completion.</p>
-        <dl><div><dt>Headers received</dt><dd>{num(data.syncProgress.headersDownloaded)}</dd></div><div><dt>Block bodies received</dt><dd>{num(data.syncProgress.bodiesDownloaded)}</dd></div><div><dt>Rollup target</dt><dd>{num(data.syncProgress.target)}</dd></div></dl>
+      {data.online && data.sync && data.syncProgress && <section className="sync-progress" aria-label={t("Node synchronization progress")}>
+        <h2>{t("Downloading and executing chain history")}</h2>
+        <p>{t("The explorer index remains available while this local node synchronizes. These counters measure downloads since the node started, not overall synchronization completion.")}</p>
+        <dl><div><dt>{t("Headers received")}</dt><dd>{num(data.syncProgress.headersDownloaded)}</dd></div><div><dt>{t("Block bodies received")}</dt><dd>{num(data.syncProgress.bodiesDownloaded)}</dd></div><div><dt>{t("Rollup target")}</dt><dd>{num(data.syncProgress.target)}</dd></div></dl>
       </section>}
       <section className="health-grid">
         <Metric
-          label="Chain head"
+          label={t("Chain head")}
           value={num(data.head)}
-          note={`safe at ${num(data.safeBlock)}`}
+          note={tf("safe at {block}", { block: num(data.safeBlock) })}
           icon={<Blocks />}
         />
         <Metric
-          label="Finalized"
+          label={t("Finalized")}
           value={num(data.finalizedBlock)}
-          note={`${num(data.finalityLag)} block lag`}
+          note={tf("{count} block lag", { count: num(data.finalityLag) })}
           icon={<ShieldCheck />}
         />
         <Metric
-          label="Rollup peers"
+          label={t("Rollup peers")}
           value={num(data.rollupPeers)}
-          note={`${num(data.topicPeers)} on Ink block topic`}
+          note={tf("{count} on Ink block topic", { count: num(data.topicPeers) })}
           icon={<Network />}
         />
         <Metric
-          label="Known peers"
+          label={t("Known peers")}
           value={num(data.knownPeers)}
-          note={`${num(data.routingTablePeers)} in routing table`}
+          note={tf("{count} in routing table", { count: num(data.routingTablePeers) })}
           icon={<Database />}
         />
       </section>
@@ -4515,7 +4487,7 @@ function NetworkPage({ live }: { live: LiveData }) {
         <div className="peer-visual">
           <div className="peer-core">
             <img src="/brand/ink-symbol.svg" alt="" aria-hidden="true" />
-            <span>THIS NODE</span>
+            <span>{t("THIS NODE")}</span>
           </div>
           {Array.from({ length: 12 }, (_, i) => (
             <i
@@ -4525,34 +4497,34 @@ function NetworkPage({ live }: { live: LiveData }) {
           ))}
           <span className="peer-count">
             {data.rollupPeers}
-            <small>live peers</small>
+            <small>{t("live peers")}</small>
           </span>
         </div>
         <div className="network-facts">
-          <SectionTitle eyebrow="NODE DETAILS" title="OP-Reth full node" />
+          <SectionTitle eyebrow={t("NODE DETAILS")} title={t("OP-Reth full node")} />
           <dl>
             <div>
-              <dt>Execution client</dt>
+              <dt>{t("Execution client")}</dt>
               <dd>OP-Reth v2.4.1</dd>
             </div>
             <div>
-              <dt>Rollup client</dt>
+              <dt>{t("Rollup client")}</dt>
               <dd>OP Node v1.19.5</dd>
             </div>
             <div>
-              <dt>Chain ID</dt>
+              <dt>{t("Chain ID")}</dt>
               <dd>{data.chainId}</dd>
             </div>
             <div>
-              <dt>Execution peers</dt>
+              <dt>{t("Execution peers")}</dt>
               <dd>{data.executionPeers}</dd>
             </div>
             <div>
-              <dt>Sync state</dt>
-              <dd>{data.online ? data.synced ? "At head" : data.stale ? `Last block ${num(data.blockAgeSeconds)} seconds ago` : "Synchronizing" : "Unavailable"}</dd>
+              <dt>{t("Sync state")}</dt>
+              <dd>{data.online ? data.synced ? t("At head") : data.stale ? tf("Last block {count} seconds ago", { count: num(data.blockAgeSeconds) }) : t("Synchronizing") : t("Unavailable")}</dd>
             </div>
             <div>
-              <dt>L1 head observed</dt>
+              <dt>{t("L1 head observed")}</dt>
               <dd>{num(data.l1Head)}</dd>
             </div>
           </dl>
@@ -4562,47 +4534,44 @@ function NetworkPage({ live }: { live: LiveData }) {
         <div>
           <Network />
           <div>
-            <span>L1 FAILOVER</span>
-            <h3>{isTestnet ? "Ethereum Sepolia RPC" : "Ethereum RPC failover"}</h3>
+            <span>{t("L1 FAILOVER")}</span>
+            <h3>{isTestnet ? "Ethereum Sepolia RPC" : t("Ethereum RPC failover")}</h3>
             <p>
-              {isTestnet ? "The rollup node derives Ink Sepolia from Ethereum Sepolia using public execution and beacon endpoints. No failover relay is configured." : "Public L1 RPC endpoints sit behind a local circuit breaker. RPC keys never reach the browser."}
+              {isTestnet ? t("The rollup node derives Ink Sepolia from Ethereum Sepolia using public execution and beacon endpoints. No failover relay is configured.") : t("Public L1 RPC endpoints sit behind a local circuit breaker. RPC keys never reach the browser.")}
             </p>
           </div>
         </div>
         <div>
           <StatusPill ok={Boolean(data.l1Rpc?.online)}>
-            {isTestnet ? "Direct connection" : data.l1Rpc?.online ? "Available" : "Degraded"}
+            {isTestnet ? t("Direct connection") : data.l1Rpc?.online ? t("Available") : t("Degraded")}
           </StatusPill>
           <small>
-            {isTestnet ? "See L1 head observed above" : `${rpcReady}/${rpcUpstreams.length} upstreams ready`}
+            {isTestnet ? t("See L1 head observed above") : tf("{ready}/{total} upstreams ready", { ready: num(rpcReady), total: num(rpcUpstreams.length) })}
           </small>
         </div>
       </section>
       {data.disk && (
         <section className="storage">
           <div>
-            <span>NODE STORAGE</span>
+            <span>{t("NODE STORAGE")}</span>
             <strong>
-              {bytes(used)} <small>used of {bytes(data.disk.total)}</small>
+              {bytes(used)} <small>{tf("used of {total}", { total: bytes(data.disk.total) })}</small>
             </strong>
           </div>
           <div className="storage-bar">
             <i style={{ width: `${pct}%` }} />
           </div>
           <div>
-            <span>{pct.toFixed(1)}% used</span>
-            <span>{bytes(data.disk.free)} available</span>
+            <span>{tf("{percent}% used", { percent: num(pct, 1) })}</span>
+            <span>{bytes(data.disk.free)} {t("available")}</span>
           </div>
         </section>
       )}
       <section className="node-note">
         <ShieldCheck />
         <div>
-          <h3>About this node</h3>
-          <p>
-            This machine executes Ink blocks and keeps its RPC private. It
-            checks the public index against local chain data. It is not the
-            Kraken sequencer and earns no staking or mining rewards.
+          <h3>{t("About this node")}</h3>
+          <p>{t("This machine executes Ink blocks and keeps its RPC private. It checks the public index against local chain data. It is not the Kraken sequencer and earns no staking or mining rewards.")}
           </p>
         </div>
       </section>
@@ -4641,7 +4610,7 @@ function Footer({ live }: { live: LiveData }) {
         </a>
       </div>
       <div className="footer-status">
-        <StatusPill ok={Boolean(live.connected && live.network?.online && live.network?.synced)}>{!live.connected ? "Connecting" : !live.network?.online ? "Node unavailable" : live.network?.stale ? "Node behind" : !live.network?.synced ? "Node syncing" : t("operational")}</StatusPill>
+        <StatusPill ok={Boolean(live.connected && live.network?.online && live.network?.synced)}>{!live.connected ? t("Connecting") : !live.network?.online ? t("Node unavailable") : live.network?.stale ? t("Node behind") : !live.network?.synced ? t("Node syncing") : t("operational")}</StatusPill>
         <small>{t("refreshedLive")}</small>
       </div>
     </footer>
@@ -4677,71 +4646,71 @@ function initialLocale(): Locale {
 
 function pageMetadata(view: View) {
   const base: Record<string, [string, string]> = {
-    home: ["Ink Explorer — Ink Mainnet", t("defaultDescription")],
+    home: ["Ink Explorer — Ink Mainnet", t("homeDescription")],
     blocks: [
-      t("blocksTitle"),
-      "Latest Ink Mainnet blocks with transaction counts, gas use, size and fees.",
+      `Ink · ${t("blocks")}`,
+      t("blocksIntro"),
     ],
     transactions: [
-      t("txTitle"),
-      "Search confirmed Ink transactions, token transfers and internal contract calls.",
+      `Ink · ${t("transactions")}`,
+      t("txIntro"),
     ],
-    tokens: [t("tokenTitle"), t("tokenDirectory")],
-    pools: [t("poolsTitle"), t("poolIntro")],
-    contracts: [t("contractTitle"), t("contractDirectory")],
+    tokens: [`Ink · ${t("tokens")}`, t("tokenDirectory")],
+    pools: [`Ink · ${t("pools")}`, t("poolIntro")],
+    contracts: [`Ink · ${t("contracts")}`, t("contractDirectory")],
     analytics: [
-      t("analyticsTitle"),
-      "Ink transactions, active accounts, fees, success rate and downloadable history.",
+      `Ink · ${t("analytics")}`,
+      t("Compare transactions, active accounts, fees and success rate. Select a range or inspect any chart point."),
     ],
     advanced: [
-      "Ink bridge and account abstraction activity",
-      "Optimism deposits, withdrawals and ERC-4337 user operations on Ink Mainnet.",
+      `Ink · ${t("advanced")}`,
+      t("Ink deposits, withdrawals and ERC‑4337 user operations."),
     ],
     developers: [
-      "Ink Explorer developer API",
-      "Read-only Ink explorer routes, WebSocket events and local OP-Reth status.",
+      `Ink Explorer · ${t("Developer API")}`,
+      t("Read-only explorer routes, live WebSocket events and local node status."),
     ],
     network: [
-      t("networkTitle"),
-      "OP-Reth and OP Node head, finality, peer, sync and storage status from this machine.",
+      `Ink · ${t("network")}`,
+      t("OP-Reth and OP Node status reported by this machine."),
     ],
   };
   if (view.name === "search")
     return [
-      view.query ? `Ink search: ${view.query}` : "Search Ink",
-      "Search addresses, verified contracts, tokens, blocks and transactions on Ink Mainnet.",
+      view.query ? `Ink · ${t("search")}: ${view.query}` : `Ink · ${t("search")}`,
+      t("homeDescription"),
     ];
   if (view.name === "transaction")
     return [
-      `Ink transaction ${short(view.id, 12, 10)}`,
-      `Status, fees, transfers, logs, state changes and execution trace for Ink transaction ${view.id}.`,
+      `Ink · ${t("transactions")} ${short(view.id, 12, 10)}`,
+      t("txIntro"),
     ];
   if (view.name === "block")
     return [
-      `Ink block ${view.id}`,
-      `Transactions, gas, fees, size and hashes for Ink block ${view.id}.`,
+      `Ink · ${t("blocks")} ${view.id}`,
+      t("blocksIntro"),
     ];
   if (view.name === "address")
     return [
-      `Ink address ${short(view.id, 12, 10)}`,
-      `Balance, assets, NFTs, activity, contract source and deployment details for Ink address ${view.id}.`,
+      `Ink · ${t("address")} ${short(view.id, 12, 10)}`,
+      t("homeDescription"),
     ];
   if (view.name === "token")
     return [
-      `Ink token ${short(view.id, 12, 10)}`,
-      `Supply, holders, transfers and NFT instances for Ink token ${view.id}.`,
+      `Ink · ${t("tokens")} ${short(view.id, 12, 10)}`,
+      t("tokenDirectory"),
     ];
   if (view.name === "nft")
     return [
-      `Ink NFT ${view.tokenId}`,
-      `Owner, metadata, attributes, media and transfer history for NFT ${view.tokenId} on Ink.`,
+      `Ink · ${t("nftInstance")} ${view.tokenId}`,
+      t("tokenDirectory"),
     ];
   if (view.name === "pool")
     return [
-      `Ink pool ${short(view.id, 12, 10)}`,
-      `Liquidity, 24-hour volume, fee tier, paired tokens, DEX and contract activity for Ink pool ${view.id}.`,
+      `Ink · ${t("pool")} ${short(view.id, 12, 10)}`,
+      t("poolIntro"),
     ];
-  return base[view.name] || [t("pageNotFound"), t("defaultDescription")];
+  return base[view.name] || [t("pageNotFound"), t("homeDescription")];
 }
 
 export default function App() {
@@ -4814,8 +4783,7 @@ export default function App() {
   return (
     <>
       <LiquidAtmosphere />
-      <a className="skip-link" href="#main-content">
-        Skip to content
+      <a className="skip-link" href="#main-content">{t("Skip to content")}
       </a>
       <Header
         current={view.name}

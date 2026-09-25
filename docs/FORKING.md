@@ -58,7 +58,7 @@ The API credentials and local RPC addresses belong in `.env` files or process en
 | --- | --- |
 | Change browser routes, tables, transaction details or data formatting | `src/App.tsx` |
 | Change network labels, browser wallet chain ID and external explorer/RPC links | `src/network.ts` |
-| Change visible translated labels | `src/i18n.ts` |
+| Change visible translated labels | `src/i18n.ts`, `src/page-copy.ts`, `src/dynamic-copy.ts` |
 | Change visual tokens and responsive rules | `src/styles.css`, `src/contracts.css`, `docs/DESIGN_SYSTEM.md` |
 | Change wallet identicons or token image routing | `src/EntityMark.tsx`, `src/media.ts` |
 | Change contract ABI forms or wallet behavior | `src/ContractInteraction.tsx`, `src/contract-abi.ts` |
@@ -73,7 +73,7 @@ The API credentials and local RPC addresses belong in `.env` files or process en
 
 1. Confirm that the chain has a compatible Blockscout v2 API and Stats Service, or replace the server adapters. Check `/api/overview`, `/api/explorer/blocks`, `/api/explorer/transactions`, `/api/stats/*` and `/api/contract-info/pools` against your indexer. Pool pages depend on Contract Info and should be removed or replaced if that service has no data for your chain.
 2. Update the chain IDs, names, public RPC and external explorer URLs in `src/network.ts` **and** the corresponding server choices in `server/server.mjs`. The current code has two fixed networks and a `/testnet/` prefix; add an explicit routing design before introducing a third.
-3. Replace Ink-specific page copy in `src/App.tsx`, `src/i18n.ts`, `index.html`, the manifest, SEO descriptions and JSON-LD in `server/server.mjs`. Search for `Ink`, `57073`, `763373`, `inkonchain`, `OP-Reth` and `OP Node`. Review every translation instead of mechanically replacing names inside sentences.
+3. Replace Ink-specific page copy in `src/App.tsx`, `src/i18n.ts`, `src/page-copy.ts`, `src/dynamic-copy.ts`, `index.html`, the manifest, SEO descriptions and JSON-LD in `server/server.mjs`. Search for `Ink`, `57073`, `763373`, `inkonchain`, `OP-Reth` and `OP Node`. Review every translation instead of mechanically replacing names inside sentences.
 4. Replace the Ink symbols in `public/brand/` and update the icon and social image paths in `index.html`, `public/manifest.webmanifest` and `server/server.mjs`. Third-party marks are not covered by the code's MIT license.
 5. Adapt the health probes. `optimism_syncStatus`, `opp2p_peerStats`, safe/finalized L2 heads and Optimism deposit/withdrawal pages are OP Stack features. For a different execution or rollup stack, implement truthful probes or remove those panels. Never label a public indexer as a local node.
 6. Review contract writes for the new chain. The browser checks wallet chain ID; the server checks chain ID again before forwarding read/simulation RPC. Keep the server's signing and broadcast ban.

@@ -6,7 +6,7 @@ The code is MIT licensed. You can run your own instance, fix a bug or adapt the 
 
 Contract pages support ABI-based reads and wallet-confirmed writes, including proxy implementations and custom ABIs. The server does not hold keys or submit transactions on a user's behalf.
 
-The interface is English-first and includes navigation and entity terminology for Chinese, Hindi, Spanish, French, Arabic, Bengali, Portuguese, Russian and Japanese. Arabic uses a right-to-left layout. Locale-aware numbers, dates, canonical links and language alternatives are generated without a translation service.
+The interface uses English as its source language and provides translated page content, navigation and entity terminology in Chinese, Hindi, Spanish, French, Arabic, Bengali, Portuguese, Russian and Japanese. Project documentation is in English. Arabic uses a right-to-left layout. Locale-aware numbers, dates, canonical links and language alternatives are generated without a translation service.
 
 ## Explorer coverage
 

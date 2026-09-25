@@ -1,51 +1,51 @@
-# Ink Explorer — règles visuelles partagées
+# Ink Explorer — shared visual rules
 
-La source des valeurs visuelles est le bloc `:root` de `src/styles.css`. Les composants conservent leur disposition et leur fonction ; les variantes ci-dessous définissent leur apparence commune.
+The `:root` block in `src/styles.css` is the source of visual tokens. Components keep their layout and purpose; the families below define their shared appearance.
 
-| Famille | Règles |
+| Family | Rules |
 | --- | --- |
-| Texte d’interface, noms de pools, contrats et NFTs | `--font-ui` : Plus Jakarta Sans, avec repli Arial/sans-serif |
-| Identifiants, adresses, hashes, numéros de blocs et code | `--font-mono` : DM Mono, avec repli monospace |
-| Cartes de métriques, contrats, NFTs et statistiques | `--surface-card`, `--line`, `--radius-card`, `--shadow-card` |
-| Panneaux de données, fiches, tableaux et zones de code | `--surface-panel`, `--line`, `--radius-panel`, `--shadow-panel` |
-| Bandeaux de pages et de détails | `--radius-hero` et le dégradé violet existant |
-| En-têtes de tableaux et sections de code repliables | `--surface-header` |
-| Champs de recherche | `--surface-field`, `--field-border`, `--shadow-field`, `--radius-control` |
-| Action principale | `--action-fill`, texte blanc, `--radius-control`, `--shadow-action` |
-| Action secondaire | fond `--paper`, bordure `--line`, survol `--surface-hover` |
-| Lien contextuel dans une fiche | texte violet, fond transparent ; survol clair |
-| Onglets et sélecteurs de période | conteneur `--surface-muted`, coins `--radius-control`, éléments internes `--radius-inset` |
-| Source, données d’entrée et JSON | `--surface-code`, `--text-on-dark`, `--font-mono` |
-| Badges de statut | `--radius-pill`, couleur sémantique succès/erreur ; variante claire sur fond sombre |
-| Copie en ligne | bouton de 24 px, sans bordure native, `--radius-inset`, confirmation verte |
-| Erreur | `--surface-error`, `--border-error`, message et action de reprise |
-| Graphique sans données | surface secondaire, bordure discrète, hauteur minimale conservée et message d’état |
+| Interface text, pool names, contracts and NFTs | `--font-ui`: Plus Jakarta Sans, falling back to Arial/sans-serif |
+| Identifiers, addresses, hashes, block numbers and code | `--font-mono`: DM Mono, falling back to monospace |
+| Metric, contract, NFT and statistics cards | `--surface-card`, `--line`, `--radius-card`, `--shadow-card` |
+| Data panels, details, tables and code areas | `--surface-panel`, `--line`, `--radius-panel`, `--shadow-panel` |
+| Page and detail heroes | `--radius-hero` and the existing purple gradient |
+| Table headers and collapsible code sections | `--surface-header` |
+| Search fields | `--surface-field`, `--field-border`, `--shadow-field`, `--radius-control` |
+| Primary action | `--action-fill`, white text, `--radius-control`, `--shadow-action` |
+| Secondary action | `--paper` background, `--line` border, `--surface-hover` on hover |
+| Contextual link in a detail panel | Purple text, transparent background, light hover state |
+| Tabs and period selectors | `--surface-muted` container, `--radius-control` corners, `--radius-inset` inner elements |
+| Source, input data and JSON | `--surface-code`, `--text-on-dark`, `--font-mono` |
+| Status badges | `--radius-pill`, semantic success/error colour; light variant on dark backgrounds |
+| Inline copy | 24 px button, no native border, `--radius-inset`, green confirmation |
+| Error | `--surface-error`, `--border-error`, message and retry action |
+| Chart without data | Secondary surface, subtle border, preserved minimum height and state message |
 
-## Tailles et interactions
+## Sizes and interactions
 
-- Bandeaux : rayon de 24 px sur ordinateur, 20 px en format compact.
-- Panneaux : rayon de 20 px sur ordinateur, 18 px en format compact.
-- Cartes : rayon de 18 px sur ordinateur, 16 px en format compact.
-- Commandes : rayon de 10 px ; hauteur minimale commune de 36 px, puis 44 px jusqu’à 760 px. Les liens de texte et les boutons de copie intégrés aux données gardent leur format compact.
-- Éléments internes : rayon de 8 px ; statuts : forme de pilule.
-- Le focus clavier utilise `--focus-color` avec un contour de 3 px. Les champs composés possèdent aussi un indicateur `focus-within`.
-- Les commandes désactivées gardent leur fond au survol, avec une opacité de 0,45 et un curseur explicite.
-- Les actions de copie affichent une coche et le nom accessible « Copié » après l’opération.
+- Heroes: 24 px radius on desktop, 20 px in compact layouts.
+- Panels: 20 px radius on desktop, 18 px in compact layouts.
+- Cards: 18 px radius on desktop, 16 px in compact layouts.
+- Controls: 10 px radius; shared minimum height of 36 px, then 44 px up to 760 px viewport width. Text links and inline data copy buttons remain compact.
+- Inner elements: 8 px radius; statuses use pill shapes.
+- Keyboard focus uses `--focus-color` with a 3 px outline. Compound fields also show a `focus-within` indicator.
+- Disabled controls keep their background on hover, with 0.45 opacity and an explicit cursor.
+- Copy actions show a checkmark and the accessible label “Copied” after completion.
 
-Les cartes sombres de statut, les zones de code, les illustrations de réseau et les surfaces d’accent sont des variantes fonctionnelles. Elles ne doivent pas être transformées en cartes claires uniquement pour égaliser les couleurs.
+Dark status cards, code areas, network illustrations and accent surfaces are functional variants. Keep their distinct appearance.
 
-Les bandeaux d’accueil, de listes et de détails utilisent le symbole officiel Ink de `public/brand/ink-symbol.svg` comme décor. Sa géométrie reste intacte ; l’agrandissement, une rotation de 12° vers la droite et le recadrage l’intègrent au fond. Le motif s’estompe derrière le texte et ne reçoit aucune interaction.
+Home, list and detail heroes use the official Ink symbol from `public/brand/ink-symbol.svg` as decoration. Its geometry remains intact; scaling, a 12° clockwise rotation and cropping integrate it into the background. The motif fades behind text and has no interaction.
 
-L’en-tête utilise le logo horizontal officiel de `public/brand/ink-wordmark.svg` avec « Explorer » en sous-titre. Le pied de page affiche ce même logo en blanc sur fond sombre.
+The header uses the official horizontal logo from `public/brand/ink-wordmark.svg` with “Explorer” as a subtitle. The footer shows the same logo in white on a dark background.
 
-## Prévenir les régressions
+## Preventing regressions
 
 ```bash
 npm run test:style
 ```
 
-Le test compare les styles calculés dans Chrome aux variables partagées sur les routes réelles, y compris les détails, le code source et les NFTs. Il couvre aussi survol, focus clavier, sélection, désactivation, copie et états réseau simulés. Il refuse les contrôles ayant récupéré une bordure native `inset`/`outset`.
+The test compares computed styles in Chrome against the shared tokens on real routes, including detail pages, source code and NFTs. It covers hover, keyboard focus, selection, disabled controls, copy feedback and simulated network states. It rejects controls that have regained a native `inset` or `outset` border.
 
-Pour une vérification ciblée : `STYLE_WIDTHS=390,1440 npm run test:style`.
+For a focused check: `STYLE_WIDTHS=390,1440 npm run test:style`.
 
-Ajouter toute nouvelle famille visuelle à cette documentation et aux contrôles de `scripts/style-consistency-test.mjs`. Réutiliser une variable de famille existante avant de créer une couleur, un rayon ou une ombre propre à une page.
+Add each new visual family to this document and to `scripts/style-consistency-test.mjs`. Reuse an existing family token before adding a page-specific colour, radius or shadow.
