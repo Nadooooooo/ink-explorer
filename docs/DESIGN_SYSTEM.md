@@ -34,7 +34,7 @@ La source des valeurs visuelles est le bloc `:root` de `src/styles.css`. Les com
 
 Les cartes sombres de statut, les zones de code, les illustrations de réseau et les surfaces d’accent sont des variantes fonctionnelles. Elles ne doivent pas être transformées en cartes claires uniquement pour égaliser les couleurs.
 
-Les bandeaux d’accueil, de listes et de détails utilisent le symbole officiel Ink de `public/brand/ink-symbol.svg` comme décor. Sa géométrie reste intacte ; l’agrandissement, une légère rotation de 8° et le recadrage l’intègrent au fond. Le motif s’estompe derrière le texte et ne reçoit aucune interaction.
+Les bandeaux d’accueil, de listes et de détails utilisent le symbole officiel Ink de `public/brand/ink-symbol.svg` comme décor. Sa géométrie reste intacte ; l’agrandissement, une rotation de 12° vers la droite et le recadrage l’intègrent au fond. Le motif s’estompe derrière le texte et ne reçoit aucune interaction.
 
 L’en-tête utilise le logo horizontal officiel de `public/brand/ink-wordmark.svg` avec « Explorer » en sous-titre. Le pied de page affiche ce même logo en blanc sur fond sombre.
 

@@ -4456,7 +4456,7 @@ main > .error-state,
   background: url("/brand/ink-symbol.svg") center / contain no-repeat;
   mask-image: linear-gradient(100deg, transparent 6%, #000 70%);
   opacity: 0.32;
-  transform: translateY(-50%) rotate(-8deg);
+  transform: translateY(-50%) rotate(12deg);
   pointer-events: none;
 }
 
@@ -4472,7 +4472,7 @@ main > .error-state,
     linear-gradient(0deg, transparent, #000 24%, #000 76%, transparent);
   mask-composite: intersect;
   opacity: 0.32;
-  transform: rotate(-8deg);
+  transform: rotate(12deg);
 }
 
 .page-intro h1 {
