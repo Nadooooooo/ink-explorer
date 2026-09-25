@@ -55,6 +55,8 @@ For the Sepolia worker, copy `.env.sepolia.example` to `.env.sepolia` before sta
 | `HOST`                   | `0.0.0.0`                                | HTTP bind address; testnet worker uses loopback |
 | `INK_NETWORK`            | mainnet                                  | `sepolia` selects chain 763373 and its upstreams |
 | `PUBLIC_URL`             | request origin                           | Canonical, sitemap and Open Graph origin |
+| `EXPLORER_BROWSER_ORIGIN` | empty                                    | Exact HTTPS origin allowed to read the API from a separate browser site |
+| `VITE_API_ORIGIN`        | empty                                    | HTTPS origin of the API for a static frontend build; empty keeps same-origin requests |
 | `BLOCKSCOUT_API`         | Ink Blockscout v2                        | Indexed chain history                    |
 | `BLOCKSCOUT_STATS_API`   | Ink Stats Service                        | Counters and time series                 |
 | `CONTRACT_INFO_API`      | Blockscout Contract Info for chain 57073 | DEX pool market metadata                 |
@@ -66,6 +68,8 @@ For the Sepolia worker, copy `.env.sepolia.example` to `.env.sepolia` before sta
 | `INK_L1_FAILOVER_STATUS` | `http://127.0.0.1:18545/readyz`          | Optional local L1 relay health           |
 
 ## Data and caching
+
+A static frontend such as Vercel does not run `server/server.mjs`. To connect it to a private Tailscale Serve endpoint, set `VITE_API_ORIGIN` in the frontend build environment to the Serve HTTPS origin and `EXPLORER_BROWSER_ORIGIN` on both server workers to the exact frontend origin. Redeploy the frontend and restart both workers after changing these values. The browser must be connected to the tailnet to reach the API; Tailscale Serve does not make the node public. The API permits cross-origin reads and contract simulations only from that configured origin. Do not put RPC credentials or local RPC URLs in `VITE_*` variables.
 
 Ink Blockscout API v2 and Stats Service provide network-wide indexed history. Blockscout Contract Info supplies pool discovery and market estimates. OP-Reth and OP Node provide only the operator's independent live checks.
 

@@ -223,7 +223,8 @@ export const pageCopy: Record<string, Record<string, string>> = {
     "Pool catalogue returned a repeated cursor": "Le catalogue des pools a renvoyé un curseur déjà utilisé",
     "Pool catalogue exceeded the safe pagination limit": "Le catalogue des pools a dépassé la limite de pagination sécurisée",
     "Contract query failed": "La requête du contrat a échoué",
-    "Response belongs to another network": "La réponse provient d’un autre réseau"
+    "Response belongs to another network": "La réponse provient d’un autre réseau",
+    "Private API unavailable. Check your Tailscale connection and retry.": "API privée indisponible. Vérifiez votre connexion Tailscale puis réessayez."
   },
   "es": {
     "Not enough data": "No hay suficientes datos",
@@ -448,7 +449,8 @@ export const pageCopy: Record<string, Record<string, string>> = {
     "Pool catalogue returned a repeated cursor": "El catálogo de pools devolvió un cursor repetido",
     "Pool catalogue exceeded the safe pagination limit": "El catálogo de pools superó el límite seguro de paginación",
     "Contract query failed": "La consulta del contrato falló",
-    "Response belongs to another network": "La respuesta pertenece a otra red"
+    "Response belongs to another network": "La respuesta pertenece a otra red",
+    "Private API unavailable. Check your Tailscale connection and retry.": "La API privada no está disponible. Comprueba tu conexión a Tailscale e inténtalo de nuevo."
   },
   "pt": {
     "Not enough data": "Dados insuficientes",
@@ -673,7 +675,8 @@ export const pageCopy: Record<string, Record<string, string>> = {
     "Pool catalogue returned a repeated cursor": "O catálogo de pools retornou um cursor repetido",
     "Pool catalogue exceeded the safe pagination limit": "O catálogo de pools excedeu o limite seguro de paginação",
     "Contract query failed": "A consulta do contrato falhou",
-    "Response belongs to another network": "A resposta pertence a outra rede"
+    "Response belongs to another network": "A resposta pertence a outra rede",
+    "Private API unavailable. Check your Tailscale connection and retry.": "A API privada está indisponível. Verifique sua conexão com a Tailscale e tente novamente."
   },
   "ru": {
     "Not enough data": "Недостаточно данных",
@@ -898,7 +901,8 @@ export const pageCopy: Record<string, Record<string, string>> = {
     "Pool catalogue returned a repeated cursor": "Каталог пулов вернул повторяющийся курсор",
     "Pool catalogue exceeded the safe pagination limit": "Каталог пулов превысил безопасный предел страниц",
     "Contract query failed": "Запрос к контракту не удался",
-    "Response belongs to another network": "Ответ относится к другой сети"
+    "Response belongs to another network": "Ответ относится к другой сети",
+    "Private API unavailable. Check your Tailscale connection and retry.": "Частный API недоступен. Проверьте подключение к Tailscale и повторите попытку."
   },
   "zh": {
     "Not enough data": "数据不足",
@@ -1123,7 +1127,8 @@ export const pageCopy: Record<string, Record<string, string>> = {
     "Pool catalogue returned a repeated cursor": "流动性池目录返回了重复的游标",
     "Pool catalogue exceeded the safe pagination limit": "流动性池目录超过了安全分页限制",
     "Contract query failed": "合约查询失败",
-    "Response belongs to another network": "响应来自其他网络"
+    "Response belongs to another network": "响应来自其他网络",
+    "Private API unavailable. Check your Tailscale connection and retry.": "私人 API 不可用。请检查 Tailscale 连接后重试。"
   },
   "ja": {
     "Not enough data": "十分なデータがない",
@@ -1348,7 +1353,8 @@ export const pageCopy: Record<string, Record<string, string>> = {
     "Pool catalogue returned a repeated cursor": "プール一覧が重複したカーソルを返しました",
     "Pool catalogue exceeded the safe pagination limit": "プール一覧が安全なページ分割の上限を超えました",
     "Contract query failed": "コントラクトの照会に失敗しました",
-    "Response belongs to another network": "応答は別のネットワークのものです"
+    "Response belongs to another network": "応答は別のネットワークのものです",
+    "Private API unavailable. Check your Tailscale connection and retry.": "プライベート API に接続できません。Tailscale の接続を確認して再試行してください。"
   },
   "hi": {
     "Not enough data": "पर्याप्त डेटा नहीं",
@@ -1573,7 +1579,8 @@ export const pageCopy: Record<string, Record<string, string>> = {
     "Pool catalogue returned a repeated cursor": "पूल सूची ने दोहराया हुआ कर्सर लौटाया",
     "Pool catalogue exceeded the safe pagination limit": "पूल सूची सुरक्षित पेज सीमा से आगे चली गई",
     "Contract query failed": "कॉन्ट्रैक्ट क्वेरी विफल रही",
-    "Response belongs to another network": "जवाब किसी दूसरे नेटवर्क से आया"
+    "Response belongs to another network": "जवाब किसी दूसरे नेटवर्क से आया",
+    "Private API unavailable. Check your Tailscale connection and retry.": "निजी API उपलब्ध नहीं है। Tailscale कनेक्शन जाँचें और दोबारा कोशिश करें।"
   },
   "ar": {
     "Not enough data": "بيانات غير كافية",
@@ -1798,7 +1805,8 @@ export const pageCopy: Record<string, Record<string, string>> = {
     "Pool catalogue returned a repeated cursor": "أعاد دليل المجمعات مؤشرًا مكررًا",
     "Pool catalogue exceeded the safe pagination limit": "تجاوز دليل المجمعات حد الصفحات الآمن",
     "Contract query failed": "فشل الاستعلام عن العقد",
-    "Response belongs to another network": "الاستجابة تخص شبكة أخرى"
+    "Response belongs to another network": "الاستجابة تخص شبكة أخرى",
+    "Private API unavailable. Check your Tailscale connection and retry.": "واجهة API الخاصة غير متاحة. تحقق من اتصال Tailscale ثم أعد المحاولة."
   },
   "bn": {
     "Not enough data": "তথ্য পর্যাপ্ত নয়",
@@ -2023,6 +2031,7 @@ export const pageCopy: Record<string, Record<string, string>> = {
     "Pool catalogue returned a repeated cursor": "পুল তালিকা একই কার্সর আবার ফিরিয়েছে",
     "Pool catalogue exceeded the safe pagination limit": "পুল তালিকা নিরাপদ পৃষ্ঠা সীমা অতিক্রম করেছে",
     "Contract query failed": "কন্ট্র্যাক্ট কোয়েরি ব্যর্থ হয়েছে",
-    "Response belongs to another network": "উত্তরটি অন্য নেটওয়ার্কের"
+    "Response belongs to another network": "উত্তরটি অন্য নেটওয়ার্কের",
+    "Private API unavailable. Check your Tailscale connection and retry.": "ব্যক্তিগত API উপলব্ধ নয়। Tailscale সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।"
   }
 };

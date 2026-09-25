@@ -2,7 +2,7 @@
 
 Ink Explorer has two deployable layers:
 
-1. `src/` is a React/Vite single-page interface. It renders explorer routes and maintains the WebSocket connection. Indexed and read RPC requests use the same origin; transactions are explicitly requested from the user's browser wallet.
+1. `src/` is a React/Vite single-page interface. It renders explorer routes and maintains the WebSocket connection. Indexed and read RPC requests use the same origin by default; a static frontend can point to a private HTTPS API with `VITE_API_ORIGIN`. Transactions are explicitly requested from the user's browser wallet.
 2. `server/server.mjs` serves the built files, injects route-specific SEO metadata, provides a read-only API facade, maintains bounded upstream and NFT media caches, and samples the local execution and rollup nodes.
 
 Cache entries are capped in memory. The server prunes upstream disk snapshots older than 24 hours or above 256 MB and media older than 30 days or above 512 MB. Pruning runs in the background, so concurrent writes may briefly exceed a disk target. Cache files are disposable and are excluded from Git.

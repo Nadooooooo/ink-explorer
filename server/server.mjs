@@ -37,12 +37,14 @@ const contractInfoApi = (
   `https://contracts-info.services.blockscout.com/api/v1/chains/${chainId}`
 ).replace(/\/$/, "");
 const configuredPublicUrl = process.env.PUBLIC_URL?.replace(/\/$/, "");
+const browserOrigin = process.env.EXPLORER_BROWSER_ORIGIN?.trim().replace(/\/$/, "");
 const rpcUrl = process.env.INK_RPC || `http://127.0.0.1:${testnet ? 8645 : 8545}`;
 const opNodeRpc = process.env.INK_OP_NODE_RPC || `http://127.0.0.1:${testnet ? 9645 : 9545}`;
 const metricsUrl = process.env.INK_METRICS_URL || `http://127.0.0.1:${testnet ? 9101 : 9001}/metrics`;
 const nodeDataDir = process.env.INK_NODE_DATA_DIR?.trim();
 const contractRpc = createContractRpc({ localUrl: rpcUrl, chainId,
-  publicUrl: process.env.INK_PUBLIC_RPC || (testnet ? "https://rpc-gel-sepolia.inkonchain.com" : "https://rpc-gel.inkonchain.com") });
+  publicUrl: process.env.INK_PUBLIC_RPC || (testnet ? "https://rpc-gel-sepolia.inkonchain.com" : "https://rpc-gel.inkonchain.com"),
+  browserOrigin });
 const l1FailoverStatusUrl =
   process.env.INK_L1_FAILOVER_STATUS || "http://127.0.0.1:18545/readyz";
 const startedAt = Date.now();
@@ -943,6 +945,28 @@ const server = http.createServer(async (req, res) => {
     url = new URL(req.url || "/", "http://localhost");
   } catch {
     return json(res, 400, { error: "Invalid request URL" });
+  }
+  const allowedBrowserRequest =
+    url.pathname.startsWith("/api/") &&
+    browserOrigin &&
+    req.headers.origin === browserOrigin;
+  if (allowedBrowserRequest) {
+    res.setHeader("access-control-allow-origin", browserOrigin);
+    res.setHeader("vary", "Origin");
+  }
+  if (req.method === "OPTIONS" && url.pathname.startsWith("/api/")) {
+    if (!allowedBrowserRequest || !["GET", "HEAD", "POST"].includes(
+      String(req.headers["access-control-request-method"] || "").toUpperCase(),
+    )) return json(res, 403, { error: "Cross-origin request not allowed" });
+    res.writeHead(204, {
+      "access-control-allow-methods": "GET, HEAD, POST",
+      "access-control-allow-headers": "content-type",
+      "access-control-max-age": "600",
+      ...(req.headers["access-control-request-private-network"] === "true"
+        ? { "access-control-allow-private-network": "true" }
+        : {}),
+    });
+    return res.end();
   }
   if (url.pathname.startsWith("/api/") && url.search.length > 4096)
     return json(res, 414, { error: "Query string too long" });

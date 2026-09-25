@@ -51,7 +51,7 @@ import {
 import { formatMessage, isLocale, localeNames, locales, message, type Locale } from "./i18n";
 import { EntityMark } from "./EntityMark";
 import { mediaUrl } from "./media";
-import { API, basePath, network, networkPath, isTestnet } from "./network";
+import { API, apiOrigin, basePath, network, networkPath, isTestnet, liveWebSocketUrl } from "./network";
 const ContractInteraction = lazy(() => import("./ContractInteraction"));
 
 type AnyRow = Record<string, any>;
@@ -183,7 +183,13 @@ function labelOf(value: any) {
     : null;
 }
 async function get<T = any>(path: string): Promise<T> {
-  const res = await fetch(`${API}${path}`);
+  let res: Response;
+  try {
+    res = await fetch(`${API}${path}`);
+  } catch (error) {
+    if (apiOrigin) throw new Error(t("Private API unavailable. Check your Tailscale connection and retry."));
+    throw error;
+  }
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error || t("Data source unavailable"));
   return body;
@@ -198,8 +204,7 @@ function useLiveStream(): LiveData {
       timer: number | undefined;
     const connect = () => {
       if (stopped) return;
-      const scheme = location.protocol === "https:" ? "wss" : "ws";
-      socket = new WebSocket(`${scheme}://${location.host}${API}/live`);
+      socket = new WebSocket(liveWebSocketUrl);
       socket.onopen = () => {
         retry = 0;
         setLive((v) => ({ ...v, connected: true }));
@@ -3766,7 +3771,7 @@ function DevelopersPage() {
           <Activity />
           <span>{t("LIVE STREAM")}</span>
           <h2>WebSocket</h2>
-          <code>{location.protocol === "https:" ? "wss" : "ws"}://{location.host}{API}/live</code>
+          <code>{liveWebSocketUrl}</code>
           <code>ink-observer.live.v1</code>
           <code>{API}/live/status</code>
           <p>{t("New block and node-status messages every two seconds. Frames include sequence IDs and timestamps; clients reconnect automatically.")}

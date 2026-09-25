@@ -13,7 +13,15 @@ export const network = isTestnet
       rpc: "https://rpc-gel.inkonchain.com",
       explorer: "https://explorer.inkonchain.com",
     };
-export const API = `${basePath}/api`;
+// A static deployment can use the private HTTPS API exposed through Tailscale.
+// The value is a public origin, never an RPC credential or a local node URL.
+export const apiOrigin = (import.meta.env.VITE_API_ORIGIN || "").replace(/\/$/, "");
+export const API = `${apiOrigin}${basePath}/api`;
+export const liveWebSocketUrl = (() => {
+  const url = new URL(`${API}/live`, location.href);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  return url.toString();
+})();
 export function networkPath(path: string) {
   return `${basePath}${path.startsWith("/") ? path : `/${path}`}`;
 }

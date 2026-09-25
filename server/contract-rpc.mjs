@@ -52,7 +52,7 @@ export function validateRpc(method, params) {
   throw new Error("RPC method not allowed");
 }
 
-export function createContractRpc({ localUrl, publicUrl, chainId }) {
+export function createContractRpc({ localUrl, publicUrl, chainId, browserOrigin }) {
   const call = async (url, method, params) => {
     const response = await fetch(url, {
       method: "POST",
@@ -76,6 +76,7 @@ export function createContractRpc({ localUrl, publicUrl, chainId }) {
     try {
       if (
         req.headers.origin &&
+        req.headers.origin !== browserOrigin &&
         new URL(req.headers.origin).host !== req.headers.host
       )
         return send(403, {
