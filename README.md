@@ -69,7 +69,7 @@ For the Sepolia worker, copy `.env.sepolia.example` to `.env.sepolia` before sta
 
 ## Data and caching
 
-A static frontend such as Vercel does not run `server/server.mjs`. To connect it to a private Tailscale Serve endpoint, set `VITE_API_ORIGIN` in the frontend build environment to the Serve HTTPS origin and `EXPLORER_BROWSER_ORIGIN` on both server workers to the exact frontend origin. Redeploy the frontend and restart both workers after changing these values. The browser must be connected to the tailnet to reach the API; Tailscale Serve does not make the node public. The API permits cross-origin reads and contract simulations only from that configured origin. Do not put RPC credentials or local RPC URLs in `VITE_*` variables.
+A static frontend such as Vercel does not run `server/server.mjs`. To connect it to a private Tailscale Serve endpoint, set `VITE_API_ORIGIN` in the frontend build environment to the Serve HTTPS origin and `EXPLORER_BROWSER_ORIGIN` on both server workers to the exact frontend origin. Redeploy the frontend and restart both workers after changing these values. The browser must be connected to the tailnet to reach the API; modern browsers may also ask for local-network access permission. Tailscale Serve does not make the node public. The API permits cross-origin reads and contract simulations only from that configured origin. Do not put RPC credentials or local RPC URLs in `VITE_*` variables. `vercel.json` routes deep links back to the single-page interface.
 
 Ink Blockscout API v2 and Stats Service provide network-wide indexed history. Blockscout Contract Info supplies pool discovery and market estimates. OP-Reth and OP Node provide only the operator's independent live checks.
 

@@ -187,7 +187,7 @@ async function get<T = any>(path: string): Promise<T> {
   try {
     res = await fetch(`${API}${path}`);
   } catch (error) {
-    if (apiOrigin) throw new Error(t("Private API unavailable. Check your Tailscale connection and retry."));
+    if (apiOrigin) throw new Error(t("Private API unavailable. Connect to Tailscale, allow local network access in your browser, and retry."));
     throw error;
   }
   const body = await res.json().catch(() => ({}));
