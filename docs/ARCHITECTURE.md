@@ -13,20 +13,22 @@ Cache entries are capped in memory. The server prunes upstream disk snapshots ol
 
 | Area | Components |
 | --- | --- |
-| Navigation and shared states | `Header`, `SearchBox`, `Loading`, `ErrorState`, `Empty` |
+| Navigation and shared states | `Header`, `SearchBox`, `SectionTabs`, `Loading`, `ErrorState`, `Empty` |
 | Overview and indexed lists | `Home`, `HomeData`, `LedgerList`, `Pagination` |
 | Blocks, transactions and accounts | `BlockDetail`, `TxDetail`, `AddressDetail` |
 | Tokens, NFTs and pools | `Tokens`, `TokenDetail`, `NftDetail`, `Pools`, `PoolDetail` |
 | Analytics and node status | `Analytics`, `NetworkPage` |
 | Route selection and locale | `route`, `pageMetadata`, `App` |
 
-Contract write UI lives separately in `src/ContractInteraction.tsx`; network constants live in `src/network.ts`; translations live in `src/i18n.ts`, `src/page-copy.ts` and `src/dynamic-copy.ts`. `src/styles.css` starts with shared tokens and component rules, then contains later responsive and visual refinements. Put new rules near the relevant component and check whether a later media query overrides them. Extract a component when a page family grows substantially rather than extending the main file indefinitely.
+Advanced transaction filtering lives in `src/FilteredActivity.tsx`, with shared query/decimal/CSV handling in `src/activity-data.ts` and ten-language copy in `src/activity-copy.ts`. It loads lazily from the transaction list.
+
+Contract write UI lives separately in `src/ContractInteraction.tsx`; network constants live in `src/network.ts`; translations live in `src/i18n.ts`, `src/page-copy.ts` and `src/dynamic-copy.ts`. `src/styles.css` starts with shared tokens and component rules, then contains later responsive and visual refinements. `src/mobile.css` holds shared touch typography, section selection and mobile ergonomics, and is imported last. Put new rules near the relevant component and check whether a later media query overrides them. Extract a component when a page family grows substantially rather than extending the main file indefinitely.
 
 ## Data sources
 
 | Source | Purpose | Failure behaviour |
 | --- | --- | --- |
-| Ink Blockscout API v2 | Blocks, transactions, addresses, contracts, tokens and NFTs | Retry, then use a disk snapshot up to 24 hours old |
+| Ink Blockscout API v2 | Blocks, transactions, addresses, contracts, tokens and NFTs | Retry, then use a disk snapshot up to 24 hours old; advanced filtered queries reject expired snapshots on failure |
 | Blockscout Stats Service | Time-series analytics and counters | Cached for 15 seconds; errors remain visible |
 | Blockscout Contract Info | DEX pool pairs, DEX, fees, liquidity and volume | Cached for 15 seconds; values carry a market-data caveat |
 | Local OP-Reth | Head, sync, peers, gas and live blocks | Never replaced by public index data |

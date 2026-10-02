@@ -1,10 +1,19 @@
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { blo } from "blo";
 import { mediaUrl } from "./media";
 
 const ADDRESS = /^0x[a-fA-F0-9]{40}$/;
+const identicons = new Map<string, string>();
+function identicon(address: `0x${string}`) {
+  const cached = identicons.get(address);
+  if (cached) return cached;
+  const image = blo(address, 24);
+  identicons.set(address, image);
+  if (identicons.size > 512) identicons.delete(identicons.keys().next().value!);
+  return image;
+}
 
-export function EntityMark({
+export const EntityMark = memo(function EntityMark({
   address,
   src,
   label,
@@ -40,10 +49,10 @@ export function EntityMark({
       {src && !failed ? (
         <img src={mediaUrl(src)} alt="" onError={() => setFailed(true)} />
       ) : walletAddress ? (
-        <img src={blo(walletAddress, 24)} alt="" />
+        <img src={identicon(walletAddress)} alt="" />
       ) : (
         initials
       )}
     </span>
   );
-}
+});

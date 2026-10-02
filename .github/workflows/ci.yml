@@ -20,7 +20,10 @@ jobs:
       - run: npm audit --include=dev --audit-level=high
       - run: npm run check
       - run: npm run build
+      - run: npm run test:data
+      - run: node --experimental-strip-types --test scripts/activity-data-test.mjs
       - run: npm run test:node-readiness
+      - run: npm run test:upstream-cache
       - name: Test server security boundary
         run: |
           npm start &

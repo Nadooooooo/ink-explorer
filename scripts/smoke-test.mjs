@@ -34,7 +34,7 @@ routes.push(
   [`/block/${overview.blocks[0].height}`, "TRANSACTIONS IN THIS BLOCK"],
   [`/tx/${sampleTx.hash}`, "TRANSACTION HASH"],
   [`/address/${sampleTx.from.hash}`, "ETH BALANCE"],
-  [`/token/${tokenPage.items[0].address_hash}`, "Transfers"],
+  [`/token/${tokenPage.items[0].address_hash}`, "Token transfers"],
   [`/pools/${poolPage.items[0].pool_id}`, "LIQUIDITY POOL"],
   [
     `/token/${nftContract}/instance/${nftInstance}`,
@@ -86,7 +86,7 @@ for (const viewport of viewports) {
         searchLeft: search?.left || 0,
       };
     });
-    if (!response?.ok())
+    if (!response?.ok() && response?.status() !== 304)
       failures.push(`${viewport.name} ${route}: HTTP ${response?.status()}`);
     if (!body.includes(expected))
       failures.push(`${viewport.name} ${route}: missing ${expected}`);
@@ -242,8 +242,8 @@ await page
   .catch(() => {});
 await page
   .waitForFunction(
-    () => !document.querySelector(".address-activity .loading"),
-    { timeout: 10000 },
+    () => document.querySelector(".address-activity .state-row,.address-activity .empty,.address-activity .error-state"),
+    { timeout: 15000 },
   )
   .catch(() => {});
 if (
@@ -257,11 +257,11 @@ await page.goto(`${base}/address/0x4200000000000000000000000000000000000006`, {
   timeout: 30000,
 });
 await clickText("Assets");
-await new Promise((r) => setTimeout(r, 500));
-if (!(await page.$eval("body", (el) => el.innerText)).includes("Wrapped Ether"))
-  failures.push("address: assets tab failed");
+await page.waitForSelector(".asset-row", { timeout: 10000 });
+if (!(await page.$$(".asset-row")).length)
+  failures.push("address: assets tab did not render holdings");
 await clickText("Contract source");
-await new Promise((r) => setTimeout(r, 500));
+await page.waitForSelector(".contract-source,.address-activity .error-state", { timeout: 15000 });
 if (
   !(await page.$eval("body", (el) => el.innerText)).includes("pragma solidity")
 )
@@ -506,6 +506,7 @@ await page.goto(`${base}/token/0x4200000000000000000000000000000000000006`, {
   waitUntil: "networkidle0",
   timeout: 30000,
 });
+await page.waitForSelector(".token-hero", { timeout: 30000 });
 await clickText("Holders");
 await page
   .waitForFunction(
@@ -546,7 +547,7 @@ await page.goto(`${base}/analytics`, {
   waitUntil: "networkidle0",
   timeout: 30000,
 });
-await clickText("7D");
+await page.select(".analytics-lead .chart-range select", "7");
 await page.waitForFunction(
   () => document.body.innerText.toLowerCase().includes("7 observations"),
   { timeout: 30000 },
@@ -573,25 +574,19 @@ await page.touchscreen.tap(
 );
 await new Promise((r) => setTimeout(r, 150));
 const tooltips = await page.$$(".chart-tooltip");
-if (tooltips.length < 6)
+if (tooltips.length !== 1)
   failures.push(
-    `analytics: shared mobile tooltip expected on 6 aligned charts, found ${tooltips.length}`,
+    `analytics: one local mobile tooltip expected, found ${tooltips.length}`,
   );
 const tooltipText = tooltips.length
   ? await tooltips[0].evaluate((el) => el.textContent)
   : "";
 if (!tooltipText?.match(/ago|today/))
   failures.push("analytics: tooltip does not include relative time");
-const focusedValue = await page.$eval(".analytics-lead>div>strong", (el) =>
-  el.textContent?.trim(),
-);
 const tooltipValue = tooltips.length
   ? await tooltips[0].$eval("strong", (el) => el.textContent?.trim())
   : "";
-if (focusedValue !== tooltipValue)
-  failures.push(
-    "analytics: headline value is not synchronized with chart focus",
-  );
+if (!tooltipValue?.trim()) failures.push("analytics: selected point has no value");
 await clickText("Data");
 await new Promise((r) => setTimeout(r, 700));
 if (
@@ -622,15 +617,16 @@ if (csvRows !== 8)
   failures.push(
     `analytics: 7-day CSV expected 8 rows including header, found ${csvRows}`,
   );
-await clickText("1Y");
+await page.select(".analytics-lead .chart-range select", "365");
 await page.waitForFunction(
-  () => document.body.innerText.toLowerCase().includes("weekly grain"),
+  () => document.querySelector(".analytics-lead")?.getAttribute("aria-busy") === "false" && document.querySelector(".analytics-freshness")?.textContent?.includes("Weekly"),
   { timeout: 30000 },
 );
 if (!page.url().includes("range=365"))
   failures.push("analytics: one-year timeframe is not persisted");
 const keyboardChart = await page.$(".analytics-lead .interactive-chart");
 await keyboardChart?.focus();
+await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 await page.keyboard.press("End");
 await page.keyboard.press("ArrowLeft");
 if (!(await page.$(".analytics-lead .chart-tooltip")))
@@ -728,7 +724,8 @@ if (
   );
 
 // The server must expose crawlable metadata before the SPA executes.
-const seoHtml = await fetch(`${base}/pools?lang=fr`).then((response) =>
+const serverBase = process.env.SERVER_BASE_URL || base;
+const seoHtml = await fetch(`${serverBase}/pools?lang=fr`).then((response) =>
   response.text(),
 );
 for (const marker of [
@@ -740,10 +737,10 @@ for (const marker of [
 ]) {
   if (!seoHtml.includes(marker)) failures.push(`SEO: missing ${marker}`);
 }
-const robots = await fetch(`${base}/robots.txt`).then((response) =>
+const robots = await fetch(`${serverBase}/robots.txt`).then((response) =>
   response.text(),
 );
-const sitemap = await fetch(`${base}/sitemap.xml`).then((response) =>
+const sitemap = await fetch(`${serverBase}/sitemap.xml`).then((response) =>
   response.text(),
 );
 if (

@@ -12,7 +12,7 @@ const api = path => fetch(base + path).then(response => response.json());
 const [overview, tokens, pools] = await Promise.all([api('/api/overview'), api('/api/explorer/tokens'), api('/api/contract-info/pools')]);
 const nftHolder = await sampleNftHolder(base);
 const routes = [
-  ['home', '/'], ['blocks', '/blocks'], ['transactions', '/txs'], ['tokens', '/tokens'], ['pools', '/pools'],
+  ['home', '/'], ['blocks', '/blocks'], ['transactions', '/txs'], ['filtered-activity','/txs?activity=filtered'], ['tokens', '/tokens'], ['pools', '/pools'],
   ['contracts', '/contracts'], ['analytics', '/analytics'], ['advanced', '/advanced'], ['developers', '/developers'], ['network', '/network'], ['search', '/search?q=WETH'],
   ['block', `/block/${overview.blocks[0].height}`], ['transaction', `/tx/${overview.transactions[0].hash}`],
   ['address', `/address/${overview.transactions[0].from.hash}`], ['token', `/token/${tokens.items[0].address_hash}`], ['pool', `/pools/${pools.items[0].pool_id}`],
@@ -39,7 +39,8 @@ async function inspect(page, name, width) {
       ['primary-actions', '.primary-action,.external-action:not(.entity-profile > .external-action),.not-found button,.pool-actions a', { backgroundImage: '--action-fill', borderTopLeftRadius: '--radius-control', fontFamily: '--font-ui' }],
       ['secondary-actions', '.pagination button,.analytics-actions button,.pool-pagination button,.pool-filter-status button,.pool-actions button,.ledger-filters button', { borderTopLeftRadius: '--radius-control', fontFamily: '--font-ui' }],
       ['search-fields', '.global-search,.pool-search', { backgroundColor: '--surface-field', borderTopColor: '--field-border', borderTopLeftRadius: '--radius-control', boxShadow: '--shadow-field' }],
-      ['selectors', '.language-picker select,.pool-filter-grid select,.pool-pagination select', { fontFamily: '--font-ui' }],
+      ['selectors', '.language-picker select,.pool-filter-grid select,.pool-pagination select,.chart-range select,.section-picker select', { fontFamily: '--font-ui' }],
+      ['mobile-sections', '.section-picker select', { borderTopLeftRadius: '--radius-control', borderTopColor: '--line', backgroundColor: '--surface-muted' }],
       ['code', '.code-panel pre,.contract-source pre,.raw-metadata pre', { backgroundColor: '--surface-code', color: '--text-on-dark', fontFamily: '--font-mono' }],
       ['errors', '.error-state', { borderTopLeftRadius: '--radius-panel' }],
       ['empty-chart', '.chart-empty', { backgroundColor: '--surface-muted', borderTopLeftRadius: '--radius-inset' }],
@@ -109,7 +110,8 @@ try {
     const hover = await page.$eval('.pool-row', el => getComputedStyle(el).backgroundColor);
     if (hover !== 'rgb(247, 242, 255)') failures.push(`row hover ${width}px: ${hover}`);
     await page.goto(base + '/analytics', { waitUntil: 'networkidle0' });
-    await page.click('.period-switch button:last-child');
+    await page.select('.analytics-lead .chart-range select', '365');
+    await page.waitForSelector('.analytics-lead[aria-busy="false"]');
     await page.waitForFunction(() => !document.querySelector('main > .loading'));
     await inspect(page, 'selected-period', width);
     let held;

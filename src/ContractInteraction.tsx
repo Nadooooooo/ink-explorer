@@ -7,6 +7,7 @@ import {
   toQuantity,
 } from "ethers";
 import { API, network, networkPath } from "./network";
+import { requestJson } from "./api-request";
 import { exactJson, parseArgument } from "./contract-abi";
 import { formatMessage, message, type Locale } from "./i18n";
 
@@ -433,18 +434,14 @@ export default function ContractInteraction({
     const controller = new AbortController();
     setImplementation(undefined);
     setAbiError("");
-    fetch(`${API}/explorer/smart-contracts/${abiSource}`, {
+    requestJson(`${API}/explorer/smart-contracts/${abiSource}`, {
       signal: controller.signal,
     })
-      .then(async (response) => {
-        if (!response.ok) throw new Error(ct("implementationUnavailable"));
-        return response.json();
-      })
       .then((value) => {
         if (!controller.signal.aborted) setImplementation(value);
       })
       .catch((error) => {
-        if (!controller.signal.aborted) setAbiError(error.message);
+        if (!controller.signal.aborted) setAbiError(ct(error.message));
       });
     return () => controller.abort();
   }, [abiSource]);

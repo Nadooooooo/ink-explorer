@@ -23,6 +23,7 @@ const routes = [
   ["home", "/"],
   ["blocks", "/blocks"],
   ["transactions", "/txs"],
+  ["filtered-activity", "/txs?activity=filtered"],
   ["tokens", "/tokens"],
   ["pools", "/pools"],
   ["contracts", "/contracts"],
@@ -39,7 +40,7 @@ const routes = [
   ["nft", `/token/${nftContract}/instance/${nftInstance}`],
   ["address-nfts", `/address/${nftHolder}`, "NFTs"],
   ["token-instances", `/token/${nftContract}`, "Token instances"],
-];
+].filter(([name]) => !process.env.LAYOUT_ROUTES || process.env.LAYOUT_ROUTES.split(",").includes(name));
 
 const viewports = [
   [2560, 1440, "ultrawide"],
@@ -57,6 +58,9 @@ const viewports = [
 ].filter(([width]) => !process.env.LAYOUT_WIDTHS || process.env.LAYOUT_WIDTHS.split(",").map(Number).includes(width));
 
 const groups = [
+  ".activity-filter-grid",
+  ".activity-actions",
+  ".activity-record-meta",
   ".home-overview",
   ".metric-grid",
   ".address-summary",
@@ -227,8 +231,8 @@ try {
       width,
       height,
       deviceScaleFactor: 1,
-      isMobile: width <= 430,
-      hasTouch: width <= 430,
+      isMobile: width <= 430 || viewportName === "landscape",
+      hasTouch: width <= 430 || viewportName === "landscape",
     });
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
@@ -238,7 +242,7 @@ try {
         waitUntil: "networkidle0",
         timeout: 30000,
       });
-      if (!response?.ok())
+      if (!response?.ok() && response?.status() !== 304)
         failures.push(
           `${viewportName} ${routeName}: HTTP ${response?.status()}`,
         );

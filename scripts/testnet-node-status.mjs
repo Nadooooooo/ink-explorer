@@ -1,3 +1,4 @@
+import { rollupReadiness } from "../server/node-readiness.mjs";
 import { mkdir, writeFile, appendFile } from "node:fs/promises";
 const rpc = async (url, method, params = []) => {
   const response = await fetch(url, {
@@ -42,6 +43,7 @@ const record = {
   recordedAt: new Date().toISOString(),
   chainId: Number(chain),
   executionSyncing: syncing !== false,
+  derivation: rollupReadiness(rollup),
   head: Number(block.number),
   blockAgeSeconds: ageSeconds,
   referenceHeight,
@@ -61,6 +63,7 @@ const record = {
 record.ready =
   record.chainId === 763373 &&
   !record.executionSyncing &&
+  record.derivation.synced &&
   matching &&
   record.safe > 0 &&
   record.finalized > 0;

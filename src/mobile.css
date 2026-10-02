@@ -1,0 +1,209 @@
+/* Shared mobile ergonomics. Keep data readable instead of shrinking the desktop
+   layout. The 44px controls are a comfort target, not the WCAG AA minimum. */
+html { scroll-padding-block-start: 88px; }
+:where(button, a, input, select, textarea, summary, [tabindex]) {
+  scroll-margin-block: 88px 24px;
+}
+#main-content:focus { outline: none; }
+.section-picker { display: none; }
+.pool-filter-toggle { display: none; }
+.analytics-data .data-scroll { overflow: auto; overscroll-behavior-inline: contain; }
+.analytics-data th { font-weight: 600; }
+.analytics-data tbody th { text-align: start; top: auto; }
+.analytics-data :is(th, td):first-child {
+  position: sticky;
+  inset-inline-start: 0;
+  background: var(--paper);
+  box-shadow: 1px 0 var(--line);
+  z-index: 1;
+}
+.analytics-data thead th:first-child { background: #f1ebfc; z-index: 2; }
+.table-scroll-hint { margin: 0; padding: 12px 18px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+
+@media (max-width: 1160px) {
+  header nav.open { max-height: calc(100dvh - 80px); overflow-y: auto; overscroll-behavior: contain; }
+  header nav button { height: auto; min-height: 44px; padding-block: 12px; font-size: 14px; }
+}
+
+@media (max-width: 760px), (pointer: coarse) {
+  /* Native focus scrolling must settle immediately when a keyboard reduces the
+     viewport. Explicit chart/table scrolling can still request animation. */
+  html { scroll-behavior: auto; }
+  .network-ribbon { font-size: 12px; }
+  .section-navigation { margin: 20px 0; }
+  .section-navigation .tabs { display: none; }
+  .section-picker {
+    display: grid;
+    gap: 6px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .section-picker select {
+    min-width: 0;
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 16px;
+    min-height: 44px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    background: var(--surface-muted);
+    color: var(--ink);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* Primary content, supporting labels and prose have separate size floors. */
+  .block-row, .block-row > div > strong, .block-height button, .protocol-row, .state-row, .holder-row,
+  .tx-row, .generic-row, .asset-row, .token-row,
+  .token-name strong, .pool-row > strong, .pool-pair strong,
+  .definition dd, .network-facts dl div, .pool-detail-grid dl div {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .kicker, .page-intro > div > span, .detail-header > span, .detail-header > div > span,
+  .home-title h1 small, .head-console > div > span, .head-console :is(dt, dd), .metric-top, .metric > small,
+  .block-row > div > small, .block-height small, .tx-row small, .generic-row small,
+  .method, .status, .verified, .token-name small, .asset-row small,
+  .table-toolbar, .token-table-head, .pool-table-head, .pool-filter-status,
+  .pool-filter-grid label > span, .pool-row > span:nth-child(2), .pool-row > span:nth-child(3),
+  .pool-result-bar, .pool-result-bar strong, .pool-live-refresh, .pool-pagination,
+  .definition dt, .detail-header > p, .token-id > div > span, .token-price > span,
+  .pool-hero > div > span, .pool-pair small, .pool-detail-grid article > span,
+  .pool-detail-grid .text-link, .copyable > .mono,
+  .contract-card > .mono, .contract-card footer, .nft-facts > span,
+  .nft-attributes article span, .entity-profile > div > span,
+  .section-title > div > span, .section-title > span, .methodology > span, .live-refresh,
+  .panel-head > span, .chart-heading > span, .signal-number > span,
+  .chart-head > div:first-child span, .chart-head small, .chart-axis, .stat-chart .chart-axis,
+  .analytic-label span, .analytic-card.dark dl div, .gas-scale span, .analytics-freshness,
+  .lead-chart-heading > span, .stat-chart.statement > span, .counter-library article > span, .counter-library article > p,
+  .source-head, .contract-source .source-head > div > span:last-child, .contract-source dl div,
+  .contract-source pre, .contract-source footer, .source-file summary, .raw-metadata summary, .raw-metadata pre,
+  .code-panel pre, .code-panel > div, .code-panel > .empty, .address-pagination > span,
+  .loading, .search-results > button small, .health-banner p, .health-banner span,
+  .node-note > span, .peer-core > span, .peer-count small, .rpc-community :is(span, small),
+  .storage > div:first-child small, .storage > div:last-child,
+  .developer-grid article > span, .developer-grid code, .protocol-row > div > small,
+  .state-row small, .holder-row small, .definition small, .asset-row > span:nth-child(2) small,
+  .nft-item > span, .nft-item > strong, .nft-placeholder small,
+  .site-footer :is(p, small, span), .footer-status, .footer-links > span {
+    font-size: 12px;
+    line-height: 1.5;
+    letter-spacing: 0.02em;
+  }
+  .entity-profile p, .nft-facts > p, .methodology p, .node-note p,
+  .developer-grid p, .protocol-note p, .error-state p,
+  .stat-chart p, .analytic-card > p, .rpc-community p { font-size: 14px; line-height: 1.7; }
+  header nav button, .panel-head button, .ledger-filters button,
+  .pagination button, .pool-filter-status button, .analytics-actions button,
+  .primary-action, .external-action, .pool-actions :is(a, button), .error-state button,
+  .site-footer :is(a, button):not(.brand) { font-size: 13px; min-height: 44px; min-width: 44px; }
+  .header-search, .global-search .search-submit, .pool-pagination button { min-height: 44px; min-width: 44px; }
+}
+
+@media (max-width: 760px) {
+  html { scroll-padding-block-start: 80px; }
+  :where(button, a, input, select, textarea, summary, [tabindex]) { scroll-margin-block-start: 80px; }
+  .brand { min-height: 44px; justify-content: center; }
+  .language-picker { padding: 0; flex: 0 1 116px; }
+  .language-picker svg { display: none; }
+  .language-picker select { width: 100%; max-width: none; padding: 0 5px; }
+  header .language-picker select,
+  .network-picker select,
+  .global-search input,
+  .pool-search input,
+  .pool-filter-grid select,
+  .pool-pagination select,
+  .section-picker select,
+  .contract-interaction :is(input, select, textarea) {
+    font-size: 16px;
+    min-height: 44px;
+    line-height: 1.4;
+  }
+  .network-picker { flex: 1; }
+  .network-picker select { max-width: 100%; width: 100%; }
+  .network-ribbon { padding-block: 4px; }
+  .network-ribbon > div:first-child { flex: 1; min-width: 0; }
+  .network-ribbon .ribbon-live, .network-ribbon .ribbon-offline { font-size: 12px; letter-spacing: 0; }
+  .global-search { min-height: 58px; height: auto; }
+  .global-search input, .pool-search input { width: 0; }
+  .pool-filter-grid label { padding: 8px 8px 0; }
+  .pool-filter-grid label > span { font-size: 12px; letter-spacing: 0; line-height: 1.4; }
+  .pool-filter-grid:not(.expanded) label:nth-child(n+3) { display: none; }
+  .pool-filter-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 44px;
+    margin-top: 8px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    background: var(--paper);
+    color: var(--purple-deep);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .pool-filter-toggle svg { width: 16px; height: 16px; }
+  .pool-filter-toggle[aria-expanded="true"] svg:last-child { transform: rotate(180deg); }
+  .pool-pagination label { padding-block: 0; }
+  .pool-pagination select { min-width: 50px; }
+
+  .panel-head { height: auto; min-height: 56px; gap: 10px; flex-wrap: wrap; padding-block: 6px; }
+  .table-toolbar { height: auto; min-height: 48px; gap: 10px; flex-wrap: wrap; padding-block: 10px; }
+  .analytics-freshness { gap: 10px; flex-wrap: wrap; }
+  .ledger-filters { flex-wrap: wrap; }
+  .ledger-filters button { white-space: normal; }
+  .text-link, .block-height button, .tx-primary small button { min-height: 32px; min-width: 24px; }
+  .copyable > button.copy-button { flex-basis: 36px; width: 36px; height: 36px; }
+  .copyable > button.copy-button svg { width: 15px; height: 15px; }
+  .tx-row { grid-template-columns: minmax(0, 1fr) auto; gap: 10px 12px; }
+  .tx-primary { grid-column: 1 / -1; }
+  .tx-primary small { white-space: normal; }
+  .tx-row > .method { grid-column: 1; grid-row: 2; }
+  .tx-value { grid-column: 2; grid-row: 2; max-width: 160px; overflow-wrap: anywhere; }
+  .tx-row .flow { grid-row: 3; }
+  .flow-party { gap: 4px; }
+  .flow-party .entity-mark { display: none; }
+  .block-height { gap: 6px; }
+  .block-row { gap: 8px; }
+  .block-height > svg { display: none; }
+
+  /* Pool pairs get their own row; monetary columns keep meaningful labels. */
+  .pool-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 18px; gap: 12px; padding: 16px; }
+  .pool-row > .pool-pair { grid-column: 1 / 3; }
+  .pool-row > strong { text-align: start; grid-row: 2; }
+  .pool-row > strong:nth-of-type(1) { grid-column: 1; }
+  .pool-row > strong:nth-of-type(2) { grid-column: 2 / 4; }
+  .pool-row > strong::before { font-size: 12px; line-height: 1.5; text-transform: none; }
+  .pool-row > svg { grid-column: 3; grid-row: 1; }
+  .pool-pagination { flex-wrap: wrap; }
+  .analytics-data :is(th, td) { font-size: 13px; padding: 14px 16px; white-space: nowrap; }
+  .analytics-data .data-scroll:focus-visible { outline-offset: -3px; }
+}
+
+/* Touch devices retain readable form fields when rotated into landscape. */
+@media (pointer: coarse) and (min-width: 761px) {
+  header .language-picker select, .network-picker select,
+  .global-search input, .pool-search input, .pool-filter-grid select,
+  .pool-pagination select, .contract-interaction :is(input, select, textarea) {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  .language-picker { height: auto; padding: 0 6px; }
+  .language-picker select { max-width: 116px; }
+  .network-ribbon { height: auto; min-height: 48px; }
+  .network-picker select { max-width: 240px; }
+  .global-search { height: auto; min-height: 58px; }
+  .pool-filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tabs button { min-height: 44px; }
+}
+
+@media (max-width: 359px) {
+  header .brand img { width: 84px; height: auto; }
+  header .brand > span { margin-left: 26px; }
+  .pool-filter-grid { grid-template-columns: minmax(0, 1fr); }
+}

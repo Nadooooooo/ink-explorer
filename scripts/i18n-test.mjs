@@ -6,9 +6,16 @@ const browser = await puppeteer.launch({ executablePath: "/usr/bin/google-chrome
 const page = await browser.newPage();
 await page.setViewport({ width: 320, height: 700, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
 const failures = [];
+async function loadHome(locale) {
+  // Wait for the content under review, rather than an idle network: the live
+  // explorer continues polling while these locale checks run.
+  await page.goto(`${base}/?lang=${locale}`, { waitUntil: "domcontentloaded", timeout: 30_000 });
+  await page.waitForSelector(".metric-grid .metric");
+  await page.evaluate(() => document.fonts.ready);
+}
 
 for (const locale of locales) {
-  await page.goto(`${base}/?lang=${locale}`, { waitUntil: "networkidle0", timeout: 30_000 });
+  await loadHome(locale);
   const state = await page.evaluate(() => ({
     lang: document.documentElement.lang,
     dir: document.documentElement.dir,
@@ -26,7 +33,7 @@ for (const locale of locales) {
 }
 
 // Locale query state must survive client-side navigation.
-await page.goto(`${base}/?lang=ja`, { waitUntil: "networkidle0", timeout: 30_000 });
+await loadHome("ja");
 await page.click(".menu");
 const blocks = await page.$$("header nav button");
 await blocks[0]?.click();

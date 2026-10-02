@@ -1,11 +1,39 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
-import { nodeReadiness } from "../server/node-readiness.mjs";
+import { nodeReadiness, rollupReadiness } from "../server/node-readiness.mjs";
 import { createContractRpc } from "../server/contract-rpc.mjs";
 
 const now = 1800000000000;
 const block = age => ({ number: "0x10", timestamp: `0x${(now / 1000 - age).toString(16)}` });
+test("Fresh execution does not hide a stranded or missing L1 derivation pipeline", () => {
+  const current_l1={number:1000,timestamp:100000};
+  assert.equal(rollupReadiness({current_l1,head_l1:{number:1001,timestamp:100012}},100012000).synced,true);
+  assert.equal(rollupReadiness({current_l1,head_l1:{number:1001,timestamp:100012}},103000000).synced,false, "A stale L1 head cannot conceal stopped polling");
+  assert.equal(rollupReadiness({current_l1,head_l1:{number:1001,timestamp:100012}},99000000).synced,false, "A future L1 head cannot claim readiness");
+  assert.equal(rollupReadiness({current_l1,head_l1:{number:999,timestamp:100012}},100012000).synced,false, "A newer cursor requires an explicit immediate-parent proof");
+  assert.equal(rollupReadiness({current_l1,head_l1:{number:70000,timestamp:900000}}).synced,false);
+  assert.equal(rollupReadiness({current_l1,head_l1:{number:1001,timestamp:103000}}).synced,false);
+  assert.equal(rollupReadiness({}).online,false);
+  assert.equal(rollupReadiness({}).synced,false);
+});
+test("A fresh derivation cursor may be the immediate child of the perceived L1 head", () => {
+  const hash='0x'+'a'.repeat(64),nextHash='0x'+'b'.repeat(64);
+  const head_l1={number:1000,timestamp:100000,hash};
+  const current_l1={number:1001,timestamp:100012,hash:nextHash,parentHash:hash};
+  const snapshot={head_l1,current_l1};
+  const result=rollupReadiness(snapshot,100012000);
+  assert.equal(result.synced,true);assert.equal(result.l1Head,1000);assert.equal(result.l1Block,1001);
+  for(const current of [
+    {...current_l1,parentHash:nextHash}, {...current_l1,parentHash:undefined},
+    {...current_l1,hash:undefined}, {...current_l1,hash},
+    {...current_l1,number:1002}, {...current_l1,timestamp:99999},
+    {...current_l1,timestamp:head_l1.timestamp},
+    {...current_l1,timestamp:100043},
+  ])assert.equal(rollupReadiness({...snapshot,current_l1:current},100012000).synced,false);
+  assert.equal(rollupReadiness(snapshot,102000000).synced,false,'A stale observed head remains unavailable');
+  assert.equal(rollupReadiness({head_l1,current_l1:{...head_l1,hash:nextHash}},100012000).synced,false,'Different hashes at one height cannot claim readiness');
+});
 test("A stranded or future-dated head is not operational", () => {
   for (const age of [121, 600, -31]) {
     const result = nodeReadiness({ chain: "0xba5ed", expectedChainId: 763373, sync: false, block: block(age), now });

@@ -7,7 +7,7 @@ const failures = [];
 const overview = await fetch(`${base}/api/overview`).then(response => response.json());
 const pools = await fetch(`${base}/api/contract-info/pools`).then(response => response.json());
 const routes = [
-  "/", "/blocks", "/txs", "/tokens", "/pools", `/pools/${pools.items[0].pool_id}`,
+  "/", "/blocks", "/txs", "/txs?activity=filtered", "/txs?activity=filtered&lang=ar", "/tokens", "/pools", `/pools/${pools.items[0].pool_id}`,
   `/tx/${overview.transactions[0].hash}`, `/address/${overview.transactions[0].from.hash}`,
   "/token/0x1b35d13a2E2528f192637F14B05f0Dc0e7dEB566/instance/545",
   "/analytics?range=30", "/advanced", "/network", "/?lang=ar",

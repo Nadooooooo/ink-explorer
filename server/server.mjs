@@ -14,7 +14,8 @@ import {
 import { WebSocket, WebSocketServer } from "ws";
 import { proxyTestnet, proxyTestnetSocket } from "./testnet-proxy.mjs";
 import { createContractRpc } from "./contract-rpc.mjs";
-import { nodeReadiness } from "./node-readiness.mjs";
+import { nodeReadiness, rollupReadiness } from "./node-readiness.mjs";
+import { verifyAddressBalance } from "./address-balance.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..");
@@ -311,7 +312,7 @@ async function cached(key, ttl, loader) {
   return value;
 }
 
-async function fetchJson(url, timeout = 12000) {
+async function fetchJson(url, timeout = 12000, allowStale = true) {
   let previous = upstreamCache.get(url);
   if (!previous) {
     try {
@@ -325,19 +326,21 @@ async function fetchJson(url, timeout = 12000) {
     }
   }
   if (previous && Date.now() - previous.at < 15000) return previous.value;
-  if (upstreamInflight.has(url)) return upstreamInflight.get(url);
+  if (upstreamInflight.has(url)) return (await upstreamInflight.get(url)).value;
   if (upstreamInflight.size >= 200) throw new Error("Too many upstream requests");
-  const request = fetchJsonUncached(url, timeout, previous);
+  const request = fetchJsonUncached(url, timeout, allowStale ? previous : undefined);
   upstreamInflight.set(url, request);
   try {
-    const value = await request;
-    const entry = { at: Date.now(), value };
+    const entry = await request;
     setBounded(upstreamCache, url, entry, 2000);
-    writeFile(diskCachePath(url), JSON.stringify({ url, ...entry })).catch(
-      () => {},
-    );
+    // A fallback is the same snapshot, not a new upstream observation. Preserve
+    // its original timestamp so repeated outages cannot renew its 24h lifetime.
+    if (entry !== previous)
+      writeFile(diskCachePath(url), JSON.stringify({ url, ...entry })).catch(
+        () => {},
+      );
     scheduleCachePrune();
-    return value;
+    return entry.value;
   } finally {
     upstreamInflight.delete(url);
   }
@@ -365,10 +368,13 @@ async function fetchJsonUncached(url, timeout, previous) {
           continue;
         }
         if (previous && Date.now() - previous.at < 24 * 60 * 60 * 1000)
-          return previous.value;
+          return previous;
         throw error;
       }
-      if (response.ok) return await response.json();
+      if (response.ok) {
+        const value = await response.json();
+        return { at: Date.now(), value };
+      }
       // The public index can briefly rate-limit or return gateway errors while
       // catching up. Retry only transient statuses; permanent 4xx responses
       // still fail immediately, and a previously verified snapshot wins when
@@ -383,8 +389,8 @@ async function fetchJsonUncached(url, timeout, previous) {
         await new Promise((resolve) => setTimeout(resolve, delay));
         continue;
       }
-      if (previous && Date.now() - previous.at < 24 * 60 * 60 * 1000)
-        return previous.value;
+      if (transient && previous && Date.now() - previous.at < 24 * 60 * 60 * 1000)
+        return previous;
       throw new Error(`Upstream returned ${response.status}`);
     }
     throw new Error("Upstream retry limit reached");
@@ -393,13 +399,13 @@ async function fetchJsonUncached(url, timeout, previous) {
   }
 }
 
-async function rpc(url, method, params = []) {
+async function rpc(url, method, params = [], signal) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 5000);
   try {
     const response = await fetch(url, {
       method: "POST",
-      signal: controller.signal,
+      signal: signal ? AbortSignal.any([signal, controller.signal]) : controller.signal,
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
     });
@@ -480,6 +486,7 @@ async function networkSnapshot() {
   const finalized = rollup?.finalized_l2?.number ?? null;
   return {
     ...readiness,
+    derivation: rollupReadiness(rollup),
     networkName,
     expectedChainId: chainId,
     sync,
@@ -713,7 +720,7 @@ function allowedExplorerPath(suffix) {
   const transaction = "0x[a-fA-F0-9]{64}";
   const block = `(?:\\d+|${transaction})`;
   return [
-    /^(?:stats|blocks|transactions|tokens|smart-contracts|token-transfers|internal-transactions)$/,
+    /^(?:stats|blocks|transactions|tokens|smart-contracts|token-transfers|internal-transactions|advanced-filters)$/,
     new RegExp(`^blocks/${block}(?:/transactions)?$`),
     new RegExp(
       `^transactions/${transaction}(?:/(?:token-transfers|internal-transactions|logs|state-changes|raw-trace))?$`,
@@ -1028,10 +1035,20 @@ const server = http.createServer(async (req, res) => {
         return json(res, 400, { error: "Invalid explorer path" });
       }
       const upstream = `${explorerApi}/${suffix}${url.search}`;
+      const profilePath = /^addresses\/0x[\da-f]{40}$/i.test(suffix);
       return json(
         res,
         200,
-        await cached(upstream, 5000, () => fetchJson(upstream)),
+        // Advanced queries may legitimately run for up to 60 seconds upstream.
+        // Never disguise an old filtered page as a successful current query.
+        await cached(upstream, 5000, async () => {
+          const value = await fetchJson(upstream, suffix === "advanced-filters" ? 65000 : 12000, suffix !== "advanced-filters");
+          if (!profilePath || !value || typeof value !== 'object') return value;
+          return verifyAddressBalance(value, {chainId,
+            rpc:(method, params, signal) => rpc(rpcUrl, method, params, signal),
+            signal:AbortSignal.timeout(5000),
+          });
+        }),
       );
     }
     if (url.pathname.startsWith("/api/stats/")) {

@@ -1,0 +1,18 @@
+.ledger-filters + .filtered-activity { margin-top: 34px; }
+.activity-filter-form { padding: 20px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface-panel); margin-bottom: 20px; }
+.activity-filter-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px; }
+.activity-filter-grid label { display: grid; gap: 6px; min-width: 0; font-size: 13px; color: var(--muted); }
+.activity-filter-grid :is(input,select) { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface-field); color: var(--ink); padding: 10px 12px; font: inherit; font-size: 14px; }
+.activity-filter-form p { color: var(--muted); font-size: 13px; line-height: 1.6; }
+.activity-actions { display:flex; flex-wrap:wrap; gap:10px; }
+.activity-actions button,.filtered-activity .table-toolbar button,.activity-error button { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:10px 14px; border:1px solid var(--line); border-radius:var(--radius-control); background:var(--surface-card); color:var(--purple-deep); font:inherit; font-size:13px; cursor:pointer; }
+.activity-actions button.primary-action { background-image:var(--action-fill); color:white; }
+.filtered-activity button:disabled { opacity:.45; cursor:default; }
+.filtered-activity button svg { width:16px; height:16px; }
+.activity-error { padding:16px; }
+.filtered-activity .table-toolbar { gap:12px; flex-wrap:wrap; height:auto; min-height:52px; }
+@media(max-width:1024px) { .activity-filter-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:600px) { .activity-filter-grid { grid-template-columns:minmax(0,1fr); } .activity-filter-grid :is(input,select) {font-size:16px;} .activity-filter-form {padding:16px;} }
+@media(max-width:1024px) and (pointer:coarse) { .activity-filter-grid :is(input,select) { font-size:16px; } }
+.activity-record-meta { display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:12px 18px 0; font-size:13px; color:var(--muted); }
+.activity-record-meta button { min-height:44px; }

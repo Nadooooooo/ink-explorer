@@ -27,7 +27,7 @@ The local node being unavailable does not make historical Blockscout pages unava
 
 `GET /api/explorer/*` forwards only these Blockscout v2 shapes:
 
-- collection routes: `stats`, `blocks`, `transactions`, `tokens`, `smart-contracts`, `token-transfers`, `internal-transactions`;
+- collection routes: `stats`, `blocks`, `transactions`, `tokens`, `smart-contracts`, `token-transfers`, `internal-transactions`, `advanced-filters`;
 - a block by height or hash, and its transactions;
 - a transaction by hash, plus its token transfers, internal transactions, logs, state changes or raw trace;
 - an address by hash, plus balances, counters, transactions, tokens, NFTs, token transfers, internal transactions or logs;
@@ -35,9 +35,15 @@ The local node being unavailable does not make historical Blockscout pages unava
 - a token by address, plus transfers, holders and NFT instances or an instance's transfers;
 - Optimism deposits and withdrawals; ERC-4337 operations.
 
-`GET /api/stats/*` forwards read-only Stats Service paths using a restricted path character set. `GET /api/contract-info/pools` and `/api/contract-info/pools/:address[/check]` supply pool metadata. All upstream query strings are limited to 4096 characters. Invalid explorer or pool paths return HTTP 400. A failed upstream request normally returns HTTP 502; a recent, verified disk snapshot may be served instead for up to 24 hours.
+`GET /api/stats/*` forwards read-only Stats Service paths using a restricted path character set. `GET /api/contract-info/pools` and `/api/contract-info/pools/:address[/check]` supply pool metadata. All upstream query strings are limited to 4096 characters. Invalid explorer or pool paths return HTTP 400. A failed upstream request normally returns HTTP 502; a recent, verified disk snapshot may be served instead for up to 24 hours during connection failures, rate limits or upstream server errors. Serving a fallback preserves its original fetch time; repeated outages cannot extend that lifetime. Permanent 4xx responses fail instead of resurrecting cached records.
 
 Indexed responses keep the upstream JSON shape. Check the upstream API documentation before depending on a field, and handle missing fields: indexing can lag the current block.
+
+Browser reads have a 20-second deadline covering both connection and JSON body. Address profiles reject a missing or different hash, show an error and allow retry without leaving the address. Navigation cancels obsolete profile requests. Failed holdings/counter requests remain visibly unavailable rather than being shown as zero. Advanced-filter reads allow 75 seconds to preserve the upstream query budget.
+
+Network snapshots also include `derivation`: `online`, `synced`, `l1Block`, `l1Head`, `lag` and `ageSeconds`. `synced` at the top level describes the execution head; `derivation.synced` describes independent L1 processing. A live execution head does not prove that safe/finalized validation is progressing. Overall network health remains degraded if derivation is unavailable, more than 150 L1 blocks behind, or more than 30 minutes behind the reported L1 head. A stale, future-dated or incoherent L1 head also fails readiness.
+
+Advanced filters preserve the Blockscout query and cursor parameters. Amount bounds are decimal ETH or token units, not wei. Queries can take up to 65 seconds; the Sepolia proxy allows 70 seconds. A filtered query never falls back to an expired disk snapshot after an upstream failure. Successful pages have a short (15-second) cache. CSV output remains a browser operation and uses raw amounts.
 
 ## Wallet-safe contract RPC
 
@@ -62,3 +68,11 @@ Connect to `WS /api/live` or `WS /testnet/api/live`. Frames use protocol `ink-ob
 The `ink-observer.live.v1` protocol identifier is retained for existing clients after the Ink Explorer rename. Do not infer the public project name from that identifier.
 
 The stream is sampled from the configured local nodes. If they are missing or syncing, it will not invent blocks from the public explorer index.
+
+## Address balance provenance
+
+For `GET /api/explorer/addresses/{address}`, address metadata remains from the Ink index. When possible, the ETH `coin_balance` is checked against the local node at `block_number_balance_updated_at`. The node must report the expected chain, complete sync and a fresh execution head. The balance read uses EIP-1898 `{blockHash, requireCanonical: true}`, binding it to one canonical block rather than a moving height. The complete verification has a five-second deadline.
+
+`balance_check` reports `matched` or `corrected`, `source: "local"`, the original `indexed_balance`, `block_number`, `block_hash` and `checked_at`. A disagreement replaces the displayed amount with the exact node balance and is shown explicitly in the interface. If the node is unavailable, stale, on another chain, lacks the historical block, or rejects the canonical read, the index amount remains available with `balance_check.status: "unavailable"`; the interface labels it unverified. This does not imply that token balances, counters or contract metadata have been verified by the node.
+
+An OP Node `current_l1` cursor can be one block ahead of its perceived `head_l1`. That is considered coherent only when both block hashes are valid and distinct, the cursor's `parentHash` matches the observed head hash, and the cursor timestamp is newer. Raw heights remain unchanged in the response. Missing ancestry, forks at an equal height, larger ahead gaps, stale observations and future timestamps cannot claim readiness. The 150-block and 30-minute behind limits are unchanged. See the upstream [SyncStatus definition](https://pkg.go.dev/github.com/ethereum-optimism/optimism@v1.19.6/op-service/eth#SyncStatus).

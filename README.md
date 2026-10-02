@@ -79,11 +79,18 @@ Pool prices, liquidity, market capitalisation and volume are third-party estimat
 
 ## Testing
 
+The complete release protocol is documented in [docs/TEST_PROTOCOL.md](docs/TEST_PROTOCOL.md). The final findings and scope are documented in [docs/EXPLORER_AUDIT.md](docs/EXPLORER_AUDIT.md). Run `npm run test:release` against an isolated review instance for a logged campaign across all suites. Partial runs cannot certify a release.
+
 With the production server running on port 4188:
 
 ```bash
 npm run check
 npm run build
+npm run test:data
+npm run test:integrity
+npm run test:activity
+npm run test:activity-server
+npm run test:activity-live
 npm run test:ws
 npm run test:network-live
 npm run test:ui
@@ -95,21 +102,26 @@ npm run test:content
 npm run test:performance
 npm run test:lighthouse
 npm run test:loading
+npm run test:address-loading
+npm run test:chain-reconciliation
 npm run test:contracts
 npm run test:networks
 npm run test:node-testnet
 npm run test:node-readiness
+npm run test:upstream-cache
 npm run test:layout
 npm run test:responsive
 npm run test:space
 npm run test:style
 ```
 
-The browser tests cover routes at desktop, tablet and mobile widths, plus menus, tabs, pagination, media, contract source, pools, analytics and localization. `test:layout` checks 19 route states at 12 widths, including long NFT lists. `test:responsive` checks each CSS breakpoint at nearby widths, keyboard and touch interactions, and empty or failed network responses. `test:style` compares rendered surfaces and controls with [the shared design rules](docs/DESIGN_SYSTEM.md). `test:content` checks copy, metadata and labels; `test:a11y` checks serious and critical Axe findings. Browser tests need Chrome and a running production server.
+The browser tests cover routes at desktop, tablet and mobile widths, plus menus, tabs, pagination, media, contract source, pools, analytics and localization. `test:layout` checks 20 route states at 12 widths, including long NFT lists. `test:responsive` checks each CSS breakpoint at nearby widths, keyboard and touch interactions, and empty or failed network responses. `test:style` compares rendered surfaces and controls with [the shared design rules](docs/DESIGN_SYSTEM.md). `test:content` checks copy, metadata and labels; `test:a11y` checks serious and critical Axe findings. Browser tests need Chrome and a running production server.
 
 Lighthouse runs mobile and desktop audits on six representative routes and writes reports under `reports/lighthouse/`. Set `BASE_URL`, `LIGHTHOUSE_DIR`, `LIGHTHOUSE_ROUTES` or `LIGHTHOUSE_PROFILES` to change the run. Its scores are lab measurements on your machine. `test:loading` delays API responses to check the loading state.
 
-CI runs the dependency audit, TypeScript check, production build, deterministic node-readiness tests and HTTP security checks. Browser suites need Chrome and live upstream APIs; WebSocket and node-health assertions need synced Ink nodes. Run those suites against the release build before deployment.
+CI runs the dependency audit, TypeScript check, production build, deterministic chain-data/filter/node-readiness tests and HTTP security checks. Browser suites need Chrome and live upstream APIs; WebSocket and node-health assertions need synced Ink nodes. Run those suites against the release build before deployment.
+
+On **Transactions → Advanced filters**, combine activity type, method selector, sender/recipient, token contract, dates and decimal amounts. Amount filters use ETH or token units; CSV keeps raw values and exports the displayed page. Criteria survive reload and pagination. Dates follow your device’s time zone.
 
 ## API surface
 

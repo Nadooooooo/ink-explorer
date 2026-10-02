@@ -42,6 +42,7 @@ for (const [name, browserType] of [
         "/",
         "/blocks",
         "/txs",
+        "/txs?activity=filtered",
         "/tokens",
         "/pools",
         "/contracts",
@@ -124,7 +125,8 @@ for (const [name, browserType] of [
         await page.goto(`${base}${prefix}/address/${weth}`, {
           waitUntil: "networkidle",
         });
-        await page
+        if (width < 500) await page.locator('.section-picker select').selectOption('read');
+        else await page
           .getByRole("button", { name: "Read contract", exact: true })
           .click();
         await page.locator(".contract-interaction").waitFor();

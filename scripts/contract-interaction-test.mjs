@@ -17,6 +17,7 @@ const report = {
 const check = (name, condition) => {
   assert(condition, name);
   report.checks.push(name);
+  console.log(`PASS ${name}`);
 };
 const artifact = "screenshots/contract-integration";
 await mkdir(artifact, { recursive: true });
@@ -52,7 +53,7 @@ const anvil = spawn(
   ["--host", "127.0.0.1", "--port", "18546", "--chain-id", "57073", "--silent"],
   { stdio: "ignore" },
 );
-let fixture, server, browser;
+let fixture, server, browser, page;
 const provider = new JsonRpcProvider("http://127.0.0.1:18546", 57073, {
   staticNetwork: true,
   batchMaxCount: 1,
@@ -157,7 +158,7 @@ try {
     executablePath: "/usr/bin/google-chrome",
     args: ["--no-sandbox"],
   });
-  const page = await browser.newPage();
+  page = await browser.newPage();
   await page.setViewport({ width: 390, height: 844 });
   page.on("pageerror", (error) => report.errors.push(error.message));
   let reject = false,
@@ -200,7 +201,13 @@ try {
       },
     };
   });
-  const button = (text) => page.locator(`button:not([hidden] button)::-p-text(${text})`);
+  const button = (text) => ({ click: async () => {
+    const control = await page.locator(`button:not([hidden] button)::-p-text(${text})`).waitHandle();
+    // Center the control below the sticky header before a real pointer click.
+    await control.evaluate(element => element.scrollIntoView({block:"center",behavior:"instant"}));
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await control.click();
+  } });
   const method = async (signature) => {
     await page
       .locator('.contract-interaction input[type="search"]')
@@ -228,7 +235,10 @@ try {
   await page.goto(`http://127.0.0.1:4192/address/${address}`, {
     waitUntil: "networkidle0",
   });
-  await button("Read contract").click();
+  const section = async (value) => {
+    await page.select('.section-picker select', value);
+  };
+  await section("read");
   await method("value()");
   await button("Query").click();
   await waitText("Output 1");
@@ -246,7 +256,7 @@ try {
     "Tuple arrays, signed integers and bytes decode exactly",
     (await text()).includes("0x12345678"),
   );
-  await button("Write contract").click();
+  await section("write");
   await method("set(");
   await input(0, "900719925474099312345");
   check(
@@ -331,7 +341,7 @@ try {
   await page.goto(`http://127.0.0.1:4192/address/${proxyAddress}`, {
     waitUntil: "networkidle0",
   });
-  await button("Write contract").click();
+  await section("write");
   await page.waitForSelector(".contract-interaction select");
   await page.select(".contract-interaction select", address);
   await method("set(");
@@ -369,6 +379,14 @@ try {
   console.log(
     `Contract integration passed: ${report.checks.length} checks, ${sends} isolated EVM transactions.`,
   );
+} catch (error) {
+  report.failure = error.stack;
+  if (page) {
+    report.visibleText = await page.$eval("body", element => element.innerText).catch(() => "Page unavailable");
+    await page.screenshot({ path: `${artifact}/failure.png`, fullPage: true }).catch(() => {});
+    console.error(report.visibleText);
+  }
+  throw error;
 } finally {
   await browser?.close();
   provider.destroy();

@@ -25,7 +25,7 @@ export function proxyTestnet(req, res) {
       JSON.stringify({ error: "Testnet explorer temporarily unavailable" }),
     );
   });
-  upstream.setTimeout(35000, () => upstream.destroy());
+  upstream.setTimeout(/^\/testnet\/api\/explorer\/advanced-filters(?:\?|$)/.test(req.url) ? 70000 : 35000, () => upstream.destroy());
   res.on("close", () => upstream.destroy());
   req.pipe(upstream);
 }

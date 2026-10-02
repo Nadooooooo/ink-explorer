@@ -2,6 +2,8 @@ import {
   FormEvent,
   ReactNode,
   useEffect,
+  useLayoutEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -18,6 +20,7 @@ import {
   Blocks,
   Box,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleDot,
@@ -51,8 +54,12 @@ import {
 import { formatMessage, isLocale, localeNames, locales, message, type Locale } from "./i18n";
 import { EntityMark } from "./EntityMark";
 import { mediaUrl } from "./media";
+import { blockFinality, cursorQuery, executionFee, transactionState, stateChangeText } from "./explorer-data";
 import { API, apiOrigin, basePath, network, networkPath, isTestnet, liveWebSocketUrl } from "./network";
+import { requestJson } from "./api-request";
 const ContractInteraction = lazy(() => import("./ContractInteraction"));
+const FilteredActivity = lazy(() => import("./FilteredActivity"));
+import { activityKeys, downloadCsv, activityState } from "./activity-data";
 
 type AnyRow = Record<string, any>;
 type View = { name: string; id?: string; tokenId?: string; query?: string };
@@ -77,6 +84,7 @@ function activityLabel(type: string) {
     "internal-transactions": "internal", internal: "internal", logs: "logs",
     state: "stateChanges", trace: "rawTrace", nft: "nfts", tokens: "assets",
     transactions: "transactions", "NFT transfer": "NFT transfer",
+    contract_interaction: "contractCall", contract_creation: "contractCreation", coin_transfer: "nativeTransfer",
   };
   return t(keys[type] || type.replaceAll("-", " "));
 }
@@ -136,7 +144,7 @@ function scaled(value: unknown, decimals: unknown) {
   return amount === null ? undefined : amount / 10 ** (precision ?? 0);
 }
 function age(date: string) {
-  if (!date) return "—";
+  if (!date || !Number.isFinite(new Date(date).getTime())) return "—";
   const s = Math.max(
     0,
     Math.floor((Date.now() - new Date(date).getTime()) / 1000),
@@ -182,17 +190,18 @@ function labelOf(value: any) {
     ? value?.name || value?.ens_domain_name
     : null;
 }
-async function get<T = any>(path: string): Promise<T> {
-  let res: Response;
+async function get<T = any>(path: string, signal?: AbortSignal): Promise<T> {
   try {
-    res = await fetch(`${API}${path}`);
+    const body = await requestJson<T>(`${API}${path}`, { signal });
+    if (body == null && !path.endsWith("/check")) throw new Error("invalidApiResponse");
+    return body;
   } catch (error) {
-    if (apiOrigin) throw new Error(t("Private API unavailable. Connect to Tailscale, allow local network access in your browser, and retry."));
-    throw error;
+    if (signal?.aborted) throw error;
+    const key = error instanceof Error ? error.message : "Data source unavailable";
+    if (apiOrigin && ["apiConnectionFailed", "requestTimeout"].includes(key))
+      throw new Error(t("Private API unavailable. Connect to Tailscale, allow local network access in your browser, and retry."));
+    throw new Error(t(key));
   }
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error || t("Data source unavailable"));
-  return body;
 }
 
 function useLiveStream(): LiveData {
@@ -249,6 +258,7 @@ function useLiveStream(): LiveData {
 // The app uses the History API rather than a routing dependency. The server
 // serves the same shell with route-specific crawl metadata for every route.
 function route(): View {
+  try {
   const p = location.pathname.slice(basePath.length).split("/").filter(Boolean);
   if (!p.length) return { name: "home" };
   if (p[0] === "search")
@@ -273,6 +283,9 @@ function route(): View {
     name: names[p[0]] || p[0],
     id: p[1] ? decodeURIComponent(p.slice(1).join("/")) : undefined,
   };
+  } catch {
+    return { name: "not-found" };
+  }
 }
 function localizedPath(path: string) {
   const url = new URL(path, location.origin);
@@ -284,7 +297,7 @@ function localizedPath(path: string) {
 function go(path: string) {
   history.pushState({}, "", localizedPath(path));
   dispatchEvent(new PopStateEvent("popstate"));
-  window.scrollTo(0, 0);
+  window.scrollTo({ top: 0, left: 0, behavior: "instant" });
 }
 
 function Brand() {
@@ -360,13 +373,19 @@ function Header({
     const resize = () => {
       if (innerWidth > 1160) setOpen(false);
     };
+    const focus = (event: FocusEvent) => {
+      if (event.target instanceof Node && !headerRef.current?.contains(event.target))
+        setOpen(false);
+    };
     addEventListener("keydown", key);
     addEventListener("pointerdown", pointer);
     addEventListener("resize", resize);
+    document.addEventListener("focusin", focus);
     return () => {
       removeEventListener("keydown", key);
       removeEventListener("pointerdown", pointer);
       removeEventListener("resize", resize);
+      document.removeEventListener("focusin", focus);
     };
   }, [open]);
   return (
@@ -437,6 +456,7 @@ function Header({
           className="header-search"
           aria-label={t("search")}
           onClick={() => {
+            setOpen(false);
             if (!document.querySelector(".global-search input")) {
               go("/search");
               setTimeout(
@@ -456,7 +476,11 @@ function Header({
           aria-label={t("menu")}
           aria-controls="primary-navigation"
           aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
+          onClick={(event) => {
+            setOpen(!open);
+            if (!open && event.detail === 0)
+              requestAnimationFrame(() => headerRef.current?.querySelector<HTMLButtonElement>("nav button")?.focus());
+          }}
         >
           {open ? <X /> : <Menu />}
         </button>
@@ -524,7 +548,7 @@ function SearchBox({ compact = false }: { compact?: boolean }) {
     const f = () => ref.current?.focus();
     addEventListener("focus-global-search", f);
     const key = (e: KeyboardEvent) => {
-      if (e.key === "/" && document.activeElement?.tagName !== "INPUT") {
+      if (e.key === "/" && !["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName || "")) {
         e.preventDefault();
         ref.current?.focus();
       }
@@ -580,14 +604,14 @@ function Loading({ label }: { label?: string }) {
     </div>
   );
 }
-function ErrorState({ error }: { error: string }) {
+function ErrorState({ error, onRetry = () => location.reload() }: { error: string; onRetry?: () => void }) {
   return (
     <div className="error-state" role="alert">
       <CircleDot />
       <div>
         <strong>{t("unavailable")}</strong>
         <p>{error}</p>
-        <button onClick={() => location.reload()}>
+        <button onClick={onRetry}>
           <RefreshCw aria-hidden="true" /> {t("retry")}
         </button>
       </div>
@@ -596,6 +620,27 @@ function ErrorState({ error }: { error: string }) {
 }
 function Empty({ children }: { children?: ReactNode }) {
   return <div className="empty">{children || t("noRecords")}</div>;
+}
+
+// A native section picker exposes every destination on narrow screens, without
+// requiring users to discover a horizontally scrolled row of hidden tabs.
+function SectionTabs({ value, items, onChange }: {
+  value: string;
+  items: [string, string][];
+  onChange: (value: string) => void;
+}) {
+  return <div className="section-navigation">
+    <label className="section-picker">
+      <span>{t("pageSection")}</span>
+      <select value={value} onChange={event => onChange(event.target.value)}>
+        {items.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+      </select>
+    </label>
+    <div className="tabs" role="group" aria-label={t("pageSection")}>
+      {items.map(([key, label]) => <button key={key} className={value === key ? "active" : ""}
+        aria-pressed={value === key} onClick={() => onChange(key)}>{label}</button>)}
+    </div>
+  </div>;
 }
 
 function Metric({
@@ -632,22 +677,25 @@ function dateText(value?: string) {
         year: "numeric",
       });
 }
-function relativeDate(value?: string) {
-  if (!value) return "";
-  const days = Math.max(
-    0,
-    Math.floor(
-      (Date.now() -
-        new Date(
-          `${value.length === 10 ? `${value}T00:00:00` : value}`,
-        ).getTime()) /
-        86400000,
-    ),
-  );
-  return new Intl.RelativeTimeFormat(activeLocale, { numeric: "auto" }).format(
-    -days,
-    "day",
-  );
+const chartRanges = [[7, "7D"], [30, "30D"], [90, "90D"], [180, "6M"], [365, "1Y"]] as const;
+function ChartRange({ title, value, onChange, options = chartRanges }: {
+  title: string;
+  value: number;
+  onChange: (value: number) => void;
+  options?: readonly (readonly [number, string])[];
+}) {
+  return <label className="chart-range">
+    <span className="sr-only">{title} · {t("chartTimeframe")}</span>
+    <select value={value} onChange={event => onChange(Number(event.target.value))}>
+      {options.map(([days, label]) => <option key={days} value={days}>{label}</option>)}
+    </select>
+    <ChevronDown size={14} aria-hidden="true" />
+  </label>;
+}
+function chartQuery(days: number) {
+  const to = new Date().toISOString().slice(0, 10);
+  const from = new Date(Date.now() - (days - 1) * 86400000).toISOString().slice(0, 10);
+  return `?from=${from}&to=${to}&resolution=${days >= 365 ? "WEEK" : "DAY"}`;
 }
 
 function Sparkline({
@@ -656,8 +704,6 @@ function Sparkline({
   color = "#6f32ff",
   height = 90,
   formatValue = compact,
-  selectedLabel,
-  onSelectLabel,
   ariaLabel =t("Trend chart"),
   approximateLast = false,
 }: {
@@ -666,18 +712,67 @@ function Sparkline({
   color?: string;
   height?: number;
   formatValue?: (value: number) => string;
-  selectedLabel?: string | null;
-  onSelectLabel?: (label: string | null) => void;
   ariaLabel?: string;
   approximateLast?: boolean;
 }) {
-  const width = 600;
+  const [plotSize, setPlotSize] = useState({ width: 600, height });
+  const { width, height: plotHeight } = plotSize;
   const clean = points
     .map(Number)
     .map((value) => (Number.isFinite(value) ? value : 0));
   const [local, setLocal] = useState<number | null>(null);
+  const owner = useId();
+  const chartRef = useRef<HTMLDivElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const [tooltipLeft, setTooltipLeft] = useState(0);
   const seriesKey = `${labels[0]}|${labels.at(-1)}|${labels.length}`;
   useEffect(() => setLocal(null), [seriesKey]);
+  useEffect(() => {
+    const element = chartRef.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      if (width > 0 && height > 0) setPlotSize({ width, height });
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [clean.length < 2]);
+  useEffect(() => {
+    const inspect = (event: Event) => {
+      if ((event as CustomEvent<string>).detail !== owner) setLocal(null);
+    };
+    document.addEventListener("ink:chart-inspect", inspect);
+    return () => document.removeEventListener("ink:chart-inspect", inspect);
+  }, [owner]);
+  useEffect(() => {
+    if (local === null) return;
+    const dismiss = () => setLocal(null);
+    const outside = (event: PointerEvent) => {
+      if (!chartRef.current?.contains(event.target as Node)) dismiss();
+    };
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") dismiss(); };
+    document.addEventListener("pointerdown", outside, true);
+    document.addEventListener("keydown", escape);
+    window.addEventListener("scroll", dismiss, true);
+    window.addEventListener("resize", dismiss);
+    return () => {
+      document.removeEventListener("pointerdown", outside, true);
+      document.removeEventListener("keydown", escape);
+      window.removeEventListener("scroll", dismiss, true);
+      window.removeEventListener("resize", dismiss);
+    };
+  }, [local]);
+  useLayoutEffect(() => {
+    if (local === null || !chartRef.current || !tooltipRef.current) return;
+    const plotWidth = chartRef.current.clientWidth;
+    const tipWidth = tooltipRef.current.offsetWidth;
+    const anchor = (local / Math.max(1, clean.length - 1)) * plotWidth;
+    setTooltipLeft(Math.max(0, Math.min(plotWidth - tipWidth, anchor - tipWidth / 2)));
+  }, [local, seriesKey, clean.length, formatValue, width]);
+  const select = (index: number) => {
+    document.dispatchEvent(new CustomEvent("ink:chart-inspect", { detail: owner }));
+    setLocal(index);
+  };
   if (clean.length < 2)
     return (
       <div className="chart-empty" role="status" style={{ minHeight: height }}>{t("Not enough data")}
@@ -687,10 +782,9 @@ function Sparkline({
     max = Math.max(...clean),
     range = max - min || 1;
   const x = (i: number) => (i / (clean.length - 1)) * width;
-  const y = (p: number) => height - 10 - ((p - min) / range) * (height - 22);
+  const y = (p: number) => plotHeight - 10 - ((p - min) / range) * (plotHeight - 22);
   const d = clean.map((p, i) => `${i ? "L" : "M"}${x(i)},${y(p)}`).join(" ");
-  const synced = selectedLabel ? labels.indexOf(selectedLabel) : -1;
-  const active = synced >= 0 ? synced : local;
+  const active = local !== null && local < clean.length ? local : null;
   const pick = (clientX: number, target: Element) => {
     const rect = target.getBoundingClientRect();
     const index = Math.max(
@@ -700,8 +794,7 @@ function Sparkline({
         Math.round(((clientX - rect.left) / rect.width) * (clean.length - 1)),
       ),
     );
-    setLocal(index);
-    onSelectLabel?.(labels[index] || String(index));
+    select(index);
   };
   const key = (e: React.KeyboardEvent<HTMLDivElement>) => {
     let index = active ?? clean.length - 1;
@@ -712,26 +805,23 @@ function Sparkline({
     else if (e.key === "End") index = clean.length - 1;
     else if (e.key === "Escape") {
       setLocal(null);
-      onSelectLabel?.(null);
       return;
     } else return;
     e.preventDefault();
-    setLocal(index);
-    onSelectLabel?.(labels[index] || String(index));
+    select(index);
   };
-  const delta =
-    active != null && active > 0 && clean[active - 1] !== 0
-      ? ((clean[active] - clean[active - 1]) / Math.abs(clean[active - 1])) *
-        100
-      : null;
   return (
     <div
+      ref={chartRef}
       className="interactive-chart"
+      data-points={clean.length}
       style={{ height: `clamp(${height}px, 10vw, ${height * 1.25}px)` }}
       tabIndex={0}
       role="group"
       aria-label={tf("{label}. Tap or drag to inspect values; use arrow keys when focused.", { label: ariaLabel })}
       onKeyDown={key}
+      onBlur={() => setLocal(null)}
+      onPointerCancel={() => setLocal(null)}
       onPointerDown={(e) => {
         e.currentTarget.setPointerCapture(e.pointerId);
         pick(e.clientX, e.currentTarget);
@@ -746,19 +836,18 @@ function Sparkline({
       onPointerLeave={(e) => {
         if (e.pointerType === "mouse") {
           setLocal(null);
-          onSelectLabel?.(null);
         }
       }}
     >
       <svg
         className="sparkline"
-        viewBox={`0 0 ${width} ${height}`}
+        viewBox={`0 0 ${width} ${plotHeight}`}
         preserveAspectRatio="none"
         aria-hidden="true"
       >
         <path
           className="gridline"
-          d={`M0 ${height * 0.33}H${width}M0 ${height * 0.66}H${width}`}
+          d={`M0 ${plotHeight * 0.33}H${width}M0 ${plotHeight * 0.66}H${width}`}
         />
         <path
           d={d}
@@ -783,7 +872,7 @@ function Sparkline({
               x1={x(active)}
               x2={x(active)}
               y1="0"
-              y2={height}
+              y2={plotHeight}
             />
             <circle
               className="chart-point"
@@ -797,23 +886,14 @@ function Sparkline({
       </svg>
       {active != null && (
         <div
-          className={cx(
-            "chart-tooltip",
-            active < clean.length * 0.25 && "edge-left",
-            active > clean.length * 0.75 && "edge-right",
-          )}
-          style={{ left: `${(x(active) / width) * 100}%` }}
+          ref={tooltipRef}
+          className="chart-tooltip"
+          style={{ left: tooltipLeft }}
+          role="tooltip"
           aria-live="polite"
         >
-          <span>{dateText(labels[active])}</span>
-          <strong>{formatValue(clean[active])}</strong>
-          <small>
-            {relativeDate(labels[active])}
-            {delta != null
-              ? tf(" · {delta}% vs prior", { delta: `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}` })
-              : ""}
-            {approximateLast && active === clean.length - 1 ? t(" · partial") : ""}
-          </small>
+          <span>{dateText(labels[active])}{labels[active]?.length > 10 && ` · ${new Date(labels[active]).toLocaleTimeString(activeLocale, { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`} · {age(labels[active])}</span>
+          <strong>{approximateLast && active === clean.length - 1 ? "≈ " : ""}{formatValue(clean[active])}</strong>
         </div>
       )}
     </div>
@@ -837,29 +917,22 @@ function Method({ tx }: { tx: AnyRow }) {
 function TxRow({ tx }: { tx: AnyRow }) {
   const from = addressOf(tx.from),
     to = addressOf(tx.to || tx.created_contract);
+  const state = transactionState(tx);
   return (
     <div className={cx("tx-row", tx._live && "live-arrival")}>
       <div className="tx-primary">
         <StatusPill
-          ok={
-            tx.status === "ok" ||
-            tx.result === "success" ||
-            tx.result === "confirmed"
-          }
+          ok={state === "success" || state === "confirmed"}
         >
-          {tx.status === "error"
-            ? t("failed")
-            : tx._live
-              ? t("confirmed")
-              : t("success")}
+          {t(state === "pending" ? "Pending" : state)}
         </StatusPill>
         <div>
           <Copyable value={tx.hash} link={`/tx/${tx.hash}`} />
           <small>
-            {age(tx.timestamp)} · {t("block")}{" "}
+            {age(tx.timestamp)} {tx.block_number != null && <>· {t("block")}{" "}
             <button onClick={() => go(`/block/${tx.block_number}`)}>
               {num(tx.block_number)}
-            </button>
+            </button></>}
           </small>
         </div>
       </div>
@@ -1016,10 +1089,12 @@ function Home({ live }: { live: LiveData }) {
 
 // The title and search stay usable while the independent data sources load.
 function HomeData({ data }: { data: any }) {
+  const [period, setPeriod] = useState(30);
   const s = data.stats,
-    chart = [...data.chart].reverse();
-  const last7 = chart.slice(-7).reduce((a: number, v: any) => a + Number(v.transactions_count), 0);
-  const prev7 = chart.slice(-14, -7).reduce((a: number, v: any) => a + Number(v.transactions_count), 0);
+    history = [...data.chart].sort((a, b) => String(a.date).localeCompare(String(b.date))),
+    chart = history.slice(-period);
+  const last7 = history.slice(-7).reduce((a: number, v: any) => a + Number(v.transactions_count), 0);
+  const prev7 = history.slice(-14, -7).reduce((a: number, v: any) => a + Number(v.transactions_count), 0);
   const delta = prev7 ? ((last7 - prev7) / prev7) * 100 : 0;
   return (
     <>
@@ -1059,12 +1134,15 @@ function HomeData({ data }: { data: any }) {
         <section className="signal-grid">
           <div className="signal-main">
             <SectionTitle
-              eyebrow={t("last30Days")}
+              eyebrow={tf("{count} DAY RANGE", { count: num(period) })}
               title={t("dailyTransactions")}
               action={
-                <button className="arrow-link" onClick={() => go("/analytics")}>
-                  {t("viewAnalytics")} <ArrowUpRight />
-                </button>
+                <div className="chart-heading-actions">
+                  <ChartRange title={t("dailyTransactions")} value={period} onChange={setPeriod} options={chartRanges.slice(0, 2)} />
+                  <button className="arrow-link" aria-label={t("viewAnalytics")} onClick={() => go("/analytics")}>
+                    <ArrowUpRight />
+                  </button>
+                </div>
               }
             />
             <div className="chart-head">
@@ -1268,7 +1346,7 @@ function LedgerList({
   const [error, setError] = useState("");
   const [params, setParams] = useState("");
   const [history, setHistory] = useState<string[]>([]);
-  const [mode, setMode] = useState("all");
+  const [mode, setMode] = useState(() => new URLSearchParams(location.search).get("activity") === "filtered" ? "filtered" : "all");
   const dataRequest = useRef(0);
   const endpoint =
     type === "transactions" && mode === "tokens"
@@ -1278,6 +1356,7 @@ function LedgerList({
         : type;
   useEffect(() => {
     const request = ++dataRequest.current;
+    if (mode === "filtered") return;
     setData(undefined);
     setError("");
     get(`/explorer/${endpoint}${params}`)
@@ -1285,7 +1364,7 @@ function LedgerList({
       .catch(
         (e) => request === dataRequest.current && setError(e.message),
       );
-  }, [endpoint, params]);
+  }, [endpoint, params, mode]);
   // Newest ledgers follow the local WebSocket head immediately. Periodic index
   // refreshes fill missed blocks and enrich live RPC transactions afterward.
   useEffect(() => {
@@ -1419,6 +1498,13 @@ function LedgerList({
           .map(([k, v]) => [k, String(v)]),
       ).toString()}`
     : "";
+  const changeMode = (value: string) => {
+    setMode(value);setParams("");setHistory([]);
+    const url = new URL(location.href);
+    if(value === "filtered")url.searchParams.set("activity","filtered");
+    else {url.searchParams.delete("activity");for(const key of activityKeys)url.searchParams.delete(key);}
+    window.history.replaceState({}, "", url.pathname + url.search);
+  };
   return (
     <>
       <PageIntro
@@ -1433,8 +1519,7 @@ function LedgerList({
           <button
             className={mode === "all" ? "active" : ""}
             onClick={() => {
-              setMode("all");
-              setParams("");
+              changeMode("all");
             }}
           >
             {t("allTransactions")}
@@ -1442,8 +1527,7 @@ function LedgerList({
           <button
             className={mode === "tokens" ? "active" : ""}
             onClick={() => {
-              setMode("tokens");
-              setParams("");
+              changeMode("tokens");
             }}
           >
             {t("transfers")}
@@ -1451,19 +1535,24 @@ function LedgerList({
           <button
             className={mode === "internal" ? "active" : ""}
             onClick={() => {
-              setMode("internal");
-              setParams("");
+              changeMode("internal");
             }}
           >
             {t("internal")}
           </button>
+          <button className={mode === "filtered" ? "active" : ""} onClick={() => changeMode("filtered")}>{t("advancedFilters")}</button>
         </div>
       )}
+      {type === "transactions" && mode === "filtered" ? <Suspense fallback={<Loading />}><FilteredActivity locale={activeLocale} renderRow={item => <article className="activity-record">
+        <div className="activity-record-meta"><StatusPill ok={activityState(item) === "success"}>{t(activityState(item))}</StatusPill>{item.block_number != null && <button className="text-link" onClick={() => go(`/block/${item.block_number}`)}>{t("block")} {num(item.block_number)}</button>}<span>{item.method || "—"}</span><span>{t("fee")} {eth(item.fee, 10)}</span></div>
+        <GenericActivity item={item} type={item.type || "transactions"} />
+      </article>} /></Suspense> : <>
       <div className="table-shell">
         <div className="table-toolbar">
           <span>
             {data ? tf("shown", { count: num(data.items?.length || 0) }) : t("loadingRecords")}
           </span>
+          <button className="text-link" disabled={!data?.items?.length || Boolean(error)} onClick={() => downloadCsv(`ink-${network.chainId}-${endpoint}.csv`, type === "blocks" ? ["height","hash","timestamp","transactions","gas_used","gas_limit","fees_wei"] : ["transaction_hash","timestamp","block","from","to","value_base_units","asset","token_contract","fee_wei"], (data?.items || []).map((item: AnyRow) => type === "blocks" ? [item.height,item.hash,item.timestamp,item.transactions_count,item.gas_used,item.gas_limit,item.transaction_fees] : [item.hash || item.transaction_hash,item.timestamp,item.block_number,addressOf(item.from),addressOf(item.to),item.total?.value ?? item.value,item.token?.symbol || "ETH",item.token?.address_hash,item.fee?.value]))}><Download size={16} /> {t("exportPage")}</button>
           <span
             aria-live="polite"
             className={
@@ -1488,12 +1577,12 @@ function LedgerList({
           <ErrorState error={error} />
         ) : (
           <div className={type === "transactions" ? "tx-list" : "block-list"}>
-            {data.items?.map((item: any) =>
+            {data.items?.map((item: any, index: number) =>
               type === "transactions" && mode === "all" ? (
                 <TxRow key={item.hash} tx={item} />
               ) : type === "transactions" ? (
                 <GenericActivity
-                  key={item.transaction_hash || item.index}
+                  key={`${item.transaction_hash || item.index || "activity"}:${index}`}
                   item={item}
                   type={mode}
                 />
@@ -1517,6 +1606,7 @@ function LedgerList({
           />
         )}
       </div>
+      </>}
     </>
   );
 }
@@ -1562,14 +1652,19 @@ function DetailHeader({
   );
 }
 
-function BlockDetail({ id }: { id: string }) {
+function BlockDetail({ id, live }: { id: string; live: LiveData }) {
   const [block, setBlock] = useState<any>();
   const [txs, setTxs] = useState<any>();
   const [error, setError] = useState("");
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [pageError, setPageError] = useState("");
   const dataRequest = useRef(0);
   useEffect(() => {
     const request = ++dataRequest.current;
     setBlock(undefined);
+    setTxs(undefined);
+    setLoadingMore(false);
+    setPageError("");
     setError("");
     Promise.all([
       get(`/explorer/blocks/${id}`),
@@ -1586,13 +1681,28 @@ function BlockDetail({ id }: { id: string }) {
   }, [id]);
   if (!block && !error) return <Loading />;
   if (error) return <ErrorState error={error} />;
+  const finality = blockFinality(block, live.network);
+  const loadMore = async () => {
+    if (loadingMore || !txs?.next_page_params) return;
+    const request = dataRequest.current;
+    setLoadingMore(true);
+    setPageError("");
+    try {
+      const next = await get(`/explorer/blocks/${id}/transactions${cursorQuery(txs.next_page_params)}`);
+      if (request === dataRequest.current) setTxs((current: any) => ({ ...next, items: [...current.items, ...next.items] }));
+    } catch (e) {
+      if (request === dataRequest.current) setPageError(e instanceof Error ? e.message : String(e));
+    } finally {
+      if (request === dataRequest.current) setLoadingMore(false);
+    }
+  };
   return (
     <>
       <DetailHeader
         kind={t("blockKind")}
         title={`#${num(block.height)}`}
         subtitle={tf("produced", { age: age(block.timestamp), date: new Date(block.timestamp).toLocaleString(activeLocale) })}
-        status={<StatusPill ok>{t("finalized")}</StatusPill>}
+        status={<StatusPill ok>{t(finality)}</StatusPill>}
       />
       <section className="detail-layout">
         <dl className="definitions">
@@ -1632,6 +1742,10 @@ function BlockDetail({ id }: { id: string }) {
           ) : (
             <Empty>{t("blockEmpty")}</Empty>
           )}
+          {pageError && <p role="alert">{pageError}</p>}
+          {txs?.next_page_params && <div className="pagination">
+            <button disabled={loadingMore} onClick={loadMore}>{loadingMore ? t("loadingRecords") : t("loadMore")} <ChevronRight /></button>
+          </div>}
         </div>
       </section>
     </>
@@ -1643,11 +1757,15 @@ function TxDetail({ id }: { id: string }) {
   const [related, setRelated] = useState<any>();
   const [error, setError] = useState("");
   const [tab, setTab] = useState("overview");
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [pageError, setPageError] = useState("");
+  const [relatedRetry, setRelatedRetry] = useState(0);
   const transactionRequest = useRef(0);
   const relatedRequest = useRef(0);
   useEffect(() => {
     const request = ++transactionRequest.current;
     setTx(undefined);
+    setTab("overview");
     setError("");
     get(`/explorer/transactions/${id}`)
       .then((value) => request === transactionRequest.current && setTx(value))
@@ -1658,6 +1776,8 @@ function TxDetail({ id }: { id: string }) {
   useEffect(() => {
     const request = ++relatedRequest.current;
     setRelated(undefined);
+    setLoadingMore(false);
+    setPageError("");
     if (!["transfers", "internal", "logs", "state", "trace"].includes(tab))
       return;
     const endpoint =
@@ -1681,9 +1801,25 @@ function TxDetail({ id }: { id: string }) {
           request === relatedRequest.current &&
           setRelated({ items: [], error: e.message }),
       );
-  }, [id, tab]);
+  }, [id, tab, relatedRetry]);
   if (!tx && !error) return <Loading />;
   if (error) return <ErrorState error={error} />;
+  const state = transactionState(tx);
+  const loadMore = async () => {
+    if (loadingMore || !related?.next_page_params) return;
+    const request = relatedRequest.current;
+    const endpoint = tab === "transfers" ? "token-transfers" : tab === "internal" ? "internal-transactions" : tab === "state" ? "state-changes" : "logs";
+    setLoadingMore(true);
+    setPageError("");
+    try {
+      const next = await get(`/explorer/transactions/${id}/${endpoint}${cursorQuery(related.next_page_params)}`);
+      if (request === relatedRequest.current) setRelated((current: any) => ({ ...next, items: [...current.items, ...next.items] }));
+    } catch (e) {
+      if (request === relatedRequest.current) setPageError(e instanceof Error ? e.message : String(e));
+    } finally {
+      if (request === relatedRequest.current) setLoadingMore(false);
+    }
+  };
   const from = addressOf(tx.from),
     to = addressOf(tx.to || tx.created_contract);
   return (
@@ -1693,77 +1829,33 @@ function TxDetail({ id }: { id: string }) {
         title={short(tx.hash, 14, 12)}
         subtitle={tx.hash}
         status={
-          <StatusPill ok={tx.status === "ok"}>
-            {tx.status === "ok" ? t("confirmed") : t("failed")}
+          <StatusPill ok={state === "success" || state === "confirmed"}>
+            {t(state === "pending" ? "Pending" : state)}
           </StatusPill>
         }
       />
-      <div className="tabs">
-        <button
-          className={tab === "overview" ? "active" : ""}
-          onClick={() => setTab("overview")}
-        >
-          {t("overview")}
-        </button>
-        <button
-          className={tab === "transfers" ? "active" : ""}
-          onClick={() => setTab("transfers")}
-        >
-          {t("transfers")}
-        </button>
-        <button
-          className={tab === "internal" ? "active" : ""}
-          onClick={() => setTab("internal")}
-        >
-          {t("internal")}
-        </button>
-        <button
-          className={tab === "logs" ? "active" : ""}
-          onClick={() => setTab("logs")}
-        >
-          {t("logs")}
-        </button>
-        <button
-          className={tab === "state" ? "active" : ""}
-          onClick={() => setTab("state")}
-        >
-          {t("stateChanges")}
-        </button>
-        <button
-          className={tab === "trace" ? "active" : ""}
-          onClick={() => setTab("trace")}
-        >
-          {t("rawTrace")}
-        </button>
-        <button
-          className={tab === "input" ? "active" : ""}
-          onClick={() => setTab("input")}
-        >
-          {t("inputData")}
-        </button>
-        <button
-          className={tab === "l2" ? "active" : ""}
-          onClick={() => setTab("l2")}
-        >
-          {t("l2Fees")}
-        </button>
-      </div>
+      <SectionTabs value={tab} onChange={setTab} items={[
+        ["overview", t("overview")], ["transfers", t("transfers")],
+        ["internal", t("internal")], ["logs", t("logs")],
+        ["state", t("stateChanges")], ["trace", t("rawTrace")],
+        ["input", t("inputData")], ["l2", t("l2Fees")],
+      ]} />
       {tab === "overview" && (
         <dl className="definitions standalone">
           <Definition label={t("transactionHash")} wide>
             <Copyable value={tx.hash} display={tx.hash} />
           </Definition>
           <Definition label={t("block")}>
-            <button
+            {tx.block_number != null ? <><button
               className="text-link"
               onClick={() => go(`/block/${tx.block_number}`)}
             >
               {num(tx.block_number)}
             </button>{" "}
-            · {tf("confirmations", { count: num(tx.confirmations) })}
+            · {tf("confirmations", { count: num(tx.confirmations) })}</> : t("Pending")}
           </Definition>
           <Definition label={t("timestamp")}>
-            {new Date(tx.timestamp).toLocaleString(activeLocale)} ({age(tx.timestamp)})
+            {tx.timestamp ? <>{new Date(tx.timestamp).toLocaleString(activeLocale)} ({age(tx.timestamp)})</> : "—"}
           </Definition>
           <Definition label={t("from")} wide>
             <span className="flow-party">
@@ -1802,6 +1894,8 @@ function TxDetail({ id }: { id: string }) {
             <strong>{tx.method || "—"}</strong>
           </div>
           <pre>{tx.raw_input || "0x"}</pre>
+          {tx.decoded_input && <pre>{JSON.stringify(tx.decoded_input, null, 2)}</pre>}
+          {tx.revert_reason && <pre>{typeof tx.revert_reason === "string" ? tx.revert_reason : JSON.stringify(tx.revert_reason, null, 2)}</pre>}
         </div>
       )}
       {tab === "l2" && (
@@ -1812,12 +1906,7 @@ function TxDetail({ id }: { id: string }) {
             {num(tx.l1_gas_price)} wei
           </Definition>
           <Definition label={t("L2 execution fee")}>
-            {eth(
-              tx.fee?.value && tx.l1_fee
-                ? BigInt(tx.fee.value) - BigInt(tx.l1_fee)
-                : 0,
-              10,
-            )}
+            {eth(executionFee(tx), 10)}
           </Definition>
         </dl>
       )}
@@ -1825,10 +1914,12 @@ function TxDetail({ id }: { id: string }) {
         <div className="table-shell address-activity">
           {!related ? (
             <Loading />
+          ) : related.error ? (
+            <ErrorState error={related.error} onRetry={() => setRelatedRetry(value => value + 1)} />
           ) : related.items?.length ? (
             related.items.map((item: any, i: number) => (
               <GenericActivity
-                key={item.transaction_hash || item.index || i}
+                key={`${item.transaction_hash || item.index || "activity"}:${i}`}
                 item={item}
                 type={tab}
               />
@@ -1842,15 +1933,18 @@ function TxDetail({ id }: { id: string }) {
       )}
       {tab === "state" && (
         <div className="table-shell address-activity">
+          <div className="table-toolbar"><span>{t("stateBalanceUnits")}</span></div>
           {!related ? (
             <Loading />
+          ) : related.error ? (
+            <ErrorState error={related.error} onRetry={() => setRelatedRetry(value => value + 1)} />
           ) : related.items?.length ? (
             related.items.map((item: any, i: number) => (
               <StateChange key={i} item={item} />
             ))
           ) : (
             <Empty>
-              {related.error || t("No balance or storage changes indexed.")}
+              {related.error || t("noIndexedBalanceChanges")}
             </Empty>
           )}
         </div>
@@ -1867,6 +1961,8 @@ function TxDetail({ id }: { id: string }) {
           </div>
           {!related ? (
             <Loading />
+          ) : related.error ? (
+            <ErrorState error={related.error} onRetry={() => setRelatedRetry(value => value + 1)} />
           ) : related.items?.length ? (
             <pre>{JSON.stringify(related.items, null, 2)}</pre>
           ) : (
@@ -1876,6 +1972,12 @@ function TxDetail({ id }: { id: string }) {
           )}
         </div>
       )}
+      {["transfers", "internal", "logs", "state"].includes(tab) && <>
+        {pageError && <p role="alert">{pageError}</p>}
+        {related?.next_page_params && <div className="pagination">
+          <button disabled={loadingMore} onClick={loadMore}>{loadingMore ? t("loadingRecords") : t("loadMore")} <ChevronRight /></button>
+        </div>}
+      </>}
     </>
   );
 }
@@ -1883,27 +1985,39 @@ function TxDetail({ id }: { id: string }) {
 function AddressDetail({ id }: { id: string }) {
   const [address, setAddress] = useState<any>();
   const [data, setData] = useState<any>();
-  const [tokens, setTokens] = useState<any[]>([]);
+  const [tokens, setTokens] = useState<any[]>();
   const [counters, setCounters] = useState<any>({});
+  const [summaryErrors, setSummaryErrors] = useState<string[]>([]);
+  const [profileRetry, setProfileRetry] = useState(0);
   const [pool, setPool] = useState<any>();
   const [tab, setTab] = useState("overview");
   const [error, setError] = useState("");
   const [loadingMore, setLoadingMore] = useState(false);
+  const [dataRetry, setDataRetry] = useState(0);
   const profileRequest = useRef(0);
   const dataRequest = useRef(0);
   useEffect(() => {
     const request = ++profileRequest.current;
+    const controller = new AbortController();
     setTab("overview");
     setData(undefined);
     setPool(undefined);
     setAddress(undefined);
     setError("");
-    get(`/explorer/addresses/${id}`)
+    setTokens(undefined);
+    setCounters({});
+    setSummaryErrors([]);
+    const summaryError = (e: Error) => {
+      if (request === profileRequest.current && !controller.signal.aborted)
+        setSummaryErrors(current => [...current, e.message]);
+    };
+    get(`/explorer/addresses/${id}`, controller.signal)
       .then((value: any) => {
         if (request !== profileRequest.current) return;
+        if (value.hash?.toLowerCase() !== id.toLowerCase()) throw new Error(t("invalidApiResponse"));
         setAddress(value);
         if (value.is_contract)
-          get(`/contract-info/pools/${id}/check`)
+          get(`/contract-info/pools/${id}/check`, controller.signal)
             .then(
               (next) => request === profileRequest.current && setPool(next),
             )
@@ -1913,39 +2027,40 @@ function AddressDetail({ id }: { id: string }) {
         else setPool(null);
       })
       .catch(
-        (e) => request === profileRequest.current && setError(e.message),
+        (e) => request === profileRequest.current && !controller.signal.aborted && setError(e.message),
       );
-    get(`/explorer/addresses/${id}/token-balances`)
-      .then(
-        (v: any) =>
-          request === profileRequest.current &&
-          setTokens(Array.isArray(v) ? v : v.items || []),
-      )
-      .catch(
-        () => request === profileRequest.current && setTokens([]),
-      );
-    get(`/explorer/addresses/${id}/counters`)
+    get(`/explorer/addresses/${id}/token-balances`, controller.signal)
+      .then((v: any) => {
+        const items = Array.isArray(v) ? v : v.items;
+        if (!Array.isArray(items)) throw new Error(t("invalidApiResponse"));
+        if (request === profileRequest.current) setTokens(items);
+      })
+      .catch(summaryError);
+    get(`/explorer/addresses/${id}/counters`, controller.signal)
       .then(
         (value) =>
           request === profileRequest.current && setCounters(value),
       )
-      .catch(() => {});
-  }, [id]);
+      .catch(summaryError);
+    return () => { ++profileRequest.current; controller.abort(); };
+  }, [id, profileRetry]);
   useEffect(() => {
     const request = ++dataRequest.current;
+    const controller = new AbortController();
     setLoadingMore(false);
     setData(undefined);
     if (tab === "overview") return;
     const endpoint =
       ["contract", "read", "write"].includes(tab) ? `smart-contracts/${id}` : `addresses/${id}/${tab}`;
-    get(`/explorer/${endpoint}`)
+    get(`/explorer/${endpoint}`, controller.signal)
       .then((value) => request === dataRequest.current && setData(value))
       .catch(
         (e) =>
-          request === dataRequest.current &&
+          request === dataRequest.current && !controller.signal.aborted &&
           setData({ items: [], error: e.message }),
       );
-  }, [id, tab]);
+    return () => { ++dataRequest.current; controller.abort(); };
+  }, [id, tab, dataRetry]);
   const loadMore = async () => {
     if (
       !data?.next_page_params ||
@@ -1962,6 +2077,7 @@ function AddressDetail({ id }: { id: string }) {
     ).toString();
     const endpoint = `addresses/${id}/${tab}?${query}`;
     setLoadingMore(true);
+    setData((current: any) => ({ ...current, error: undefined }));
     try {
       const next = await get(`/explorer/${endpoint}`);
       if (request === dataRequest.current)
@@ -1980,7 +2096,7 @@ function AddressDetail({ id }: { id: string }) {
     }
   };
   if (!address && !error) return <Loading />;
-  if (error && !address) return <ErrorState error={error} />;
+  if (error && !address) return <ErrorState error={error} onRetry={() => setProfileRetry(value => value + 1)} />;
   const balance = address?.coin_balance;
   const implementation = address?.implementations?.[0];
   return (
@@ -2008,11 +2124,13 @@ function AddressDetail({ id }: { id: string }) {
         <Metric
           label={t("ETH balance")}
           value={eth(balance, 6)}
-          note={money(
+          note={<>{money(
             balance == null || address?.exchange_rate == null
               ? undefined
               : (Number(balance) / 1e18) * Number(address.exchange_rate),
-          )}
+          )}<br />{t(address?.balance_check?.source === "local" ? "balanceNodeSource" : "sourceIndex")} · {tf("updated at #{block}", { block: num(address?.block_number_balance_updated_at) })}
+          {address?.balance_check?.status === "corrected" && <><br />{t("balanceIndexDifference")}</>}
+          {address?.balance_check?.status === "unavailable" && <><br />{t("balanceUnverified")}</>}</>}
         />
         <Metric
           label={t("Transactions")}
@@ -2021,71 +2139,26 @@ function AddressDetail({ id }: { id: string }) {
         />
         <Metric
           label={t("Token holdings")}
-          value={num(tokens.length)}
+          value={num(tokens?.length)}
           note={t("known assets")}
         />
         <Metric
           label={t("Gas consumed")}
           value={compact(counters.gas_usage_count)}
-          note={tf("updated at #{block}", { block: num(address?.block_number_balance_updated_at) })}
+          note={t("sourceIndex")}
         />
       </section>
-      <div className="tabs">
-        <button
-          className={tab === "overview" ? "active" : ""}
-          onClick={() => setTab("overview")}
-        >
-          {t("overview")}
-        </button>
-        <button
-          className={tab === "transactions" ? "active" : ""}
-          onClick={() => setTab("transactions")}
-        >
-          {t("transactions")}
-        </button>
-        <button
-          className={tab === "tokens" ? "active" : ""}
-          onClick={() => setTab("tokens")}
-        >
-          {t("assets")}
-        </button>
-        <button
-          className={tab === "nft" ? "active" : ""}
-          onClick={() => setTab("nft")}
-        >
-          {t("nfts")}
-        </button>
-        <button
-          className={tab === "token-transfers" ? "active" : ""}
-          onClick={() => setTab("token-transfers")}
-        >
-          {t("transfers")}
-        </button>
-        <button
-          className={tab === "internal-transactions" ? "active" : ""}
-          onClick={() => setTab("internal-transactions")}
-        >
-          {t("internal")}
-        </button>
-        <button
-          className={tab === "logs" ? "active" : ""}
-          onClick={() => setTab("logs")}
-        >
-          {t("logs")}
-        </button>
-        {address?.is_contract && (
-          <>
-          <button
-            className={tab === "contract" ? "active" : ""}
-            onClick={() => setTab("contract")}
-          >
-            {t("contractSource")}
-          </button>
-          <button className={tab === "read" ? "active" : ""} onClick={() => setTab("read")}>{t("readContract")}</button>
-          <button className={tab === "write" ? "active" : ""} onClick={() => setTab("write")}>{t("writeContract")}</button>
-          </>
-        )}
-      </div>
+      {summaryErrors.length > 0 && <ErrorState error={[...new Set(summaryErrors)].join(" · ")} onRetry={() => setProfileRetry(value => value + 1)} />}
+      <SectionTabs value={tab} onChange={setTab} items={[
+        ["overview", t("overview")], ["transactions", t("transactions")],
+        ["tokens", t("assets")], ["nft", t("nfts")],
+        ["token-transfers", t("transfers")], ["internal-transactions", t("internal")],
+        ["logs", t("logs")],
+        ...(address?.is_contract ? [
+          ["contract", t("contractSource")], ["read", t("readContract")],
+          ["write", t("writeContract")],
+        ] as [string, string][] : []),
+      ]} />
       {tab === "overview" ? (
         <section className="entity-profile">
           <div>
@@ -2171,8 +2244,10 @@ function AddressDetail({ id }: { id: string }) {
             <Loading />
           ) : (
             <>
-              {["read", "write"].includes(tab) && !data.error ? (
-                <Suspense fallback={<Loading />}><ContractInteraction key={`${id}-${tab}`} address={id} contract={data} mode={tab === "read" ? "read" : "write"} locale={activeLocale} /></Suspense>
+              {["read", "write"].includes(tab) ? (
+                <Suspense fallback={<Loading />}><ContractInteraction key={`${id}-${tab}`} address={id} contract={data.error ? {} : data} mode={tab === "read" ? "read" : "write"} locale={activeLocale} /></Suspense>
+              ) : data.error && !data.items?.length ? (
+                <ErrorState error={data.error} onRetry={() => setDataRetry(value => value + 1)} />
               ) : tab === "contract" && !data.error ? (
                 <ContractSource contract={data} />
               ) : tab === "tokens" && data.items?.length ? (
@@ -2199,7 +2274,7 @@ function AddressDetail({ id }: { id: string }) {
                 ) : (
                   data.items.map((item: any, i: number) => (
                     <GenericActivity
-                      key={item.transaction_hash || item.index || i}
+                      key={`${item.transaction_hash || item.index || "activity"}:${i}`}
                       item={item}
                       type={tab}
                     />
@@ -2230,6 +2305,7 @@ function AddressDetail({ id }: { id: string }) {
                   </button>
                 </div>
               ) : null}
+              {data.error && data.items?.length > 0 && <p role="alert">{data.error}</p>}
             </>
           )}
         </div>
@@ -2241,32 +2317,32 @@ function AddressDetail({ id }: { id: string }) {
 // All third-party artwork is routed through the same-origin, SSRF-protected
 // media cache. Broken or unsafe assets fall back to deterministic placeholders.
 function AssetHolding({ item }: { item: AnyRow }) {
-  const t = item.token || {},
-    amount = scaled(item.value, t.decimals);
+  const token = item.token || {},
+    amount = scaled(item.value, token.decimals);
   return (
     <button
       className="asset-row"
-      disabled={!t.address_hash}
-      onClick={() => t.address_hash && go(`/token/${t.address_hash}`)}
+      disabled={!token.address_hash}
+      onClick={() => token.address_hash && go(`/token/${token.address_hash}`)}
     >
       <span className="token-name">
-        {t.icon_url ? (
-          <img src={mediaUrl(t.icon_url)} alt="" />
+        {token.icon_url ? (
+          <img src={mediaUrl(token.icon_url)} alt="" />
         ) : (
-          <i>{t.symbol?.[0] || "?"}</i>
+          <i>{token.symbol?.[0] || "?"}</i>
         )}
         <span>
-          <strong>{t.name || t("Unknown asset")}</strong>
+          <strong>{token.name || t("Unknown asset")}</strong>
           <small>
-            {t.symbol} · {t.type}
+            {token.symbol} · {token.type}
           </small>
         </span>
       </span>
       <span>
         <strong>{num(amount, 6)}</strong>
         <small>
-          {t.exchange_rate && amount !== undefined
-            ? money(amount * Number(t.exchange_rate))
+          {token.exchange_rate && amount !== undefined
+            ? money(amount * Number(token.exchange_rate))
             : t("No price data")}
         </small>
       </span>
@@ -2410,6 +2486,7 @@ function ContractSource({ contract }: { contract: AnyRow }) {
 
 function GenericActivity({ item, type }: { item: AnyRow; type: string }) {
   const hash = item.transaction_hash || item.tx_hash;
+  if (type === "logs") return <LogEntry item={item} />;
   return (
     <div className="generic-row">
       <span className="activity-kind">
@@ -2443,19 +2520,32 @@ function GenericActivity({ item, type }: { item: AnyRow; type: string }) {
         />
         <ArrowRight />
         <Copyable
-          value={addressOf(item.to)}
+          value={addressOf(item.to || item.created_contract)}
           link={
-            addressOf(item.to) ? `/address/${addressOf(item.to)}` : undefined
+            addressOf(item.to || item.created_contract) ? `/address/${addressOf(item.to || item.created_contract)}` : undefined
           }
         />
       </div>
       <strong>
         {item.total?.value != null
-          ? `${num(scaled(item.total.value, item.token?.decimals), 4)} ${item.token?.symbol || ""}`
+          ? `${num(scaled(item.total.value, item.total.decimals ?? item.token?.decimals), 4)} ${item.token?.symbol || ""}`
           : eth(item.value)}
       </strong>
     </div>
   );
+}
+
+function LogEntry({ item }: { item: AnyRow }) {
+  const address = addressOf(item.address);
+  return <article className="code-panel event-log">
+    <div>
+      <span>{t("logs")} #{item.index ?? "—"}</span>
+      <Copyable value={address} link={address ? `/address/${address}` : undefined} />
+      {item.transaction_hash && <Copyable value={item.transaction_hash} link={`/tx/${item.transaction_hash}`} />}
+    </div>
+    {item.decoded && <pre>{JSON.stringify(item.decoded, null, 2)}</pre>}
+    <pre>{JSON.stringify({ topics: item.topics || [], data: item.data || "0x" }, null, 2)}</pre>
+  </article>;
 }
 
 function StateChange({ item }: { item: AnyRow }) {
@@ -2472,22 +2562,23 @@ function StateChange({ item }: { item: AnyRow }) {
         <small>
           {item.token?.symbol || item.token_id
             ? tf("Token {symbol} {id}", { symbol: item.token?.symbol || "", id: item.token_id || "" })
-            : t("Native balance or contract storage")}
+            : t("nativeBalance")}
         </small>
       </div>
       <div>
         <small>{t("Before")}</small>
         <strong className="mono">{item.balance_before ?? "—"}</strong>
+        {item.balance_after != null && <><small>{t("After")}</small><strong className="mono">{item.balance_after}</strong></>}
       </div>
       <ArrowRight />
       <div>
         <small>{t("Change")}</small>
         <strong
           className={
-            String(item.change || "").startsWith("-") ? "negative" : "positive"
+            typeof item.change === "object" || item.change == null ? "mono" : String(item.change).startsWith("-") ? "negative" : "positive"
           }
         >
-          {item.change ?? "—"}
+          <code className="state-change-value">{stateChangeText(item.change)}</code>
         </strong>
       </div>
     </div>
@@ -2497,11 +2588,15 @@ function StateChange({ item }: { item: AnyRow }) {
 function Tokens() {
   const [data, setData] = useState<any>();
   const [error, setError] = useState("");
+  const [params, setParams] = useState("");
   useEffect(() => {
-    get("/explorer/tokens")
-      .then(setData)
-      .catch((e) => setError(e.message));
-  }, []);
+    const controller = new AbortController();
+    setData(undefined); setError("");
+    get(`/explorer/tokens${params}`, controller.signal)
+      .then(value => !controller.signal.aborted && setData(value))
+      .catch(e => !controller.signal.aborted && setError(e.message));
+    return () => controller.abort();
+  }, [params]);
   return (
     <>
       <PageIntro
@@ -2554,6 +2649,7 @@ function Tokens() {
             ))}
           </div>
         )}
+        {data && <Pagination next={data.next_page_params} onNext={() => setParams(cursorQuery(data.next_page_params))} onReset={() => setParams("")} />}
       </div>
     </>
   );
@@ -2623,34 +2719,10 @@ function TokenDetail({ id }: { id: string }) {
         />
         <Metric label={t("volume24h")} value={money(token.volume_24h)} />
       </section>
-      <div className="tabs">
-        <button
-          className={tab === "transfers" ? "active" : ""}
-          onClick={() => {
-            setTab("transfers");
-            setParams("");
-          }}
-        >{t("Transfers")}
-        </button>
-        <button
-          className={tab === "holders" ? "active" : ""}
-          onClick={() => {
-            setTab("holders");
-            setParams("");
-          }}
-        >{t("Holders")}
-        </button>
-        {token.type !== "ERC-20" && (
-          <button
-            className={tab === "instances" ? "active" : ""}
-            onClick={() => {
-              setTab("instances");
-              setParams("");
-            }}
-          >{t("Token instances")}
-          </button>
-        )}
-      </div>
+      <SectionTabs value={tab} onChange={value => { setTab(value); setParams(""); }} items={[
+        ["transfers", t("Transfers")], ["holders", t("Holders")],
+        ...(token.type !== "ERC-20" ? [["instances", t("Token instances")]] as [string, string][] : []),
+      ]} />
       <div className="table-shell address-activity">
         {!data ? (
           <Loading />
@@ -2658,7 +2730,7 @@ function TokenDetail({ id }: { id: string }) {
           tab === "transfers" ? (
             data.items.map((t: any, i: number) => (
               <GenericActivity
-                key={t.transaction_hash || i}
+                key={`${t.transaction_hash || "transfer"}:${i}`}
                 item={t}
                 type="token transfer"
               />
@@ -2684,7 +2756,7 @@ function TokenDetail({ id }: { id: string }) {
         ) : (
           <Empty>{data.error || tf("No {type} found.", { type: activityLabel(tab) })}</Empty>
         )}
-        {data?.next_page_params && (
+        {data && (
           <Pagination
             next={data.next_page_params}
             onNext={() =>
@@ -2710,12 +2782,17 @@ function NftDetail({ id, tokenId }: { id: string; tokenId: string }) {
   const [transfers, setTransfers] = useState<any>();
   const [error, setError] = useState("");
   const [failed, setFailed] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [pageError, setPageError] = useState("");
   const dataRequest = useRef(0);
   useEffect(() => {
     const request = ++dataRequest.current;
     setFailed(false);
     setError("");
     setInstance(undefined);
+    setTransfers(undefined);
+    setLoadingMore(false);
+    setPageError("");
     Promise.all([
       get(`/explorer/tokens/${id}/instances/${encodeURIComponent(tokenId)}`),
       get(`/explorer/tokens/${id}`),
@@ -2735,6 +2812,19 @@ function NftDetail({ id, tokenId }: { id: string; tokenId: string }) {
   }, [id, tokenId]);
   if (!instance && !error) return <Loading />;
   if (error) return <ErrorState error={error} />;
+  const loadMore = async () => {
+    if (loadingMore || !transfers?.next_page_params) return;
+    const request = dataRequest.current;
+    setLoadingMore(true); setPageError("");
+    try {
+      const next = await get(`/explorer/tokens/${id}/instances/${encodeURIComponent(tokenId)}/transfers${cursorQuery(transfers.next_page_params)}`);
+      if (request === dataRequest.current) setTransfers((current: any) => ({ ...next, items: [...current.items, ...next.items] }));
+    } catch (e) {
+      if (request === dataRequest.current) setPageError(e instanceof Error ? e.message : String(e));
+    } finally {
+      if (request === dataRequest.current) setLoadingMore(false);
+    }
+  };
   const source =
     instance.image_url ||
     instance.media_url ||
@@ -2850,7 +2940,7 @@ function NftDetail({ id, tokenId }: { id: string; tokenId: string }) {
           {transfers?.items?.length ? (
             transfers.items.map((item: any, index: number) => (
               <GenericActivity
-                key={item.transaction_hash || index}
+                key={`${item.transaction_hash || "transfer"}:${index}`}
                 item={item}
                 type="NFT transfer"
               />
@@ -2858,6 +2948,10 @@ function NftDetail({ id, tokenId }: { id: string; tokenId: string }) {
           ) : (
             <Empty />
           )}
+          {pageError && <p role="alert">{pageError}</p>}
+          {transfers?.next_page_params && <div className="pagination">
+            <button disabled={loadingMore} onClick={loadMore}>{loadingMore ? t("loadingRecords") : t("loadMore")} <ChevronRight /></button>
+          </div>}
         </div>
       </section>
       <details className="raw-metadata">
@@ -2951,6 +3045,9 @@ function Pools() {
   );
   const [fee, setFee] = useState(initial.get("fee") || "all");
   const [dex, setDex] = useState(initial.get("dex") || "all");
+  const [filtersOpen, setFiltersOpen] = useState(() =>
+    minLiquidity !== "0" || minVolume !== "0" || fee !== "all" || dex !== "all",
+  );
   const [pageSize, setPageSize] = useState(
     Number(initial.get("per_page")) === 50 ? 50 : 25,
   );
@@ -3162,7 +3259,7 @@ function Pools() {
             </button>
           </div>
         </div>
-        <div className="pool-filter-grid">
+        <div id="pool-filter-options" className={cx("pool-filter-grid", filtersOpen && "expanded")}>
           <label>
             <span>{t("sortBy")}</span>
             <select
@@ -3251,6 +3348,10 @@ function Pools() {
             </select>
           </label>
         </div>
+        <button className="pool-filter-toggle" aria-expanded={filtersOpen} aria-controls="pool-filter-options"
+          onClick={() => setFiltersOpen(value => !value)}>
+          <SlidersHorizontal aria-hidden="true" /> {t("poolFilters")} <ChevronDown aria-hidden="true" />
+        </button>
         <div className="pool-result-bar">
           <strong>
             {filtered.length} {t("pools").toLocaleLowerCase()}
@@ -3597,32 +3698,10 @@ function AdvancedPage() {
           </span>
         </div>
       </PageIntro>
-      <div className="tabs advanced-tabs">
-        <button
-          className={mode === "deposits" ? "active" : ""}
-          onClick={() => {
-            setMode("deposits");
-            setParams("");
-          }}
-        >{t("L1 → L2 deposits")}
-        </button>
-        <button
-          className={mode === "withdrawals" ? "active" : ""}
-          onClick={() => {
-            setMode("withdrawals");
-            setParams("");
-          }}
-        >{t("L2 → L1 withdrawals")}
-        </button>
-        <button
-          className={mode === "userops" ? "active" : ""}
-          onClick={() => {
-            setMode("userops");
-            setParams("");
-          }}
-        >{t("User operations")}
-        </button>
-      </div>
+      <SectionTabs value={mode} onChange={value => { setMode(value); setParams(""); }} items={[
+        ["deposits", t("L1 → L2 deposits")], ["withdrawals", t("L2 → L1 withdrawals")],
+        ["userops", t("User operations")],
+      ]} />
       <section className="protocol-note">
         <TerminalSquare />
         <div>
@@ -3664,7 +3743,7 @@ function AdvancedPage() {
         ) : (
           <Empty>{t("No records found.")}</Empty>
         )}
-        {data?.next_page_params && (
+        {data && (
           <Pagination
             next={data.next_page_params}
             onNext={() =>
@@ -3803,11 +3882,15 @@ function DevelopersPage() {
 function Contracts() {
   const [data, setData] = useState<any>();
   const [error, setError] = useState("");
+  const [params, setParams] = useState("");
   useEffect(() => {
-    get("/explorer/smart-contracts")
-      .then(setData)
-      .catch((e) => setError(e.message));
-  }, []);
+    const controller = new AbortController();
+    setData(undefined); setError("");
+    get(`/explorer/smart-contracts${params}`, controller.signal)
+      .then(value => !controller.signal.aborted && setData(value))
+      .catch(e => !controller.signal.aborted && setError(e.message));
+    return () => controller.abort();
+  }, [params]);
   return (
     <>
       <PageIntro
@@ -3851,54 +3934,118 @@ function Contracts() {
           ))
         )}
       </div>
+      {data && <Pagination next={data.next_page_params} onNext={() => setParams(cursorQuery(data.next_page_params))} onReset={() => setParams("")} />}
     </>
   );
 }
 
-function StatChart({
-  title,
-  value,
-  note,
-  points,
-  labels,
-  color,
-  formatValue = compact,
-  selectedLabel,
-  onSelectLabel,
-  approximateLast = false,
-}: {
+function StatChart({ title, note, metric, color, formatValue = compact, refresh }: {
   title: string;
-  value: string;
   note: string;
-  points: number[];
-  labels: string[];
+  metric: string;
   color?: string;
   formatValue?: (value: number) => string;
-  selectedLabel: string | null;
-  onSelectLabel: (label: string | null) => void;
-  approximateLast?: boolean;
+  refresh: number;
 }) {
-  const selected = selectedLabel ? labels.indexOf(selectedLabel) : -1;
-  return (
-    <div className="stat-chart">
-      <div>
-        <span>{title}</span>
-        <strong>{selected >= 0 ? formatValue(points[selected]) : value}</strong>
-      </div>
-      <Sparkline
-        points={points}
-        labels={labels}
-        color={color}
-        height={115}
-        formatValue={formatValue}
-        selectedLabel={selectedLabel}
-        onSelectLabel={onSelectLabel}
-        ariaLabel={title}
-        approximateLast={approximateLast}
-      />
-      <p>{note}</p>
+  const [period, setPeriod] = useState(30);
+  const [data, setData] = useState<AnyRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setError("");
+    get(`/stats/lines/${metric}${chartQuery(period)}`, controller.signal)
+      .then(result => {
+        if (!controller.signal.aborted) setData([...(result.chart || [])].sort((a, b) => String(a.date).localeCompare(String(b.date))));
+      })
+      .catch(error => { if (!controller.signal.aborted) setError(error.message); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [metric, period, refresh, retry]);
+  const points = data.map(row => Number(row.value));
+  return <article className="stat-chart" aria-label={title} aria-busy={loading}>
+    <div className="stat-chart-heading">
+      <h3>{title}</h3>
+      <ChartRange title={title} value={period} onChange={setPeriod} />
     </div>
+    <strong className="stat-chart-value">{loading || error ? "—" : points.length ? formatValue(points.at(-1)!) : "—"}</strong>
+    {loading ? <div className="chart-loading" role="status">{t("loadingRecords")}</div>
+      : error ? <div className="chart-error" role="status"><span>{t("Data source unavailable")}</span><button onClick={() => setRetry(value => value + 1)}>{t("retry")}</button></div>
+      : <Sparkline key={period} points={points} labels={data.map(row => row.date)} color={color} height={130}
+          formatValue={formatValue} ariaLabel={title} approximateLast={Boolean(data.at(-1)?.is_approximate)} />}
+    <div className="chart-axis"><span>{t(period >= 365 ? "Weekly" : "Daily")}</span><span>{!loading && !error && data.length ? `${dateText(data[0].date)} – ${dateText(data.at(-1)?.date)}` : ""}</span></div>
+    <p>{note}</p>
+  </article>;
+}
+
+function AnalyticsIntro({ loading, showData = false, onData, onCsv, onRefresh }: {
+  loading: boolean;
+  showData?: boolean;
+  onData?: () => void;
+  onCsv?: () => void;
+  onRefresh: () => void;
+}) {
+  return (
+      <PageIntro
+        eyebrow={t("NETWORK STATS")}
+        title={t("Ink analytics")}
+        text={t("Compare transactions, active accounts, fees and success rate. Select a range or inspect any chart point.")}
+      >
+        <div className="analytics-controls">
+          <div className="analytics-actions">
+            <button onClick={onData} disabled={!onData} className={showData ? "active" : ""}>
+              <Table2 />{t("Data")}
+            </button>
+            <button onClick={onCsv} disabled={loading || !onCsv}>
+              <Download /> CSV
+            </button>
+            <button
+              aria-label={t("Refresh analytics")}
+              disabled={loading}
+              onClick={onRefresh}
+            >
+              <RefreshCw />
+            </button>
+          </div>
+        </div>
+      </PageIntro>
   );
+}
+
+function BlockUtilization({ refresh }: { refresh: number }) {
+  const [blocks, setBlocks] = useState<any[]>([]);
+  const [blockCount, setBlockCount] = useState(50);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setError("");
+    get("/explorer/blocks", controller.signal)
+      .then(result => { if (!controller.signal.aborted) setBlocks(result.items || []); })
+      .catch(error => { if (!controller.signal.aborted) setError(error.message); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [refresh, retry]);
+  const rows = blocks.slice(0, blockCount).reverse();
+  const util = rows.map(block => Number(block.gas_used_percentage));
+  return <div className="analytic-card block-utilization" aria-busy={loading}>
+    <div className="analytic-label">
+      <Gauge />
+      <span>{t("Recent block utilization")}</span>
+      <ChartRange title={t("Recent block utilization")} value={blockCount} onChange={setBlockCount}
+        options={[[10, tf("chartBlocks", { count: 10 })], [25, tf("chartBlocks", { count: 25 })], [50, tf("chartBlocks", { count: 50 })]]} />
+      <strong>{loading || error ? "—" : unit(util.length ? util.reduce((a, b) => a + b, 0) / util.length : undefined, "%")}</strong>
+    </div>
+    {loading ? <div className="chart-loading" role="status">{t("loadingRecords")}</div>
+      : error ? <div className="chart-error" role="status"><span>{t("Data source unavailable")}</span><button onClick={() => setRetry(value => value + 1)}>{t("retry")}</button></div>
+      : <Sparkline points={util} labels={rows.map(block => block.timestamp)} color="#0c8b68"
+          formatValue={value => `${value.toFixed(2)}%`} ariaLabel={t("Gas utilization for recent blocks")} />}
+    <p>{t("Gas used as a share of capacity in the latest indexed blocks.")}</p>
+  </div>;
 }
 
 function Analytics() {
@@ -3910,57 +4057,56 @@ function Analytics() {
     ranges.includes(queryRange) ? queryRange : 30,
   );
   const [refresh, setRefresh] = useState(0);
-  const [focusDate, setFocusDate] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [showData, setShowData] = useState(false);
   const dataTableRef = useRef<HTMLElement>(null);
   const dataRequest = useRef(0);
-  const grain = period >= 365 ? "WEEK" : "DAY";
+  const displayedPeriod = data?.period ?? period;
+  const grain = displayedPeriod >= 365 ? "WEEK" : "DAY";
   const choosePeriod = (days: number) => {
     setPeriod(days);
-    setFocusDate(null);
     const u = new URL(location.href);
     u.searchParams.set("range", String(days));
     history.replaceState({}, "", `${u.pathname}${u.search}`);
   };
   useEffect(() => {
     const request = ++dataRequest.current;
-    const to = new Date().toISOString().slice(0, 10),
-      from = new Date(Date.now() - (period - 1) * 86400000)
-        .toISOString()
-        .slice(0, 10),
-      q = `?from=${from}&to=${to}&resolution=${grain}`;
-    setData(undefined);
+    const controller = new AbortController();
+    const load = (path: string) => get(path, controller.signal);
+    const q = chartQuery(period);
+    setLoading(true);
     setError("");
     Promise.all([
-      get("/explorer/stats"),
-      get(`/stats/lines/newTxns${q}`),
-      get("/explorer/blocks"),
-      get("/stats/counters"),
-      get(`/stats/lines/activeAccounts${q}`),
-      get(`/stats/lines/newAccounts${q}`),
-      get(`/stats/lines/averageTxnFee${q}`),
-      get(`/stats/lines/txnsSuccessRate${q}`),
-      get(`/stats/lines/newBlocks${q}`),
+      load("/explorer/stats"),
+      load(`/stats/lines/newTxns${q}`),
+      load("/stats/counters"),
+      load(`/stats/lines/activeAccounts${q}`),
+      load(`/stats/lines/newAccounts${q}`),
+      load(`/stats/lines/averageTxnFee${q}`),
+      load(`/stats/lines/txnsSuccessRate${q}`),
+      load(`/stats/lines/newBlocks${q}`),
+      load(`/stats/lines/activeAccounts${chartQuery(8)}`),
     ])
       .then(
         ([
           stats,
           chart,
-          blocks,
           counters,
           active,
           newAccounts,
           fees,
           success,
           newBlocks,
+          dailyActive,
         ]) => {
           if (request !== dataRequest.current) return;
           setData({
             stats,
+            period,
             chart: chart.chart || [],
-            blocks: blocks.items || [],
             counters: counters.counters || [],
             active: active.chart || [],
+            dailyActive: dailyActive.chart || [],
             newAccounts: newAccounts.chart || [],
             fees: fees.chart || [],
             success: success.chart || [],
@@ -3969,14 +4115,19 @@ function Analytics() {
           });
         },
       )
-      .catch(
-        (e) => request === dataRequest.current && setError(e.message),
-      );
-  }, [period, grain, refresh]);
-  if (!data && !error) return <Loading label={t("Calculating network signals")} />;
-  if (error) return <ErrorState error={error} />;
+      .catch((e) => request === dataRequest.current && setError(e.message))
+      .finally(() => { if (request === dataRequest.current) setLoading(false); });
+    return () => { dataRequest.current++; controller.abort(); };
+  }, [period, refresh]);
+  if (!data) return <>
+    <AnalyticsIntro loading={loading} onRefresh={() => setRefresh(value => value + 1)} />
+    {error ? <ErrorState error={error} onRetry={() => setRefresh(value => value + 1)} /> : <Loading label={t("Calculating network signals")} />}
+  </>;
   const ordered = (rows: any[]) =>
     [...rows].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const dailyActive = ordered(data.dailyActive);
+  const priorActive = dailyActive.slice(-8, -1);
+  const priorActiveAverage = priorActive.reduce((sum, row) => sum + Number(row.value), 0) / Math.max(1, priorActive.length);
   const c = ordered(data.chart),
     vals = c.map((x: any) => Number(x.value)),
     labels = c.map((x: any) => x.date),
@@ -3987,16 +4138,8 @@ function Analytics() {
     total = vals.length
       ? vals.reduce((a: number, b: number) => a + b, 0)
       : undefined;
-  const focused = focusDate ? labels.indexOf(focusDate) : -1;
-  const utilRows = [...data.blocks].reverse(),
-    util = utilRows.map((b: any) => Number(b.gas_used_percentage)),
-    utilLabels = utilRows.map((b: any) => b.timestamp);
   const counter = Object.fromEntries(data.counters.map((x: any) => [x.id, x]));
   const rows = (key: string) => ordered(data[key]);
-  const series = (key: string) => rows(key).map((x: any) => Number(x.value));
-  const labelsFor = (key: string) => rows(key).map((x: any) => x.date);
-  const last = (key: string) => series(key).at(-1);
-  const success = series("success").map((v: number) => v * 100);
   const lookup = (key: string) =>
     new Map(rows(key).map((x: any) => [x.date, Number(x.value)]));
   const maps = {
@@ -4032,7 +4175,7 @@ function Analytics() {
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = `ink-analytics-${period}d.csv`;
+    a.download = `ink-analytics-${displayedPeriod}d.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -4045,7 +4188,7 @@ function Analytics() {
     requestAnimationFrame(() =>
       requestAnimationFrame(() =>
         dataTableRef.current?.scrollIntoView({
-          behavior: "smooth",
+          behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
           block: "start",
         }),
       ),
@@ -4053,50 +4196,12 @@ function Analytics() {
   };
   return (
     <>
-      <PageIntro
-        eyebrow={t("NETWORK STATS")}
-        title={t("Ink analytics")}
-        text={t("Compare transactions, active accounts, fees and success rate. Select a range or inspect any chart point.")}
-      >
-        <div className="analytics-controls">
-          <div className="period-switch">
-            {[
-              [7, "7D"],
-              [30, "30D"],
-              [90, "90D"],
-              [180, "6M"],
-              [365, "1Y"],
-            ].map(([days, label]) => (
-              <button
-                key={days}
-                className={period === days ? "active" : ""}
-                onClick={() => choosePeriod(Number(days))}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <div className="analytics-actions">
-            <button onClick={toggleData} className={showData ? "active" : ""}>
-              <Table2 />{t("Data")}
-            </button>
-            <button onClick={exportCsv}>
-              <Download /> CSV
-            </button>
-            <button
-              aria-label={t("Refresh analytics")}
-              onClick={() => setRefresh((v) => v + 1)}
-            >
-              <RefreshCw />
-            </button>
-          </div>
-        </div>
-      </PageIntro>
+      <AnalyticsIntro loading={loading} showData={showData} onData={toggleData} onCsv={error ? undefined : exportCsv} onRefresh={() => setRefresh(value => value + 1)} />
       <section className="analytics-counters">
         <Metric
           label={t("Active accounts")}
-          value={compact(last("active"))}
-          note={tf("latest {grain}", { grain: t(grain === "DAY" ? "Daily" : "Weekly") })}
+          value={compact(dailyActive.at(-1)?.value)}
+          note={tf("latest {grain}", { grain: t("Daily") })}
         />
         <Metric
           label={t("Contracts today")}
@@ -4125,21 +4230,24 @@ function Analytics() {
         </span>
         <span>{tf("Updated {time} · latest interval may be partial", { time: new Date(data.updatedAt).toLocaleTimeString(activeLocale) })}</span>
       </section>
-      <section className="analytics-lead">
+      <section className="analytics-lead" aria-busy={loading}>
         <div>
+          <div className="lead-chart-heading">
           <span>
-            {tf("{grain} TRANSACTIONS · {period}", { grain: t(grain === "DAY" ? "Daily" : "Weekly").toUpperCase(), period: period === 365 ? t("1 YEAR") : tf("{count} DAYS", { count: num(period) }) })}
+            {tf("{grain} TRANSACTIONS · {period}", { grain: t(grain === "DAY" ? "Daily" : "Weekly").toUpperCase(), period: displayedPeriod === 365 ? t("1 YEAR") : tf("{count} DAYS", { count: num(displayedPeriod) }) })}
           </span>
-          <strong>{compact(focused >= 0 ? vals[focused] : vals.at(-1))}</strong>
-          <Sparkline
+          <ChartRange title={t("Transactions")} value={period} onChange={choosePeriod} />
+          </div>
+          <strong>{compact(vals.at(-1))}</strong>
+          {loading ? <div className="chart-loading lead-chart-status" role="status">{t("loadingRecords")}</div>
+            : error ? <div className="chart-error lead-chart-status" role="status"><span>{t("Data source unavailable")}</span><button onClick={() => setRefresh(value => value + 1)}>{t("retry")}</button></div>
+            : <Sparkline
             points={vals}
             labels={labels}
             height={220}
-            selectedLabel={focusDate}
-            onSelectLabel={setFocusDate}
             ariaLabel={tf("{grain} transactions over {days} days", { grain: t(grain === "DAY" ? "Daily" : "Weekly"), days: num(period) })}
             approximateLast={Boolean(c.at(-1)?.is_approximate)}
-          />
+          />}
           <div className="chart-axis">
             <span>{dateText(c[0]?.date)}</span>
             <span>{dateText(c.at(-1)?.date)}</span>
@@ -4172,20 +4280,21 @@ function Analytics() {
           <div className="panel-head">
             <h3>{t("Exact values")}</h3>
             <span>
-              {tf("{count} DAY RANGE", { count: num(period) })} · {t(grain === "DAY" ? "Daily" : "Weekly")}
+              {tf("{count} DAY RANGE", { count: num(displayedPeriod) })} · {t(grain === "DAY" ? "Daily" : "Weekly")}
             </span>
           </div>
-          <div>
+          <p className="table-scroll-hint">{t("tableScrollHint")}</p>
+          <div className="data-scroll" role="region" aria-label={t("Exact values")} tabIndex={0}>
             <table>
               <thead>
                 <tr>
-                  <th>{t("Date")}</th>
-                  <th>{t("Transactions")}</th>
-                  <th>{t("Active accounts")}</th>
-                  <th>{t("New accounts")}</th>
-                  <th>{t("Success")}</th>
-                  <th>{t("Avg. fee")}</th>
-                  <th>{t("Blocks")}</th>
+                  <th scope="col">{t("Date")}</th>
+                  <th scope="col">{t("Transactions")}</th>
+                  <th scope="col">{t("Active accounts")}</th>
+                  <th scope="col">{t("New accounts")}</th>
+                  <th scope="col">{t("Success")}</th>
+                  <th scope="col">{t("Avg. fee")}</th>
+                  <th scope="col">{t("Blocks")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -4197,7 +4306,7 @@ function Analytics() {
                     blocks = maps.blocks.get(item.date);
                   return (
                     <tr key={item.date}>
-                      <td>{dateText(item.date)}</td>
+                      <th scope="row">{dateText(item.date)}</th>
                       <td>{num(item.value)}</td>
                       <td>{num(active)}</td>
                       <td>{num(accounts)}</td>
@@ -4215,29 +4324,7 @@ function Analytics() {
         </section>
       )}
       <section className="analytics-grid">
-        <div className="analytic-card">
-          <div className="analytic-label">
-            <Gauge />
-            <span>{t("Recent block utilization")}</span>
-            <strong>
-              {unit(
-                util.length
-                  ? util.reduce((a: number, b: number) => a + b, 0) /
-                      util.length
-                  : undefined,
-                "%",
-              )}
-            </strong>
-          </div>
-          <Sparkline
-            points={util}
-            labels={utilLabels}
-            color="#0c8b68"
-            formatValue={(v) => `${v.toFixed(2)}%`}
-            ariaLabel={t("Gas utilization for recent blocks")}
-          />
-          <p>{t("Gas used as a share of capacity in the latest indexed blocks.")}</p>
-        </div>
+        <BlockUtilization refresh={refresh} />
         <div className="analytic-card">
           <div className="analytic-label">
             <Fuel />
@@ -4310,82 +4397,23 @@ function Analytics() {
       </section>
       <section className="stat-library">
         <SectionTitle
-          eyebrow={tf("{count} DAY RANGE", { count: num(period) })}
+          eyebrow={t("NETWORK STATS")}
           title={t("Accounts, fees and reliability")}
         />
         <div className="stat-chart-grid">
-          <StatChart
-            title={tf("{grain} active accounts", { grain: t(grain === "DAY" ? "Daily" : "Weekly") })}
-            value={compact(last("active"))}
-            note={t("Accounts active during each interval.")}
-            points={series("active")}
-            labels={labelsFor("active")}
-            color="#7136f3"
-            selectedLabel={focusDate}
-            onSelectLabel={setFocusDate}
-          />
-          <StatChart
-            title={t("New accounts")}
-            value={compact(last("newAccounts"))}
-            note={t("Addresses first seen during each interval.")}
-            points={series("newAccounts")}
-            labels={labelsFor("newAccounts")}
-            color="#d45b31"
-            selectedLabel={focusDate}
-            onSelectLabel={setFocusDate}
-          />
-          <StatChart
-            title={t("Transaction success")}
-            value={unit(
-              last("success") === undefined
-                ? undefined
-                : last("success")! * 100,
-              "%",
-            )}
-            note={t("Transactions completed without a revert.")}
-            points={success}
-            labels={labelsFor("success")}
-            formatValue={(v) => `${v.toFixed(2)}%`}
-            color="#087d5b"
-            selectedLabel={focusDate}
-            onSelectLabel={setFocusDate}
-          />
-          <StatChart
-            title={t("Average transaction fee")}
-            value={unit(last("fees"), " ETH", 9)}
-            note={t("Average execution and L1 data fee.")}
-            points={series("fees")}
-            labels={labelsFor("fees")}
-            formatValue={(v) => `${v.toFixed(9)} ETH`}
-            color="#222226"
-            selectedLabel={focusDate}
-            onSelectLabel={setFocusDate}
-          />
-          <StatChart
-            title={t("Blocks produced")}
-            value={compact(last("newBlocks"))}
-            note={t("Blocks added during each interval.")}
-            points={series("newBlocks")}
-            labels={labelsFor("newBlocks")}
-            color="#2b70c9"
-            selectedLabel={focusDate}
-            onSelectLabel={setFocusDate}
-          />
+          <StatChart title={t("Active accounts")} note={t("Accounts active during each interval.")} metric="activeAccounts" color="#7136f3" refresh={refresh} />
+          <StatChart title={t("New accounts")} note={t("Addresses first seen during each interval.")} metric="newAccounts" color="#d45b31" refresh={refresh} />
+          <StatChart title={t("Transaction success")} note={t("Transactions completed without a revert.")} metric="txnsSuccessRate" formatValue={value => `${(value * 100).toFixed(2)}%`} color="#087d5b" refresh={refresh} />
+          <StatChart title={t("Average transaction fee")} note={t("Average execution and L1 data fee.")} metric="averageTxnFee" formatValue={value => `${value.toFixed(9)} ETH`} color="#222226" refresh={refresh} />
+          <StatChart title={t("Blocks produced")} note={t("Blocks added during each interval.")} metric="newBlocks" color="#2b70c9" refresh={refresh} />
           <div className="stat-chart statement">
             <span>{t("7-DAY COMPARISON")}</span>
-            <strong>
-              {last("active") === undefined
-                ? t("The latest active-account comparison is unavailable.")
-                : last("active")! >
-                    series("active")
-                      .slice(-8, -1)
-                      .reduce((a: number, b: number) => a + b, 0) /
-                      Math.max(1, series("active").slice(-8, -1).length)
-                  ? t("Active accounts are above the previous 7-day average.")
-                  : t("Active accounts are below the previous 7-day average.")}
-            </strong>
-            <p>{t("Select any chart to compare the same date across all five series.")}
-            </p>
+            <strong>{dailyActive.length < 8
+              ? t("The latest active-account comparison is unavailable.")
+              : Number(dailyActive.at(-1)?.value) > priorActiveAverage
+                ? t("Active accounts are above the previous 7-day average.")
+                : t("Active accounts are below the previous 7-day average.")}</strong>
+            <p>{t("chartReadingNote")}</p>
           </div>
         </div>
       </section>
@@ -4451,12 +4479,17 @@ function NetworkPage({ live }: { live: LiveData }) {
           <Activity />
           <div>
             <span>{t("STATUS")}</span>
-            <h2>{data.online ? data.synced ? tf("Synced to {network}", { network: network.name }) : data.stale ? tf("{network} node behind", { network: network.name }) : tf("Syncing {network}", { network: network.name }) : tf("{network} node unavailable", { network: network.name })}</h2>
+            <h2>{data.online ? data.synced ? data.derivation?.synced === false ? t("rollupBehind") : tf("Synced to {network}", { network: network.name }) : data.stale ? tf("{network} node behind", { network: network.name }) : tf("Syncing {network}", { network: network.name }) : tf("{network} node unavailable", { network: network.name })}</h2>
             <p>{tf("Checked {time} · refreshes every five seconds", { time: new Date(data.sampledAt).toLocaleTimeString(activeLocale) })}</p>
           </div>
         </div>
-        <StatusPill ok={data.online && data.synced}>{data.online ? data.synced ? t("Operational") : data.stale ? t("Behind") : t("Syncing") : t("Unavailable")}</StatusPill>
+        <StatusPill ok={data.online && data.synced && data.derivation?.synced !== false}>{data.online ? data.synced ? data.derivation?.synced === false ? t("Behind") : t("Operational") : data.stale ? t("Behind") : t("Syncing") : t("Unavailable")}</StatusPill>
       </section>
+      {data.derivation?.synced === false && <section className="sync-progress" aria-label={t("rollupBehind")}>
+        <h2>{t("rollupBehind")}</h2>
+        <p>{t("rollupBehindNote")}</p>
+        <dl><div><dt>{t("L1 head observed")}</dt><dd>{num(data.derivation.l1Head)}</dd></div><div><dt>{t("l1Processed")}</dt><dd>{num(data.derivation.l1Block)}</dd></div><div><dt>{t("Behind")}</dt><dd>{num(data.derivation.lag)}</dd></div></dl>
+      </section>}
       {data.online && data.sync && data.syncProgress && <section className="sync-progress" aria-label={t("Node synchronization progress")}>
         <h2>{t("Downloading and executing chain history")}</h2>
         <p>{t("The explorer index remains available while this local node synchronizes. These counters measure downloads since the node started, not overall synchronization completion.")}</p>
@@ -4615,7 +4648,7 @@ function Footer({ live }: { live: LiveData }) {
         </a>
       </div>
       <div className="footer-status">
-        <StatusPill ok={Boolean(live.connected && live.network?.online && live.network?.synced)}>{!live.connected ? t("Connecting") : !live.network?.online ? t("Node unavailable") : live.network?.stale ? t("Node behind") : !live.network?.synced ? t("Node syncing") : t("operational")}</StatusPill>
+        <StatusPill ok={Boolean(live.connected && live.network?.online && live.network?.synced && live.network?.derivation?.synced !== false)}>{!live.connected ? t("Connecting") : !live.network?.online ? t("Node unavailable") : live.network?.stale ? t("Node behind") : !live.network?.synced ? t("Node syncing") : live.network?.derivation?.synced === false ? t("rollupBehind") : t("operational")}</StatusPill>
         <small>{t("refreshedLive")}</small>
       </div>
     </footer>
@@ -4726,11 +4759,21 @@ export default function App() {
     return value;
   });
   const [view, setView] = useState(route());
+  const navigationFocus = useRef(false);
   useEffect(() => {
-    const f = () => setView(route());
+    const f = () => {
+      navigationFocus.current = true;
+      setView(route());
+    };
     addEventListener("popstate", f);
     return () => removeEventListener("popstate", f);
   }, []);
+  useLayoutEffect(() => {
+    if (navigationFocus.current) {
+      document.getElementById("main-content")?.focus({ preventScroll: true });
+      navigationFocus.current = false;
+    }
+  }, [view]);
   useEffect(() => {
     activeLocale = locale;
     document.documentElement.lang = locale;
@@ -4755,18 +4798,18 @@ export default function App() {
   else if (view.name === "search")
     content = <SearchResults query={view.query || ""} />;
   else if (view.name === "blocks")
-    content = <LedgerList type="blocks" live={live} />;
+    content = <LedgerList key="blocks" type="blocks" live={live} />;
   else if (view.name === "transactions")
-    content = <LedgerList type="transactions" live={live} />;
+    content = <LedgerList key="transactions" type="transactions" live={live} />;
   else if (view.name === "block" && view.id)
-    content = <BlockDetail id={view.id} />;
+    content = <BlockDetail id={view.id} live={live} />;
   else if (view.name === "transaction" && view.id)
     content = <TxDetail id={view.id} />;
   else if (view.name === "address" && view.id)
     content = <AddressDetail id={view.id} />;
   else if (view.name === "tokens") content = <Tokens />;
   else if (view.name === "token" && view.id)
-    content = <TokenDetail id={view.id} />;
+    content = <TokenDetail key={view.id} id={view.id} />;
   else if (view.name === "nft" && view.id && view.tokenId)
     content = <NftDetail id={view.id} tokenId={view.tokenId} />;
   else if (view.name === "pools") content = <Pools />;
@@ -4796,7 +4839,7 @@ export default function App() {
         locale={locale}
         onLocale={chooseLocale}
       />
-      <main id="main-content">{content}</main>
+      <main id="main-content" tabIndex={-1}>{content}</main>
       <Footer live={live} />
     </>
   );

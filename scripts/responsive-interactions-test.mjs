@@ -107,7 +107,7 @@ try {
       waitUntil: "networkidle0",
       timeout: 30_000,
     });
-    if (!response?.ok()) failures.push(`${width}px: HTTP ${response?.status()}`);
+    if (!response?.ok() && response?.status() !== 304) failures.push(`${width}px: HTTP ${response?.status()}`);
     await inspect(page, `${width}px home`);
 
     const menu = await page.$(".menu");
@@ -178,7 +178,7 @@ try {
   }
 
   const landscape = await browser.newPage();
-  await landscape.setViewport({ width: 844, height: 390, deviceScaleFactor: 1 });
+  await landscape.setViewport({ width: 844, height: 390, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
   await landscape.goto(`${base}/pools`, {
     waitUntil: "networkidle0",
     timeout: 30_000,
