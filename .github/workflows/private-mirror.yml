@@ -1,0 +1,83 @@
+name: Sync deployment mirror
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deployment-mirror-main
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.repository == 'Nadooooooo/ink-explorer'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Update deployment branch
+        env:
+          MIRROR_REPOSITORY: ${{ secrets.PRIVATE_MIRROR_REPOSITORY }}
+          MIRROR_SSH_KEY: ${{ secrets.PRIVATE_MIRROR_SSH_KEY }}
+          MIRROR_COMMIT_EMAIL: ${{ secrets.PRIVATE_MIRROR_COMMIT_EMAIL }}
+          META_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${MIRROR_REPOSITORY:?Mirror repository is not configured}"
+          : "${MIRROR_SSH_KEY:?Mirror key is not configured}"
+          : "${MIRROR_COMMIT_EMAIL:?Mirror author is not configured}"
+          umask 077
+          key="$RUNNER_TEMP/mirror-key"
+          hosts="$RUNNER_TEMP/mirror-known-hosts"
+          work="$RUNNER_TEMP/deployment-mirror"
+          log="$RUNNER_TEMP/mirror-operation.log"
+          trap 'rm -f "$key" "$hosts" "$log"; rm -rf "$work"' EXIT
+          printf '%s\n' "$MIRROR_SSH_KEY" > "$key"
+          export MIRROR_HOSTS_FILE="$hosts"
+          python3 - <<'PY'
+          import json, os, urllib.request
+          request = urllib.request.Request('https://api.github.com/meta', headers={
+              'Authorization': 'Bearer ' + os.environ['META_TOKEN'],
+              'Accept': 'application/vnd.github+json',
+          })
+          with urllib.request.urlopen(request, timeout=20) as response:
+              keys = json.load(response)['ssh_keys']
+          if not keys:
+              raise RuntimeError('GitHub SSH host keys are unavailable')
+          with open(os.environ['MIRROR_HOSTS_FILE'], 'w') as target:
+              target.write(''.join('github.com ' + key + '\n' for key in keys))
+          PY
+          export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o UserKnownHostsFile=$hosts -o StrictHostKeyChecking=yes"
+          run_git() {
+            if ! git "$@" >"$log" 2>&1; then
+              printf '%s\n' 'Mirror operation failed; check the private repository and deploy key.' >&2
+              return 1
+            fi
+          }
+          source_sha=$(git -C "$GITHUB_WORKSPACE" rev-parse HEAD)
+          source_tree=$(git -C "$GITHUB_WORKSPACE" rev-parse 'HEAD^{tree}')
+          run_git clone --quiet --single-branch --branch main "$MIRROR_REPOSITORY" "$work"
+          destination_tree=$(git -C "$work" rev-parse 'HEAD^{tree}')
+          if [ "$source_tree" = "$destination_tree" ]; then
+            printf '%s\n' 'Deployment branch is already current.'
+            exit 0
+          fi
+          run_git -C "$work" fetch --quiet "$GITHUB_WORKSPACE" "$source_sha"
+          run_git -C "$work" read-tree --reset -u "$source_sha"
+          run_git -C "$work" config user.name 'Repository Sync'
+          run_git -C "$work" config user.email "$MIRROR_COMMIT_EMAIL"
+          run_git -C "$work" commit --quiet -m "Sync upstream main at $source_sha"
+          test "$(git -C "$work" rev-parse 'HEAD^{tree}')" = "$source_tree"
+          # Preserve the destination history. A concurrent edit fails this push
+          # instead of overwriting another commit with a forced update.
+          run_git -C "$work" push --quiet origin HEAD:refs/heads/main
+          printf '%s\n' 'Deployment branch synchronized.'
