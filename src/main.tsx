@@ -7,6 +7,7 @@ import "@fontsource/dm-mono/500.css";
 import "./styles.css";
 import "./contracts.css";
 import "./mobile.css";
+import "./details.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode><App /></React.StrictMode>,

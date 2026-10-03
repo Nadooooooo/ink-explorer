@@ -8,7 +8,8 @@ The `:root` block in `src/styles.css` is the source of visual tokens. Components
 | Identifiers, addresses, hashes, block numbers and code | `--font-mono`: DM Mono, falling back to monospace |
 | Metric, contract, NFT and statistics cards | `--surface-card`, `--line`, `--radius-card`, `--shadow-card` |
 | Data panels, details, tables and code areas | `--surface-panel`, `--line`, `--radius-panel`, `--shadow-panel` |
-| Page and detail heroes | `--radius-hero` and the existing purple gradient |
+| Page, token and pool heroes | `--radius-hero` and the existing purple gradient |
+| Address, transaction and block headers | `--radius-hero`, `--line`, calm `--surface-panel`, compact identity and status |
 | Table headers and collapsible code sections | `--surface-header` |
 | Search fields | `--surface-field`, `--field-border`, `--shadow-field`, `--radius-control` |
 | Primary action | `--action-fill`, white text, `--radius-control`, `--shadow-action` |
@@ -36,9 +37,36 @@ The `:root` block in `src/styles.css` is the source of visual tokens. Components
 
 Dark status cards, code areas, network illustrations and accent surfaces are functional variants. Keep their distinct appearance.
 
-Home, list and detail heroes use the official Ink symbol from `public/brand/ink-symbol.svg` as decoration. Its geometry remains intact; scaling, a 12° clockwise rotation and cropping integrate it into the background. The motif fades behind text and has no interaction.
+Home, list, token and pool heroes use the official Ink symbol from `public/brand/ink-symbol.svg` as decoration. Its geometry remains intact; scaling, a 12° clockwise rotation and cropping integrate it into the background. The motif fades behind text and has no interaction.
 
 The header uses the official horizontal logo from `public/brand/ink-wordmark.svg` with “Explorer” as a subtitle. The footer shows the same logo in white on a dark background.
+
+## Entity information hierarchy
+
+`src/details.css` follows the mobile rules with entity-specific layouts, including
+their touch and narrow-screen variants. Address pages open on transactions.
+The header shows the indexed ENS name or contract name, the full copyable address,
+meaningful risk/verification status and a link to the official explorer. Recognized
+pools use their token pair as the title and retain their pool-detail destination
+in Overview. Essential figures use three compact cards: ETH balance, transaction
+count and token holdings.
+Counts remain exact; balance provenance and disagreement/unavailable notices stay
+visible. Missing holdings are not converted to zero.
+
+Overview contains secondary facts. Accounts have no empty contract, proxy or
+deployment fields. Contracts show supplied metadata and every valid implementation
+with working destinations; unknown deployment fields are omitted without implying
+a genesis deployment. Existing source/read/write sections remain available.
+
+Block and transaction definitions use compact label/value rows. Desktop ledgers
+have aligned column labels; narrow layouts preserve the existing stacked rows.
+Method badges prefer the supplied call name over a generic transaction category.
+Primary ledger data uses 14 px text and supporting metadata uses 12 px. Full hashes
+wrap on narrow screens while keeping their copy action.
+
+Run `npm run test:readability` for account/empty/proxy fixtures on both networks,
+three browser engines, four widths and all ten locales. `test:space` also measures
+how quickly real account and contract activity is reached.
 
 ## Preventing regressions
 

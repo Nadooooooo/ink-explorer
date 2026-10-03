@@ -1,11 +1,31 @@
 # Explorer validation
 
-The source snapshot reviewed on 2 October 2026 passed all **33 release suites**
+The source snapshot reviewed on 3 October 2026 passed all **34 release suites**
 on isolated Mainnet and Sepolia explorer workers. The campaign ran from
-10:19:31 to 10:56:22 UTC without coverage restrictions or test timeouts. All 68
+06:17:09 to 06:56:37 UTC without coverage restrictions or test timeouts. All 70
 source/configuration file hashes matched the tested snapshot, and the served
 entry assets matched the build. This validates that snapshot; a later release
 must run its own campaign using [the test protocol](TEST_PROTOCOL.md).
+
+## Account and detail readability
+
+Address pages open on transactions and show indexed names, a full copyable
+address and three compact summary cards. Exact transaction counts replace
+abbreviations, while ETH node provenance and mismatch/unavailable notices remain
+visible. Accounts no longer display an empty contract profile, proxy or deployment
+fields. Secondary facts, all valid contract implementations and pool destinations
+remain available in Overview; recognized pools show their pair in the title.
+
+Block and transaction detail headers and definitions use less space. Desktop
+ledgers have column labels and readable data text, and method badges prefer
+supplied function names. Loaded entity pages take their natural height rather
+than adding a minimum-height gap before the footer. Mobile identity values wrap
+without truncation and retain their copy actions.
+
+The readability suite covers 120 account, empty-account and proxy cases across
+both networks, three browser engines and all ten locales. Address recovery tests
+also verify that retrying a profile reloads its default transaction section.
+Real account and contract pages supplement these fixtures in the density suite.
 
 ## Address loading and data corrections
 
@@ -48,7 +68,7 @@ distinct hashes.
 | Contracts and filters | ABI/proxy/custom-ABI interaction, wallet rejection and receipt behavior exercised on isolated Anvil. Advanced filters, exact decimal bounds, URL state, cursors and safe CSV exercised against fixtures and public indexes. |
 | Mobile and localization | 306 mobile checks in Chromium, Firefox and WebKit; 20 route states at 12 widths; ten languages including Arabic RTL. See [mobile behavior](MOBILE_REVIEW.md). |
 | Cache and security | Snapshot age/expiry, permanent errors, concurrent readers and HTTP/RPC boundaries passed. |
-| Lighthouse | All 12 reports passed: performance 93–100; accessibility, best practices and SEO 100. Mobile lab LCP reached about 2.9 seconds on the blocks list; loading, CSS/JavaScript and browser-cache optimization opportunities remain. |
+| Lighthouse | All 12 reports passed: performance at least 94; accessibility, best practices and SEO 100. CSS/JavaScript and browser-cache optimization opportunities remain. |
 
 The real private-API connection was also checked in an isolated browser: denied
 access produced guidance; granting access and retrying recovered the same

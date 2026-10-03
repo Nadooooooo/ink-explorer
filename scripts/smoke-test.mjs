@@ -88,7 +88,7 @@ for (const viewport of viewports) {
     });
     if (!response?.ok() && response?.status() !== 304)
       failures.push(`${viewport.name} ${route}: HTTP ${response?.status()}`);
-    if (!body.includes(expected))
+    if (!body.toLocaleLowerCase().includes(expected.toLocaleLowerCase()))
       failures.push(`${viewport.name} ${route}: missing ${expected}`);
     if (body.includes("Data temporarily unavailable"))
       failures.push(`${viewport.name} ${route}: upstream error state`);
@@ -488,11 +488,20 @@ await page
   })
   .catch(() => {});
 if (
-  !(await page.$eval("body", (el) => el.innerText)).includes(
+  !(await page.$eval("body", (el) => el.innerText.replace(/\s/g, ""))).includes(
     `${poolPage.items[0].base_token_symbol}/${poolPage.items[0].quote_token_symbol}`,
   )
 )
   failures.push("pool/address: cross-link classification is missing");
+await clickText("Overview");
+await page.waitForSelector('.address-facts');
+const poolLink = await page.$$eval('.address-facts .text-link', (buttons, pair) => {
+  const button = buttons.find(element => element.textContent.replace(/\s/g, '') === pair);
+  button?.click();
+  return Boolean(button);
+}, `${poolPage.items[0].base_token_symbol}/${poolPage.items[0].quote_token_symbol}`);
+if (!poolLink) failures.push('pool/address: pool details link is missing');
+else await page.waitForFunction(id => location.pathname === `/pools/${id}`, {timeout:5000}, poolPage.items[0].pool_id);
 await page.goto(`${base}/txs`, { waitUntil: "networkidle0", timeout: 30000 });
 await clickText("Token transfers");
 await new Promise((r) => setTimeout(r, 500));

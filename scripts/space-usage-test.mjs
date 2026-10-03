@@ -12,7 +12,7 @@ try {
   for (const width of [320, 390, 768, 1920, 2560]) {
     const page = await browser.newPage();
     await page.setViewport({ width, height: width < 500 ? 844 : 1080, isMobile: width < 500, hasTouch: width < 500 });
-    for (const [name, route] of [['home', '/'], ['blocks', '/blocks'], ['analytics', '/analytics'], ['network', '/network'], ['search', '/search?q=WETH']]) {
+    for (const [name, route] of [['home', '/'], ['blocks', '/blocks'], ['analytics', '/analytics'], ['network', '/network'], ['search', '/search?q=WETH'], ['account', '/address/0x4c50254dafd191bba2a6e0517c1742caf1426df5'], ['contract', '/address/0x4200000000000000000000000000000000000006']]) {
       await page.goto(base + route, { waitUntil: 'networkidle0', timeout: 30000 });
       await page.waitForFunction(() => !document.querySelector('main > .loading'));
       const metrics = await page.evaluate(() => {
@@ -21,6 +21,7 @@ try {
         const children = [...document.querySelector('main').children].map(el => el.getBoundingClientRect()).filter(r => r.height > 0);
         return {
           main, intro: rect('.home-intro'), search: rect('.home-command'), counters: rect('.home-overview .metric-grid'), trend: rect('.signal-grid'), live: rect('.live-section'),
+          addressActivity: rect('.address-activity'), firstTransaction: rect('.address-activity .tx-row'),
           chartHeights: [...document.querySelectorAll('.interactive-chart')].map(el => el.getBoundingClientRect().height),
           gap: Math.max(0, ...children.slice(1).map((r, i) => r.top - children[i].bottom)),
           metricClipping: [...document.querySelectorAll('.home-overview .metric > strong')].filter(el => el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1).map(el => el.textContent),
@@ -41,6 +42,10 @@ try {
         checks.compactMobileCounters = width > 430 || metrics.counters.height <= 430;
         checks.desktopSummarySideBySide = width < 1200 || (Math.abs(metrics.counters.top - metrics.trend.top) <= 1 && Math.abs(metrics.counters.bottom - metrics.trend.bottom) <= 24);
         checks.liveContentReachable = width < 1200 || metrics.live.top <= 1000;
+      }
+      if (name === 'account' || name === 'contract') {
+        checks.activityVisibleByDefault = !!metrics.firstTransaction;
+        checks.activityReachable = !!metrics.addressActivity && metrics.addressActivity.top <= (width <= 760 ? 700 : 550);
       }
       for (const [check, passed] of Object.entries(checks)) if (!passed) failures.push(`${name} ${width}px: ${check}`);
       const proof = `after-${name}-${width}.png`;

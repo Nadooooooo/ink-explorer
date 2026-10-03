@@ -75,7 +75,7 @@ pass. Run the complete campaign on the final source after fixing failures.
 | All chart interactions and error states | `charts` | Independent ranges, pointer/touch/keyboard inspection, empty/failure/retry/race cases; delayed/failing blocks never block analytics histories or CSV |
 | Localization and Arabic direction | `i18n`, `layout`, `networks` | Ten locales, persistence, RTL and no clipped controls |
 | Keyboard and assistive technology | `a11y`, `mobile`, `responsive`, `networks` | No serious/critical Axe issue; menu focus, Escape, visible input and reachable sections |
-| Layout and style | `layout`, `responsive`, `mobile`, `style`, `space` | No page overflow, overlap or clipped text at tested widths/breakpoints |
+| Layout and style | `layout`, `responsive`, `mobile`, `style`, `space`, `readability` | No page overflow, overlap or clipped text at tested widths/breakpoints; address activity visible by default, readable identity/values and conditional contract details on both networks |
 | Loading and performance | `loading`, `performance`, `lighthouse` | Loading regressions absent; LCP <= 2.5 s, CLS <= 0.1, DCL <= 1.5 s under performance suite |
 | Address connection failures | `data`, `address-loading` | Stalled headers/body expire; pasted address recovers by retry; invalid HTML/null/different-address responses fail visibly; navigation cannot overwrite a new profile |
 | Upstream snapshot lifetime | `upstream-cache`, `activity-server` | Preserve original fetch time across outages; reject expired snapshots and permanent upstream errors; retain query semantics and public JSON shapes under concurrent reads |

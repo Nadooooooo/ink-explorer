@@ -910,8 +910,8 @@ function StatusPill({ ok, children }: { ok: boolean; children: ReactNode }) {
 }
 
 function Method({ tx }: { tx: AnyRow }) {
-  const type = tx.transaction_types?.[0] || tx.method || "transfer";
-  return <span className="method">{String(type).replaceAll("_", " ")}</span>;
+  const type = tx.method || tx.transaction_types?.[0] || "transfer";
+  return <span className="method" title={String(type).replaceAll("_", " ")}>{String(type).replaceAll("_", " ")}</span>;
 }
 
 function TxRow({ tx }: { tx: AnyRow }) {
@@ -962,6 +962,15 @@ function TxRow({ tx }: { tx: AnyRow }) {
               : `${t("fee")} —`}
         </small>
       </div>
+    </div>
+  );
+}
+
+function LedgerColumns({ blocks = false }: { blocks?: boolean }) {
+  return (
+    <div className={cx("ledger-columns", blocks ? "block-columns" : "tx-columns")} aria-hidden="true">
+      {blocks ? <><span>{t("block")}</span><span>{t("transactions")}</span><span>{t("gasUsed")}</span><span>{t("size")}</span><span>{t("fees")}</span></>
+        : <><span>{t("transactionHash")}</span><span>{t("method")}</span><span>{t("from")} / {t("to")}</span><span>{t("value")} / {t("fee")}</span></>}
     </div>
   );
 }
@@ -1577,6 +1586,7 @@ function LedgerList({
           <ErrorState error={error} />
         ) : (
           <div className={type === "transactions" ? "tx-list" : "block-list"}>
+            {!!data.items?.length && (type === "blocks" || mode === "all") && <LedgerColumns blocks={type === "blocks"} />}
             {data.items?.map((item: any, index: number) =>
               type === "transactions" && mode === "all" ? (
                 <TxRow key={item.hash} tx={item} />
@@ -1633,12 +1643,14 @@ function DetailHeader({
   subtitle,
   status,
   identifier = true,
+  actions,
 }: {
   kind: string;
   title: string;
   subtitle?: string;
   status?: ReactNode;
   identifier?: boolean;
+  actions?: ReactNode;
 }) {
   return (
     <section className="detail-header">
@@ -1647,7 +1659,8 @@ function DetailHeader({
         <h1 className={identifier ? "mono" : undefined}>{title}</h1>
         {status}
       </div>
-      {subtitle && <p>{subtitle}</p>}
+      {subtitle && <p>{ADDRESS.test(subtitle) || TX.test(subtitle) ? <Copyable value={subtitle} display={subtitle} /> : subtitle}</p>}
+      {actions && <nav className="detail-actions" aria-label={t("officialExplorer")}>{actions}</nav>}
     </section>
   );
 }
@@ -1990,7 +2003,7 @@ function AddressDetail({ id }: { id: string }) {
   const [summaryErrors, setSummaryErrors] = useState<string[]>([]);
   const [profileRetry, setProfileRetry] = useState(0);
   const [pool, setPool] = useState<any>();
-  const [tab, setTab] = useState("overview");
+  const [tab, setTab] = useState("transactions");
   const [error, setError] = useState("");
   const [loadingMore, setLoadingMore] = useState(false);
   const [dataRetry, setDataRetry] = useState(0);
@@ -1999,7 +2012,7 @@ function AddressDetail({ id }: { id: string }) {
   useEffect(() => {
     const request = ++profileRequest.current;
     const controller = new AbortController();
-    setTab("overview");
+    setTab("transactions");
     setData(undefined);
     setPool(undefined);
     setAddress(undefined);
@@ -2060,7 +2073,7 @@ function AddressDetail({ id }: { id: string }) {
           setData({ items: [], error: e.message }),
       );
     return () => { ++dataRequest.current; controller.abort(); };
-  }, [id, tab, dataRetry]);
+  }, [id, tab, dataRetry, profileRetry]);
   const loadMore = async () => {
     if (
       !data?.next_page_params ||
@@ -2098,9 +2111,12 @@ function AddressDetail({ id }: { id: string }) {
   if (!address && !error) return <Loading />;
   if (error && !address) return <ErrorState error={error} onRetry={() => setProfileRetry(value => value + 1)} />;
   const balance = address?.coin_balance;
-  const implementation = address?.implementations?.[0];
+  const name = address?.ens_domain_name || address?.name || address?.token?.name;
+  const implementations = Array.isArray(address?.implementations)
+    ? address.implementations.filter((item: AnyRow | null) => item && ADDRESS.test(item.address_hash))
+    : [];
   return (
-    <>
+    <div className="address-page">
       <DetailHeader
         kind={
           pool
@@ -2109,16 +2125,18 @@ function AddressDetail({ id }: { id: string }) {
               ? t("smartContract").toUpperCase()
               : t("address").toUpperCase()
         }
-        title={address?.name || short(id, 14, 12)}
-        identifier={!address?.name}
+        title={pool ? `${pool.base_token_symbol} / ${pool.quote_token_symbol}` : name || short(id)}
+        identifier={!pool && !name}
         subtitle={id}
         status={
-          address?.is_verified ? (
-            <span className="verified">
+          <>
+            {address?.is_scam && <StatusPill ok={false}>{t("Flagged")}</StatusPill>}
+            {address?.is_verified && <span className="verified">
               <ShieldCheck /> {t("verifiedSource")}
-            </span>
-          ) : undefined
+            </span>}
+          </>
         }
+        actions={<a className="detail-link" href={`${network.explorer}/address/${id}`} target="_blank" rel="noreferrer" aria-label={t("officialExplorer")} title={t("officialExplorer")}><span>{t("officialExplorer")}</span> <ExternalLink size={15} /></a>}
       />
       <section className="address-summary">
         <Metric
@@ -2134,18 +2152,13 @@ function AddressDetail({ id }: { id: string }) {
         />
         <Metric
           label={t("Transactions")}
-          value={compact(counters.transactions_count)}
-          note={tf("{count} token transfers", { count: compact(counters.token_transfers_count) })}
+          value={num(counters.transactions_count)}
+          note={tf("{count} token transfers", { count: num(counters.token_transfers_count) })}
         />
         <Metric
           label={t("Token holdings")}
           value={num(tokens?.length)}
           note={t("known assets")}
-        />
-        <Metric
-          label={t("Gas consumed")}
-          value={compact(counters.gas_usage_count)}
-          note={t("sourceIndex")}
         />
       </section>
       {summaryErrors.length > 0 && <ErrorState error={[...new Set(summaryErrors)].join(" · ")} onRetry={() => setProfileRetry(value => value + 1)} />}
@@ -2160,84 +2173,23 @@ function AddressDetail({ id }: { id: string }) {
         ] as [string, string][] : []),
       ]} />
       {tab === "overview" ? (
-        <section className="entity-profile">
-          <div>
-            <span>{t("contractProfile").toUpperCase()}</span>
-            <h2>
-              {pool
-                ? `${pool.base_token_symbol} / ${pool.quote_token_symbol}`
-                : address?.name ||
-                  address?.token?.name ||
-                  (address?.is_contract ? t("smartContract") : t("account"))}
-            </h2>
-            <p>
-              {address?.is_contract
-                ? t("This address contains contract bytecode. Source verification, proxy and deployment details come from Ink’s public explorer index.")
-                : t("No contract bytecode is deployed here. Balances and activity are public; this explorer does not identify the owner.")}
-            </p>
-            {pool && (
-              <button
-                className="primary-action"
-                onClick={() => go(`/pools/${id}`)}
-              >
-                <Droplets /> {t("pool")} · {pool.base_token_symbol}/
-                {pool.quote_token_symbol}
-              </button>
-            )}
-          </div>
-          <dl>
-            <Definition label={t("reputation")}>
-              {address?.is_scam ? t("Flagged") : address?.reputation || "ok"}
-            </Definition>
-            <Definition label={t("tokenStandard")}>
-              {address?.token
-                ? `${address.token.type} · ${address.token.symbol}`
-                : "—"}
-            </Definition>
-            <Definition label={t("proxyType")}>
-              {address?.proxy_type || t("Not a proxy")}
-            </Definition>
-            <Definition label={t("implementation")}>
-              {implementation ? (
-                <Copyable
-                  value={implementation.address_hash}
-                  display={
-                    implementation.name || short(implementation.address_hash)
-                  }
-                  link={`/address/${implementation.address_hash}`}
-                />
-              ) : (
-                "—"
-              )}
-            </Definition>
-            <Definition label={t("creator")}>
-              {address?.creator_address_hash ? (
-                <Copyable
-                  value={address.creator_address_hash}
-                  link={`/address/${address.creator_address_hash}`}
-                />
-              ) : (t("Genesis / unavailable")
-              )}
-            </Definition>
-            <Definition label={t("creationTx")}>
-              {address?.creation_transaction_hash ? (
-                <Copyable
-                  value={address.creation_transaction_hash}
-                  link={`/tx/${address.creation_transaction_hash}`}
-                />
-              ) : (t("Genesis / unavailable")
-              )}
-            </Definition>
-          </dl>
-          <a
-            className="external-action"
-            href={`${network.explorer}/address/${id}`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            {t("officialExplorer")} <ExternalLink />
-          </a>
-        </section>
+        <dl className="definitions standalone address-facts">
+          <Definition label={t("address")} wide><Copyable value={id} display={id} /></Definition>
+          {address?.ens_domain_name && <Definition label="ENS"><bdi>{address.ens_domain_name}</bdi></Definition>}
+          <Definition label={t("transfers")}>{num(counters.token_transfers_count)}</Definition>
+          <Definition label={t("Gas consumed")}>{num(counters.gas_usage_count)} <small>{t("sourceIndex")}</small></Definition>
+          {address?.is_contract && <>
+            {address?.name && <Definition label={t("smartContract")}>{address.name}</Definition>}
+            {address?.token && <Definition label={t("tokenStandard")}>{address.token.type} {address.token.symbol && `· ${address.token.symbol}`}</Definition>}
+            {address?.proxy_type && <Definition label={t("proxyType")}>{address.proxy_type}</Definition>}
+            {implementations.map((implementation: AnyRow) => <Definition key={implementation.address_hash} label={t("implementation")}>
+              <Copyable value={implementation.address_hash} display={implementation.name || short(implementation.address_hash)} link={`/address/${implementation.address_hash}`} />
+            </Definition>)}
+            {ADDRESS.test(address?.creator_address_hash) && <Definition label={t("creator")}><Copyable value={address.creator_address_hash} link={`/address/${address.creator_address_hash}`} /></Definition>}
+            {TX.test(address?.creation_transaction_hash) && <Definition label={t("creationTx")}><Copyable value={address.creation_transaction_hash} link={`/tx/${address.creation_transaction_hash}`} /></Definition>}
+            {pool && <Definition label={t("pool")}><button className="text-link" onClick={() => go(`/pools/${id}`)}><Droplets size={16} /> {pool.base_token_symbol} / {pool.quote_token_symbol}</button></Definition>}
+          </>}
+        </dl>
       ) : (
         <div className="table-shell address-activity">
           {!data ? (
@@ -2270,7 +2222,7 @@ function AddressDetail({ id }: { id: string }) {
                 </div>
               ) : data.items?.length ? (
                 tab === "transactions" ? (
-                  data.items.map((tx: any) => <TxRow key={tx.hash} tx={tx} />)
+                  <><LedgerColumns />{data.items.map((tx: any) => <TxRow key={tx.hash} tx={tx} />)}</>
                 ) : (
                   data.items.map((item: any, i: number) => (
                     <GenericActivity
@@ -2310,7 +2262,7 @@ function AddressDetail({ id }: { id: string }) {
           )}
         </div>
       )}
-    </>
+    </div>
   );
 }
 

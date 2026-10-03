@@ -15,6 +15,7 @@ const suites = [
   ['assets',['run','test:assets'],180], ['charts',['run','test:charts'],300],
   ['identicons',['run','test:identicons'],180], ['content',['run','test:content'],300],
   ['address-loading',['run','test:address-loading'],180], ['loading',['run','test:loading'],180], ['performance',['run','test:performance'],180],
+  ['readability',['run','test:readability'],300],
   ['layout',['run','test:layout'],1200], ['responsive',['run','test:responsive'],900],
   ['mobile',['run','test:mobile'],900], ['style',['run','test:style'],900],
   ['space',['run','test:space'],300], ['networks',['run','test:networks'],1800],

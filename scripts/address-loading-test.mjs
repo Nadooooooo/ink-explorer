@@ -45,6 +45,7 @@ try {
     mode='ok';
     await page.locator('main .error-state button').click();
     await page.locator('.address-summary').waitFor();
+    await page.locator('.address-activity .empty').waitFor({timeout:3000});
     assert.equal(new URL(page.url()).pathname,prefix+'/address/'+address);
     assert.match(await page.locator('main').innerText(),/1 ETH/);
     for (const failure of ['html','null','wrong-address','offline']) {
@@ -55,6 +56,7 @@ try {
       mode='ok';
       await page.locator('main .error-state button').click();
       await page.locator('.address-summary').waitFor();
+      await page.locator('.address-activity .empty').waitFor({timeout:3000});
     }
     mode='summary-error';
     await page.reload({waitUntil:'domcontentloaded'});
@@ -65,6 +67,7 @@ try {
     await page.locator('main .error-state button').click();
     await page.locator('.address-summary').waitFor();
     await page.waitForFunction(()=>document.querySelectorAll('main .error-state').length===0);
+    await page.locator('.address-activity .empty').waitFor({timeout:3000});
     for(const status of ['matched','corrected','unavailable']) {
       mode=status;
       await page.reload({waitUntil:'domcontentloaded'});
@@ -81,6 +84,8 @@ try {
     await page.reload({waitUntil:'domcontentloaded'});
     await page.locator('.address-summary').waitFor();
     // Exercise the tab failure deterministically, including mobile readability.
+    if(width<=760) await page.locator('.section-picker select').selectOption('overview');
+    else await page.locator('.section-navigation .tabs button').nth(0).click();
     mode='section-error';
     if(width<=760) await page.locator('.section-picker select').selectOption('transactions');
     else await page.locator('.section-navigation .tabs button').nth(1).click();

@@ -53,6 +53,7 @@
     "test:activity-live": "node scripts/activity-live-test.mjs",
     "test:activity-server": "node scripts/activity-server-test.mjs",
     "test:address-loading": "node scripts/address-loading-test.mjs",
+    "test:readability": "node scripts/address-readability-test.mjs",
     "test:chain-reconciliation": "node --experimental-strip-types scripts/chain-reconciliation-test.mjs",
     "test:upstream-cache": "node scripts/upstream-cache-test.mjs"
   },
