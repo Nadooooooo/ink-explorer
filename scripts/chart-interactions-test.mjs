@@ -67,6 +67,7 @@ for (const engine of engines) {
       await page.locator('.block-utilization .interactive-chart[data-points="50"]').waitFor();
       await page.locator('.block-utilization select').selectOption('10');
       await page.locator('.block-utilization .interactive-chart[data-points="10"]').waitFor();
+      assert.equal(await page.locator('.block-utilization .analytic-label > strong').evaluate(element => element.scrollWidth <= element.clientWidth + 1), true, 'Loaded block utilization value remains fully readable beside its range control');
       assert.equal(blockRequests, 2, 'Block range reuses observations; retry requests just the failed feed');
       await page.locator('.stat-chart[aria-busy="false"]').last().waitFor();
       const lead = page.locator('.analytics-lead');

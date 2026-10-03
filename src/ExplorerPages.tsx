@@ -188,10 +188,6 @@ function Page({
           <h1>{props.t(title)}</h1>
         </div>
       </section>
-      <details className="explorer-tools">
-        <summary>{props.t("Explorer tools")}</summary>
-        <ExplorerDirectory {...props} />
-      </details>
       {children}
     </div>
   );
@@ -359,13 +355,18 @@ function Accounts(props: ExplorerPageProps) {
   );
 }
 
+function RecordCount({ state, label, t }: { state: ReturnType<typeof useData>; label: string; t: ExplorerPageProps["t"] }) {
+  return <div className="explorer-count" aria-live="polite">
+    <span>{label}: {state.data === undefined && !state.error ? t("loadingRecords") : integer(state.data)}</span>
+    {state.error && <><span role="alert">{state.error}</span><button className="text-link" onClick={state.retry}>{t("retry")}</button></>}
+  </div>;
+}
+
 function Batches(props: ExplorerPageProps) {
   const count = useData(props, "/explorer/optimism/batches/count");
   return (
     <Page title="Transaction batches" props={props}>
-      <p>
-        {props.t("Total batches")}: {integer(count.data)}
-      </p>
+      <RecordCount state={count} label={props.t("Total batches")} t={props.t} />
       <List
         props={props}
         endpoint="/explorer/optimism/batches"
@@ -531,9 +532,7 @@ function Games(props: ExplorerPageProps) {
           "Dispute games challenge L2 output claims on Ethereum. Their contract addresses belong to L1.",
         )}
       </p>
-      <p>
-        {props.t("Total games")}: {integer(count.data)}
-      </p>
+      <RecordCount state={count} label={props.t("Total games")} t={props.t} />
       <List
         props={props}
         endpoint="/explorer/optimism/games"
@@ -973,9 +972,9 @@ export function AssetFlows(props: ExplorerPageProps & { tx: Row }) {
     return (
       <>
         <div className="asset-flow-route">
-          {sender ? props.identity(sender, `/address/${sender}`) : "—"}
+          {sender ? props.identity(sender, `/address/${sender}`, `${sender.slice(0, 7)}…${sender.slice(-5)}`) : "—"}
           <span aria-label={props.t("to")}>→</span>
-          {recipient ? props.identity(recipient, `/address/${recipient}`) : "—"}
+          {recipient ? props.identity(recipient, `/address/${recipient}`, `${recipient.slice(0, 7)}…${recipient.slice(-5)}`) : "—"}
         </div>
         <dl className="explorer-record-facts">
           <Field label={props.t("Asset")}>
@@ -1333,7 +1332,7 @@ function Statistics(props: ExplorerPageProps) {
     (chart) =>
       (!props.id || chart.id === props.id) &&
       (!category || chart.section === category) &&
-      `${chart.title} ${chart.description}`
+      `${props.t(chart.title)} ${props.t(chart.description)} ${chart.title} ${chart.description}`
         .toLowerCase()
         .includes(search.toLowerCase()),
   );
@@ -1962,9 +1961,11 @@ function PublicTags(props: ExplorerPageProps) {
           <div className="explorer-form-grid">
             {field("requester", "Your name", true, 100)}
             {field("email", "Email", true, 254, "email")}
+          </div>
+          <details className="explorer-tools"><summary>{props.t("Company details (optional)")}</summary><div className="explorer-form-grid">
             {field("company", "Company name", false, 150)}
             {field("website", "Company website", false, 500, "url")}
-          </div>
+          </div></details>
           {field("address", "Contract or account address", true, 42)}
           {field("label", "Label (35 characters maximum)", true, 35)}
           <label>

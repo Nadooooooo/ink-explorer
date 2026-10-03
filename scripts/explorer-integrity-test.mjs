@@ -80,11 +80,15 @@ try {
     assert.match(await page.locator('.definitions').innerText(),/0\.000000000632389801 ETH/);
     await tab('logs');
     await page.locator('.event-log').waitFor();
+    assert.equal(await page.locator('.event-raw').first().getAttribute('open'), null, 'Raw logs start collapsed');
+    assert.match(await page.locator('.event-decoded').first().innerText(), /Event\(uint256 value\)/);
+    await page.locator('.event-raw summary').first().click();
     assert.match(await page.locator('.event-log').innerText(),/0x1234/);
     assert.match(await page.locator('.event-log').innerText(),/Event\(uint256 value\)/);
     assert.match(await page.locator('.event-log').innerText(),new RegExp(hash));
     await page.locator('main > .pagination button').click();
     await page.waitForFunction(()=>document.querySelectorAll('.event-log').length===2);
+    await page.locator('.event-raw summary').nth(1).click();
     assert.match(await page.locator('.event-log').first().innerText(),/0x1234/);
     assert.match(await page.locator('.event-log').nth(1).innerText(),/0x5678/,'Different logs in one transaction must remain distinct');
     assert.equal(await page.locator('main > .pagination').count(),0);

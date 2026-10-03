@@ -18,6 +18,48 @@ widths, responsive interactions and ten locales. See [the validation scope](EXPL
 | Statistics table | Horizontal scrolling stays inside an announced, keyboard-accessible region. The date column remains visible horizontally. |
 | Short viewports | Menus fit the available height, contract forms stay scrollable and reduced-motion preferences are respected. |
 
+## 3 October 2026 review
+
+The broader review covers 88 Mainnet route and section states: general lists,
+accounts and contracts, transactions and all their sections, ERC-20 and NFT
+collections, holders, individual NFTs, pools, domains, batches, user operations,
+statistics, applications, verification, public tags and missing pages. Screenshots
+are inspected alongside geometry checks at 320, 430, 844 and 1440 px. The native
+page suite separately exercises both networks, Arabic/French/English, and
+Chromium/Firefox/WebKit with controlled error, consent and scoping cases.
+
+Changes from this review:
+
+- Transaction rows retain their status on phones and label both participants.
+  Long contract names wrap instead of losing their identifying suffix.
+- Token rows expose type, price, holders and market cap with individual labels.
+  Asset holdings and holder balances have a separate, readable amount line.
+- Account, history, batch and protocol records group related facts into columns.
+  Deposits, withdrawals and user operations retain their amount/fee context.
+- Event logs present decoded parameters first. A closed disclosure keeps full
+  raw topics, data and decoded JSON available for keyboard and pointer users.
+- NFT transfers expose their instance identifier, including ID zero. Shortened
+  long IDs retain the full identifier in their title and destination. Missing
+  decimals remain explicitly labelled as base units rather than an invented
+  human-readable token amount.
+- Numeric batch/game count responses are validated separately from object API
+  responses. Counts show loading, failure, retry and a valid zero explicitly.
+- Obsolete contract/read/write links on simple accounts return to the overview.
+- Statistics can be searched by translated titles and descriptions. French
+  relative dates use an unambiguous past-tense format. Loaded block-utilization
+  percentages have enough space beside their local range control.
+- Optional company fields fold away on public-tag forms. Required fields remain
+  visible; every verification method remains available. No real verification or
+  moderation request is submitted by the review.
+
+Native explorer destinations remain internal. Advanced navigation and footer
+links expose the complete directory without repeating it above every page.
+Raw amounts, full copy values and chain/source attribution remain available.
+
+This review supplements the full release protocol below. Real-chain observations
+and controlled browser fixtures serve different purposes; neither proves that
+every possible account, token metadata payload or upstream outage is bug-free.
+
 ## Reproduce the checks
 
 Install the Playwright browser engines and run the suites against a built,

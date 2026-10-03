@@ -351,3 +351,26 @@
   border-bottom: 1px solid var(--line);
   text-align: start;
 }
+
+.explorer-count { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-block: 12px; color: var(--muted); font-size: 13px; }
+.explorer-count .text-link { min-height: 44px; }
+.explorer-form button:not(.primary-action):not(.text-link) { min-height: 44px; padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface-muted); color: var(--purple-deep); font: 500 14px var(--font-ui); cursor: pointer; }
+@media (max-width: 760px) {
+  .explorer-record-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; }
+  .explorer-field:has(.copyable), .explorer-field:has(.state-change-value) { grid-column: 1 / -1; }
+  .explorer-list-accounts .explorer-record-facts > .explorer-field:first-child { grid-column: 1 / -1; }
+  .explorer-list-accounts .explorer-record-facts > .explorer-field:first-child dd { font-weight: 600; font-size: 16px; }
+  .explorer-record-heading { gap: 6px 12px; }
+  .explorer-record-heading .copyable { flex: 1; justify-content: space-between; }
+  .explorer-record-heading .copyable > .text-link { text-align: start; }
+  .asset-flow-route { grid-template-columns: minmax(0, 1fr) 16px minmax(0, 1fr); gap: 8px; padding: 8px 10px; border-radius: var(--radius-inset); background: var(--surface-muted); }
+  .asset-flow-route .copyable > .text-link { font-size: 12px; }
+}
+@media (max-width: 379px) {
+  .asset-flow-route { grid-template-columns: minmax(0, 1fr); }
+  .asset-flow-route > span:nth-child(2) { text-align: center; transform: rotate(90deg); }
+}
+
+@media (min-width: 380px) and (max-width: 760px) {
+  .explorer-list-accounts .explorer-record-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}

@@ -6,6 +6,7 @@ import { requestJson } from '../src/api-request.ts';
 let server, base;
 before(async () => {
   server = http.createServer((req, res) => {
+    if (req.url.startsWith('/count/')) { res.end(decodeURIComponent(req.url.slice(7))); return; }
     if (req.url === '/hang') return;
     if (req.url === '/body') { res.writeHead(200, {'content-type':'application/json'}); res.write('{'); return; }
     if (req.url === '/html') { res.end('<html>SPA fallback</html>'); return; }
@@ -49,4 +50,11 @@ test('Long queries have their own deadline and retry after an expired request wo
   await assert.rejects(requestJson(base+'/delayed',{},20),/requestTimeout/);
   assert.deepEqual(await requestJson(base+'/delayed',{},200),{items:[]});
   assert.deepEqual((await requestJson(base)).items,[]);
+});
+
+test('Only explicit count responses accept nonnegative safe integers', async () => {
+  for (const value of [0, 50608]) assert.equal(await requestJson(base+'/count/'+value,{},100,'count'),value);
+  for (const value of [-1, 1.5, 9007199254740992, 'null', '"50608"', 'true', '{}'])
+    await assert.rejects(requestJson(base+'/count/'+encodeURIComponent(value),{},100,'count'), /invalidApiResponse/);
+  await assert.rejects(requestJson(base+'/count/50608'), /invalidApiResponse/);
 });

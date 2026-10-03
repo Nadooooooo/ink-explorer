@@ -163,7 +163,7 @@ function scaled(value: unknown, decimals: unknown) {
   const precision = finiteNumber(decimals);
   return amount === null ? undefined : amount / 10 ** (precision ?? 0);
 }
-function age(date: string, style: "narrow" | "short" = "narrow") {
+function age(date: string, style: "narrow" | "short" = "short") {
   if (!date || !Number.isFinite(new Date(date).getTime())) return "—";
   const s = Math.max(
     0,
@@ -212,7 +212,8 @@ function labelOf(value: any) {
 }
 async function get<T = any>(path: string, signal?: AbortSignal): Promise<T> {
   try {
-    const body = await requestJson<T>(`${API}${path}`, { signal });
+    const count = /^\/explorer\/optimism\/(?:batches|games)\/count$/.test(path);
+    const body = await requestJson<T>(`${API}${path}`, { signal }, undefined, count ? "count" : "object");
     if (body == null && !path.endsWith("/check")) throw new Error("invalidApiResponse");
     return body;
   } catch (error) {
@@ -986,11 +987,13 @@ function TxRow({ tx }: { tx: AnyRow }) {
       <Method tx={tx} />
       <div className="flow">
         <span className="flow-party">
+          <small className="mobile-label">{t("from")}</small>
           <EntityMark address={from} label={labelOf(tx.from)} />
           <Copyable value={from} link={`/address/${from}`} />
         </span>
         <ArrowRight size={14} />
         <span className="flow-party">
+          <small className="mobile-label">{t("to")}</small>
           <EntityMark address={to} label={labelOf(tx.to)} />
           <Copyable
             value={to}
@@ -2123,6 +2126,14 @@ function AddressDetail({ id }: { id: string }) {
       );
     return () => { ++dataRequest.current; controller.abort(); };
   }, [id, tab, dataRetry, profileRetry]);
+  useEffect(() => {
+    if (address?.is_contract === false && ["contract", "read", "write"].includes(tab)) {
+      setTab("overview");
+      const url = new URL(location.href);
+      url.searchParams.set("tab", "overview");
+      history.replaceState({}, "", url.pathname + url.search);
+    }
+  }, [address?.is_contract, tab]);
   const loadMore = async () => {
     if (
       !data?.next_page_params ||
@@ -2406,7 +2417,7 @@ function NftItem({ item }: { item: AnyRow }) {
         )}
       </div>
       <span>{item.metadata?.name || token.name || t("NFT collection")}</span>
-      <strong>#{tokenId || "—"}</strong>
+      <strong title={`#${tokenId}`}>#{short(tokenId, 8, 6)}</strong>
       {owner && <span title={owner}>{t("owner")}: {labelOf(item.owner) || short(owner)}</span>}
     </button>
   );
@@ -2501,6 +2512,9 @@ function GenericActivity({ item, type }: { item: AnyRow; type: string }) {
   const hash = item.transaction_hash || item.tx_hash;
   const from = addressOf(item.from);
   const to = addressOf(item.to || item.created_contract);
+  const tokenId = item.total?.token_id ?? item.token_id;
+  const decimals = item.total?.decimals ?? item.token?.decimals;
+  const tokenIds = Array.isArray(item.total?.token_ids) ? item.total.token_ids : [];
   if (type === "logs") return <LogEntry item={item} />;
   return (
     <div className="generic-row">
@@ -2511,8 +2525,8 @@ function GenericActivity({ item, type }: { item: AnyRow; type: string }) {
           label={item.token?.symbol || type}
         />
         <span className="activity-identity">
-          <span className="activity-asset">{item.token?.name || item.token?.symbol || t("nativeTransfer")}</span>
-          <span className="method">{item.token ? t("token transfer") : activityLabel(type)}</span>
+          <span className="activity-asset">{item.token ? item.token.name || item.token.symbol || t("Unknown token") : t("nativeTransfer")}</span>
+          <span className="method">{tokenId != null || tokenIds.length ? t("NFT transfer") : item.token ? t("token transfer") : activityLabel(type)}</span>
         </span>
       </span>
       <div className="activity-reference">
@@ -2524,7 +2538,7 @@ function GenericActivity({ item, type }: { item: AnyRow; type: string }) {
         <small>
           {item.timestamp
             ? <time dateTime={item.timestamp} title={new Date(item.timestamp).toLocaleString(activeLocale)}>{age(item.timestamp, "short")}</time>
-            : item.method || item.type || t("Chain event")}
+            : item.method || ""}
         </small>
       </div>
       <div className="generic-address">
@@ -2539,8 +2553,11 @@ function GenericActivity({ item, type }: { item: AnyRow; type: string }) {
         </span>
       </div>
       <strong className="activity-amount">
-        {item.total?.value != null
-          ? <>{num(scaled(item.total.value, item.total.decimals ?? item.token?.decimals), 4)} <span>{item.token?.symbol || ""}</span></>
+        {tokenId != null ? <>
+          {item.token?.address_hash ? <button className="text-link nft-transfer-id" onClick={() => go(`/token/${item.token.address_hash}/instance/${encodeURIComponent(String(tokenId))}`)} title={`#${String(tokenId)}`}>#{short(String(tokenId), 8, 6)}</button> : <span>#{String(tokenId)}</span>}
+          <span>{item.total?.value != null ? `${num(item.total.value)} × ` : ""}{item.token?.type || "NFT"}</span>
+        </> : tokenIds.length ? <><span className="nft-transfer-ids">{tokenIds.map((id: any) => `#${id}`).join(" · ")}</span><span>{item.token?.type || "NFT"}</span></> : item.total?.value != null
+          ? <>{decimals == null ? String(item.total.value) : num(scaled(item.total.value, decimals), 4)} <span>{decimals == null ? t("base units") : item.token?.symbol || ""}</span></>
           : eth(item.value)}
       </strong>
     </div>
@@ -2550,13 +2567,16 @@ function GenericActivity({ item, type }: { item: AnyRow; type: string }) {
 function LogEntry({ item }: { item: AnyRow }) {
   const address = addressOf(item.address);
   return <article className="code-panel event-log">
-    <div>
-      <span>{t("logs")} #{item.index ?? "—"}</span>
-      <Copyable value={address} link={address ? `/address/${address}` : undefined} />
-      {item.transaction_hash && <Copyable value={item.transaction_hash} link={`/tx/${item.transaction_hash}`} />}
-    </div>
-    {item.decoded && <pre>{JSON.stringify(item.decoded, null, 2)}</pre>}
-    <pre>{JSON.stringify({ topics: item.topics || [], data: item.data || "0x" }, null, 2)}</pre>
+    <section className="event-log-head">
+      <strong>{t("logs")} #{item.index ?? "—"}</strong>
+      <span><small>{t("address")}</small><Copyable value={address} link={address ? `/address/${address}` : undefined} /></span>
+      {item.transaction_hash && <span><small>{t("transactionKind")}</small><Copyable value={item.transaction_hash} link={`/tx/${item.transaction_hash}`} /></span>}
+    </section>
+    {item.decoded && <section className="event-decoded">
+      <h3>{item.decoded.method_call || t("Decoded event")}</h3>
+      <dl>{(item.decoded.parameters || []).map((parameter: any, index: number) => <div key={index}><dt>{parameter.name || `#${index}`} <small>{parameter.type}</small></dt><dd>{ADDRESS.test(String(parameter.value)) ? <Copyable value={String(parameter.value)} link={`/address/${parameter.value}`} /> : typeof parameter.value === "object" ? <code>{JSON.stringify(parameter.value)}</code> : <bdi>{String(parameter.value ?? "—")}</bdi>}</dd></div>)}</dl>
+    </section>}
+    <details className="event-raw"><summary>{t("Raw log data")}</summary><pre tabIndex={0}>{JSON.stringify({ decoded: item.decoded, topics: item.topics || [], data: item.data || "0x" }, null, 2)}</pre></details>
   </article>;
 }
 
@@ -2653,10 +2673,10 @@ function Tokens() {
                     <small>{token.symbol}</small>
                   </span>
                 </span>
-                <span>{token.type}</span>
-                <span>{money(token.exchange_rate)}</span>
-                <span>{num(token.holders_count)}</span>
-                <span>{money(token.circulating_market_cap)}</span>
+                <span><small className="mobile-label">{t("Type")}</small>{token.type}</span>
+                <span><small className="mobile-label">{t("Price")}</small>{money(token.exchange_rate)}</span>
+                <span><small className="mobile-label">{t("Holders")}</small>{num(token.holders_count)}</span>
+                <span><small className="mobile-label">{t("Market cap")}</small>{money(token.circulating_market_cap)}</span>
               </button>
             ))}
           </div>
@@ -3801,9 +3821,9 @@ function ProtocolRow({ item, mode }: { item: AnyRow; mode: string }) {
           {item.status ? t("Success") : t("Failed")}
         </StatusPill>
         <div>
-          <Copyable value={item.hash} display={short(item.hash, 10, 8)} link={`/op/${item.hash}`} />
+          <Copyable value={item.hash} display={short(item.hash)} link={`/op/${item.hash}`} />
           <small>
-            {age(item.timestamp)} · EntryPoint {item.entry_point_version}
+            {age(item.timestamp, "short")} · EntryPoint {item.entry_point_version}
           </small>
         </div>
         <div>
@@ -3817,7 +3837,7 @@ function ProtocolRow({ item, mode }: { item: AnyRow; mode: string }) {
             link={`/tx/${item.transaction_hash}`}
           />
         </div>
-        <strong>{eth(item.fee, 9)}</strong>
+        <strong><small className="mobile-label">{t("fee")}</small>{eth(item.fee, 9)}</strong>
       </div>
     );
   }
@@ -3825,11 +3845,11 @@ function ProtocolRow({ item, mode }: { item: AnyRow; mode: string }) {
     hash = item.l2_transaction_hash;
   return (
     <div className="protocol-row">
-      <span className="method">{withdrawal ? "withdrawal" : "deposit"}</span>
+      <span className="method">{t(withdrawal ? "Withdrawals" : "Deposits")}</span>
       <div>
         <Copyable value={hash} link={`/tx/${hash}`} />
         <small>
-          {age(withdrawal ? item.l2_timestamp : item.l1_block_timestamp)}
+          {age(withdrawal ? item.l2_timestamp : item.l1_block_timestamp, "short")}
         </small>
       </div>
       <div>
@@ -3848,6 +3868,7 @@ function ProtocolRow({ item, mode }: { item: AnyRow; mode: string }) {
         )}
       </div>
       <strong>
+        <small className="mobile-label">{t(withdrawal ? "value" : "gasLimit")}</small>
         {withdrawal
           ? eth(item.msg_value)
           : `${num(item.l2_transaction_gas_limit)} gas`}

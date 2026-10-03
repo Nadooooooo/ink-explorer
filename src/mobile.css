@@ -240,3 +240,69 @@ html { scroll-padding-block-start: 88px; }
   .generic-row .activity-party { grid-template-columns: 40px minmax(0, 1fr); align-items: center; gap: 8px; }
   .generic-row .generic-address > svg { display: none; }
 }
+
+/* The same reading order applies to every mobile record, not just transfers. */
+@media (max-width: 760px) {
+  .page-intro { padding: 20px 16px; }
+  .page-intro h1 { font-size: 28px; line-height: 1.2; }
+  .page-intro .global-search { margin-top: 16px; }
+  .page-intro p { margin-block: 10px 0; line-height: 1.5; }
+  .mobile-label { display: block; color: var(--muted); font-size: 12px; line-height: 1.5; font-weight: 400; }
+  .tx-primary { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .tx-primary > div { grid-column: 1; grid-row: 1; min-width: 0; }
+  .tx-primary .status { display: inline-flex !important; grid-column: 2; grid-row: 1; align-self: start; font-size: 12px; letter-spacing: 0; padding: 5px 7px; }
+  .tx-row > .method { max-width: 100%; white-space: normal; overflow-wrap: anywhere; font-size: 12px; }
+  .tx-row .flow { grid-column: 1 / -1; padding: 8px 10px; background: var(--surface-muted); border-radius: var(--radius-inset); }
+  .tx-row .flow-party { display: grid; gap: 0; }
+  .tx-row .flow-party .copyable { width: 100%; justify-content: space-between; gap: 0; }
+  .tx-row .flow > svg { margin-top: 16px; }
+  .tx-row .flow-party .text-link { min-height: 36px; font-size: 12px; letter-spacing: -0.02em; }
+  [dir="rtl"] .tx-row .flow > svg { transform: rotate(180deg); }
+  .token-table-head { display: none; }
+  .token-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; padding: 14px 16px; }
+  .token-row > .token-name { grid-column: 1 / -1; }
+  .token-row > span:nth-child(2), .token-row > span:nth-child(5) { display: block; }
+  .token-name, .token-name > span { min-width: 0; }
+  .token-name > img, .token-name > i { flex: 0 0 30px; }
+  .token-name strong, .token-name small { white-space: normal; overflow-wrap: anywhere; }
+  .token-row > span:not(.token-name) { overflow-wrap: anywhere; }
+  .asset-row { grid-template-columns: minmax(0, 1fr) 18px; gap: 8px; padding: 12px 16px; }
+  .asset-row > .token-name { grid-column: 1; }
+  .asset-row > span:nth-child(2) { grid-column: 1; grid-row: 2; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; text-align: start; padding-inline-start: 42px; overflow-wrap: anywhere; }
+  .asset-row > svg { grid-column: 2; grid-row: 1 / 3; }
+  .holder-row { flex-wrap: wrap; gap: 6px; padding: 12px 16px; }
+  .holder-row > div { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .holder-row > div > small { margin: 0; flex-shrink: 0; }
+  .holder-row .copyable > .text-link { white-space: normal; overflow-wrap: anywhere; text-align: start; }
+  .holder-row > strong { width: 100%; font-size: 16px; text-align: start; overflow-wrap: anywhere; }
+  .protocol-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; padding: 14px 16px; }
+  .protocol-row > .method, .protocol-row > .status { grid-column: 1; grid-row: 1; justify-self: start; }
+  .protocol-row > div:nth-child(2) { grid-column: 2; grid-row: 1; text-align: end; }
+  .protocol-row > div:nth-child(3) { grid-column: 1; grid-row: 2; }
+  .protocol-row > div:nth-child(4) { grid-column: 2; grid-row: 2; }
+  .protocol-row > strong { grid-column: 1 / -1; text-align: start; font-size: 16px; overflow-wrap: anywhere; }
+  .protocol-row > div > small { font-size: 12px; }
+  .protocol-row .copyable > .text-link { font-size: 12px; }
+  .generic-row .activity-party .text-link { white-space: normal; overflow: visible; overflow-wrap: anywhere; text-align: start; }
+  .generic-row .activity-amount .nft-transfer-id, .generic-row .activity-amount .nft-transfer-ids { font-size: 14px; line-height: 1.5; }
+  .event-log-head { display: grid; gap: 6px; padding: 12px 16px; }
+  .event-log-head > span { justify-content: space-between; }
+  .event-decoded { padding: 12px 16px; }
+  .search-results > button > div { min-width: 0; }
+  .search-results > button strong { white-space: normal; overflow: visible; overflow-wrap: anywhere; line-height: 1.5; }
+  .search-results > button small { overflow-wrap: anywhere; }
+  .nft-item > strong { white-space: normal; overflow-wrap: anywhere; }
+}
+@media (max-width: 379px) {
+  .tx-row .flow { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .tx-row .flow-party { grid-template-columns: 40px minmax(0, 1fr); align-items: center; gap: 8px; }
+  .tx-row .flow > svg { display: none; }
+}
+
+@media (max-width: 760px) {
+  .tx-row { gap: 6px 12px; }
+  .tx-row .flow { padding-block: 6px; }
+}
+@media (max-width: 760px) {
+  .tx-row .flow-party .text-link, .pool-detail-grid .copyable > .text-link { white-space: normal; overflow: visible; overflow-wrap: anywhere; text-align: start; }
+}

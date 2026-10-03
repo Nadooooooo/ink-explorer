@@ -7,6 +7,7 @@ export async function requestJson<T = any>(
   url: string,
   init: RequestInit = {},
   timeout = REQUEST_TIMEOUT,
+  responseKind: "object" | "count" = "object",
 ): Promise<T> {
   const controller = new AbortController();
   const cancel = () => controller.abort(init.signal?.reason);
@@ -23,7 +24,9 @@ export async function requestJson<T = any>(
       throw new Error(response.ok ? "invalidApiResponse" : "Data source unavailable");
     }
     if (!response.ok) throw new Error(typeof value?.error === "string" ? value.error : "Data source unavailable");
-    if (value !== null && typeof value !== "object") throw new Error("invalidApiResponse");
+    if (responseKind === "count") {
+      if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) throw new Error("invalidApiResponse");
+    } else if (value !== null && typeof value !== "object") throw new Error("invalidApiResponse");
     return value;
   } catch (error) {
     // Cancellation belongs to the calling component; it must not become a

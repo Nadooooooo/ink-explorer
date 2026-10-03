@@ -616,6 +616,7 @@ for (const [engine, type] of [
           );
           await visit(`/op/${hash}?tab=logs`);
           assert.equal(await page.locator(".explorer-record").count(), 1);
+          await page.locator(".event-raw summary").click();
           assert.match(
             await page.locator(".explorer-record").innerText(),
             /inside-op/,

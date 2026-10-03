@@ -5439,7 +5439,7 @@ main > .error-state,
   cursor: pointer;
 }
 .lead-chart-status { min-height: 220px; }
-.analytic-label:has(.chart-range) { flex-wrap: wrap; }
+.analytic-label:has(.chart-range) { display: flex; flex-wrap: wrap; }
 .analytic-label .chart-range { margin-inline-start: auto; }
 .analytic-label:has(.chart-range) > strong { flex-basis: 100%; text-align: start; margin-inline-start: 0; }
 @media (max-width: 760px) {
@@ -5451,3 +5451,18 @@ main > .error-state,
 @media (pointer: coarse) {
   .chart-range select { font-size: 16px; min-height: 44px; }
 }
+
+.mobile-label { display: none; }
+.event-log-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding: 14px 18px; background: var(--surface-header); border-bottom: 1px solid var(--line); font-size: 14px; }
+.event-log-head > span { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.event-log-head small { color: var(--muted); font-size: 12px; }
+.event-decoded { padding: 14px 18px; }
+.event-decoded h3 { margin: 0 0 12px; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+.event-decoded dl { margin: 0; display: grid; gap: 12px; }
+.event-decoded dl > div { min-width: 0; }
+.event-decoded dt { font-size: 13px; font-weight: 600; }
+.event-decoded dt small { font-size: 12px; font-weight: 400; color: var(--muted); }
+.event-decoded dd { margin: 4px 0 0; font-size: 14px; overflow-wrap: anywhere; }
+.event-raw summary { padding: 12px 18px; min-height: 44px; cursor: pointer; font-size: 13px; color: var(--muted); }
+.event-raw pre:focus-visible { outline: 3px solid var(--purple); outline-offset: -3px; }
+.nft-transfer-id { font-size: inherit; font-weight: inherit; overflow-wrap: anywhere; text-align: inherit; }
