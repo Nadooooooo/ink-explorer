@@ -375,13 +375,6 @@ function Method({
         <div role="status">
           <p>{receiptStatus}</p>
           <a href={networkPath(`/tx/${txHash}`)}>{txHash}</a>
-          <a
-            href={`${network.explorer}/tx/${txHash}`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            {ct("viewOnBlockscout")}
-          </a>
         </div>
       )}
     </details>
@@ -493,7 +486,7 @@ export default function ContractInteraction({
                 chainName: network.name,
                 nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
                 rpcUrls: [network.rpc],
-                blockExplorerUrls: [network.explorer],
+                blockExplorerUrls: [new URL(networkPath("/"), location.origin).href],
               },
             ],
           });

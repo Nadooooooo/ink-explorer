@@ -82,7 +82,11 @@ for (const engine of engines) {
       await visit(page,route);
       const picker=page.locator('.section-picker select');await picker.waitFor({state:'visible'});
       const values=await picker.locator('option').evaluateAll(es=>es.map(e=>e.value));
-      if(route===address)assert.equal(values.length,10);
+      if(route===address) {
+        for(const section of ['overview','transactions','history','userops','tokens','nft','token-transfers','internal-transactions','logs','contract','read','write'])
+          assert(values.includes(section), `Missing reachable address section: ${section}`);
+        assert.equal(new Set(values).size,values.length,'Address sections must be unique');
+      }
       for(const value of values){
         await picker.selectOption(value);
         await page.waitForFunction(()=>!document.querySelector('.address-activity .loading,.code-panel .loading,.contract-interaction .loading,.table-shell .loading'));

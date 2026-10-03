@@ -83,7 +83,7 @@ html { scroll-padding-block-start: 88px; }
   .code-panel pre, .code-panel > div, .code-panel > .empty, .address-pagination > span,
   .loading, .search-results > button small, .health-banner p, .health-banner span,
   .node-note > span, .peer-core > span, .peer-count small, .rpc-community :is(span, small),
-  .storage > div:first-child small, .storage > div:last-child,
+  .storage > div:first-child > span, .storage > div:first-child small, .storage > div:last-child,
   .developer-grid article > span, .developer-grid code, .protocol-row > div > small,
   .state-row small, .holder-row small, .definition small, .asset-row > span:nth-child(2) small,
   .nft-item > span, .nft-item > strong, .nft-placeholder small,

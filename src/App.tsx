@@ -54,12 +54,19 @@ import {
 import { formatMessage, isLocale, localeNames, locales, message, type Locale } from "./i18n";
 import { EntityMark } from "./EntityMark";
 import { mediaUrl } from "./media";
-import { blockFinality, cursorQuery, executionFee, transactionState, stateChangeText } from "./explorer-data";
-import { API, apiOrigin, basePath, network, networkPath, isTestnet, liveWebSocketUrl } from "./network";
+import { blockFinality, cursorQuery, executionFee, transactionState, stateChangeText, formatWei } from "./explorer-data";
+import { API, apiOrigin, basePath, network, networkPath, isTestnet, liveWebSocketUrl, externalDestination } from "./network";
 import { requestJson } from "./api-request";
+import "./explorer-pages.css";
 const ContractInteraction = lazy(() => import("./ContractInteraction"));
 const FilteredActivity = lazy(() => import("./FilteredActivity"));
+const ExplorerPages = lazy(() => import("./ExplorerPages"));
+const ExplorerDirectory = lazy(() => import("./ExplorerPages").then(module => ({ default: module.ExplorerDirectory })));
+const AddressHistory = lazy(() => import("./ExplorerPages").then(module => ({ default: module.AddressHistory })));
+const UserOperationsList = lazy(() => import("./ExplorerPages").then(module => ({ default: module.UserOperationsList })));
+const AssetFlows = lazy(() => import("./ExplorerPages").then(module => ({ default: module.AssetFlows })));
 import { activityKeys, downloadCsv, activityState } from "./activity-data";
+import type { ExplorerPageProps } from "./ExplorerPages";
 
 type AnyRow = Record<string, any>;
 type View = { name: string; id?: string; tokenId?: string; query?: string };
@@ -133,6 +140,19 @@ function eth(wei: unknown, digits = 5) {
   } catch {
     return "—";
   }
+}
+function exactEth(value: unknown) {
+  const formatted=formatWei(value,activeLocale);
+  return formatted === "—" ? formatted : `${formatted} ETH`;
+}
+function gasPrice(value: any) {
+  if (value?.wei != null) {
+    try {
+      const amount = formatWei(BigInt(value.wei) * 1000000000n, activeLocale);
+      return amount === "—" ? amount : `${amount} Gwei`;
+    } catch { return "—"; }
+  }
+  return unit(value?.price ?? value, " Gwei");
 }
 function unit(value: unknown, suffix: string, digits = 2) {
   const formatted = num(value, digits);
@@ -277,7 +297,7 @@ function route(): View {
   const names: Record<string, string> = {
     tx: "transaction",
     txs: "transactions",
-    stats: "analytics",
+    "verified-contracts": "contracts",
   };
   return {
     name: names[p[0]] || p[0],
@@ -298,6 +318,28 @@ function go(path: string) {
   history.pushState({}, "", localizedPath(path));
   dispatchEvent(new PopStateEvent("popstate"));
   window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+}
+
+function sectionChoice(fallback: string, allowed: string[], aliases: Record<string,string> = {}) {
+  const value = new URLSearchParams(location.search).get("tab") || fallback;
+  const selected = aliases[value] || value;
+  return allowed.includes(selected) ? selected : fallback;
+}
+function addressSection() {
+  return sectionChoice("transactions", ["overview", "transactions", "history", "userops", "tokens", "nft", "token-transfers", "internal-transactions", "logs", "contract", "read", "write"], {details:"overview",txs:"transactions",account_history:"history",coin_balance_history:"history",user_ops:"userops",token_transfers:"token-transfers",internal_txns:"internal-transactions"});
+}
+function explorerProps(page: string, id?: string): ExplorerPageProps {
+  return { page, id, t, go, get,
+    identity: (value, link, label) => <Copyable value={value} link={link} display={label || value} />,
+    transaction: item => <TxRow tx={item} />, block: item => <BlockRow block={item} />,
+    activity: (item,type) => <GenericActivity item={item} type={type} />,
+    chart: (metric, title, unit) => {
+      const ratio = metric === "txnsSuccessRate" || metric === "networkUtilization";
+      const suffix = ratio ? "%" : unit || "";
+      return <StatChart metric={metric} title={title} note={suffix} refresh={0} enableData formatValue={value => `${num(ratio ? value * 100 : value, 9)}${suffix ? ` ${suffix}` : ""}`} />;
+    },
+    historyChart: items => <Sparkline points={items.map(item => scaled(item.value, 18) || 0)} labels={items.map(item => item.date)} height={160} ariaLabel={t("Historical ETH balance")} formatValue={value => `${num(value, 9)} ETH`} />,
+  };
 }
 
 function Brand() {
@@ -629,16 +671,20 @@ function SectionTabs({ value, items, onChange }: {
   items: [string, string][];
   onChange: (value: string) => void;
 }) {
+  const choose = (next: string) => {
+    const url = new URL(location.href); url.searchParams.set("tab", next);
+    history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`); onChange(next);
+  };
   return <div className="section-navigation">
     <label className="section-picker">
       <span>{t("pageSection")}</span>
-      <select value={value} onChange={event => onChange(event.target.value)}>
+      <select value={value} onChange={event => choose(event.target.value)}>
         {items.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
       </select>
     </label>
     <div className="tabs" role="group" aria-label={t("pageSection")}>
       {items.map(([key, label]) => <button key={key} className={value === key ? "active" : ""}
-        aria-pressed={value === key} onClick={() => onChange(key)}>{label}</button>)}
+        aria-pressed={value === key} onClick={() => choose(key)}>{label}</button>)}
     </div>
   </div>;
 }
@@ -693,6 +739,7 @@ function ChartRange({ title, value, onChange, options = chartRanges }: {
   </label>;
 }
 function chartQuery(days: number) {
+  if (days === 0) return "?resolution=WEEK";
   const to = new Date().toISOString().slice(0, 10);
   const from = new Date(Date.now() - (days - 1) * 86400000).toISOString().slice(0, 10);
   return `?from=${from}&to=${to}&resolution=${days >= 365 ? "WEEK" : "DAY"}`;
@@ -1135,7 +1182,7 @@ function HomeData({ data }: { data: any }) {
           />
           <Metric
             label={t("medianGas")}
-            value={unit(s.gas_prices?.average, " Gwei")}
+            value={gasPrice(s.gas_prices?.average)}
             note={data.network.synced ? tf("weiReference", { count: num(data.network.gasPriceWei) }) : t("publicIndexSyncing")}
             icon={<Fuel />}
           />
@@ -1347,15 +1394,17 @@ function SearchResults({ query }: { query: string }) {
 function LedgerList({
   type,
   live,
+  initialMode = "all",
 }: {
   type: "blocks" | "transactions";
   live?: LiveData;
+  initialMode?: string;
 }) {
   const [data, setData] = useState<any>();
   const [error, setError] = useState("");
   const [params, setParams] = useState("");
   const [history, setHistory] = useState<string[]>([]);
-  const [mode, setMode] = useState(() => new URLSearchParams(location.search).get("activity") === "filtered" ? "filtered" : "all");
+  const [mode, setMode] = useState(() => new URLSearchParams(location.search).get("activity") === "filtered" ? "filtered" : initialMode);
   const dataRequest = useRef(0);
   const endpoint =
     type === "transactions" && mode === "tokens"
@@ -1643,14 +1692,12 @@ function DetailHeader({
   subtitle,
   status,
   identifier = true,
-  actions,
 }: {
   kind: string;
   title: string;
   subtitle?: string;
   status?: ReactNode;
   identifier?: boolean;
-  actions?: ReactNode;
 }) {
   return (
     <section className="detail-header">
@@ -1660,7 +1707,6 @@ function DetailHeader({
         {status}
       </div>
       {subtitle && <p>{ADDRESS.test(subtitle) || TX.test(subtitle) ? <Copyable value={subtitle} display={subtitle} /> : subtitle}</p>}
-      {actions && <nav className="detail-actions" aria-label={t("officialExplorer")}>{actions}</nav>}
     </section>
   );
 }
@@ -1734,7 +1780,7 @@ function BlockDetail({ id, live }: { id: string; live: LiveData }) {
             {num(block.base_fee_per_gas)} wei
           </Definition>
           <Definition label={t("totalFees")}>
-            {eth(block.transaction_fees, 8)}
+            {exactEth(block.transaction_fees)}
           </Definition>
           <Definition label={t("size")}>{bytes(block.size)}</Definition>
           <Definition label={t("parentBlock")} wide>
@@ -1778,7 +1824,7 @@ function TxDetail({ id }: { id: string }) {
   useEffect(() => {
     const request = ++transactionRequest.current;
     setTx(undefined);
-    setTab("overview");
+    setTab(sectionChoice("overview", ["overview", "flows", "userops", "transfers", "internal", "logs", "state", "trace", "input", "l2"], {details:"overview",asset_flows:"flows",user_ops:"userops",token_transfers:"transfers",raw_trace:"trace"}));
     setError("");
     get(`/explorer/transactions/${id}`)
       .then((value) => request === transactionRequest.current && setTx(value))
@@ -1807,7 +1853,7 @@ function TxDetail({ id }: { id: string }) {
       .then(
         (v) =>
           request === relatedRequest.current &&
-          setRelated(Array.isArray(v) ? { items: v } : v),
+          setRelated(Array.isArray(v) ? { items: v } : tab === "trace" && !Array.isArray(v?.items) ? {items:v && Object.keys(v).length ? [v] : []} : v),
       )
       .catch(
         (e) =>
@@ -1849,10 +1895,13 @@ function TxDetail({ id }: { id: string }) {
       />
       <SectionTabs value={tab} onChange={setTab} items={[
         ["overview", t("overview")], ["transfers", t("transfers")],
+        ["flows", t("Asset flows")], ["userops", t("User operations")],
         ["internal", t("internal")], ["logs", t("logs")],
         ["state", t("stateChanges")], ["trace", t("rawTrace")],
         ["input", t("inputData")], ["l2", t("l2Fees")],
       ]} />
+      {tab === "userops" && <Suspense fallback={<Loading />}><UserOperationsList {...explorerProps("userops", id)} transactionHash={id} /></Suspense>}
+      {tab === "flows" && <Suspense fallback={<Loading />}><AssetFlows {...explorerProps("flows", id)} tx={tx} /></Suspense>}
       {tab === "overview" && (
         <dl className="definitions standalone">
           <Definition label={t("transactionHash")} wide>
@@ -1886,9 +1935,9 @@ function TxDetail({ id }: { id: string }) {
               />
             </span>
           </Definition>
-          <Definition label={t("value")}>{eth(tx.value, 8)}</Definition>
+          <Definition label={t("value")}>{exactEth(tx.value)}</Definition>
           <Definition label={t("transactionFee")}>
-            {eth(tx.fee?.value, 10)}
+            {exactEth(tx.fee?.value)}
           </Definition>
           <Definition label={t("gasUsed")}>
             {num(tx.gas_used)} / {num(tx.gas_limit)}
@@ -1913,13 +1962,13 @@ function TxDetail({ id }: { id: string }) {
       )}
       {tab === "l2" && (
         <dl className="definitions standalone">
-          <Definition label={t("L1 data fee")}>{eth(tx.l1_fee, 10)}</Definition>
+          <Definition label={t("L1 data fee")}>{exactEth(tx.l1_fee)}</Definition>
           <Definition label={t("L1 gas used")}>{num(tx.l1_gas_used)}</Definition>
           <Definition label={t("L1 gas price")}>
             {num(tx.l1_gas_price)} wei
           </Definition>
           <Definition label={t("L2 execution fee")}>
-            {eth(executionFee(tx), 10)}
+            {exactEth(executionFee(tx))}
           </Definition>
         </dl>
       )}
@@ -2003,7 +2052,7 @@ function AddressDetail({ id }: { id: string }) {
   const [summaryErrors, setSummaryErrors] = useState<string[]>([]);
   const [profileRetry, setProfileRetry] = useState(0);
   const [pool, setPool] = useState<any>();
-  const [tab, setTab] = useState("transactions");
+  const [tab, setTab] = useState(() => addressSection());
   const [error, setError] = useState("");
   const [loadingMore, setLoadingMore] = useState(false);
   const [dataRetry, setDataRetry] = useState(0);
@@ -2012,7 +2061,7 @@ function AddressDetail({ id }: { id: string }) {
   useEffect(() => {
     const request = ++profileRequest.current;
     const controller = new AbortController();
-    setTab("transactions");
+    setTab(addressSection());
     setData(undefined);
     setPool(undefined);
     setAddress(undefined);
@@ -2062,7 +2111,7 @@ function AddressDetail({ id }: { id: string }) {
     const controller = new AbortController();
     setLoadingMore(false);
     setData(undefined);
-    if (tab === "overview") return;
+    if (["overview", "history", "userops"].includes(tab)) return;
     const endpoint =
       ["contract", "read", "write"].includes(tab) ? `smart-contracts/${id}` : `addresses/${id}/${tab}`;
     get(`/explorer/${endpoint}`, controller.signal)
@@ -2136,7 +2185,6 @@ function AddressDetail({ id }: { id: string }) {
             </span>}
           </>
         }
-        actions={<a className="detail-link" href={`${network.explorer}/address/${id}`} target="_blank" rel="noreferrer" aria-label={t("officialExplorer")} title={t("officialExplorer")}><span>{t("officialExplorer")}</span> <ExternalLink size={15} /></a>}
       />
       <section className="address-summary">
         <Metric
@@ -2164,6 +2212,7 @@ function AddressDetail({ id }: { id: string }) {
       {summaryErrors.length > 0 && <ErrorState error={[...new Set(summaryErrors)].join(" · ")} onRetry={() => setProfileRetry(value => value + 1)} />}
       <SectionTabs value={tab} onChange={setTab} items={[
         ["overview", t("overview")], ["transactions", t("transactions")],
+        ["history", t("Account history")], ["userops", t("User operations")],
         ["tokens", t("assets")], ["nft", t("nfts")],
         ["token-transfers", t("transfers")], ["internal-transactions", t("internal")],
         ["logs", t("logs")],
@@ -2178,6 +2227,7 @@ function AddressDetail({ id }: { id: string }) {
           {address?.ens_domain_name && <Definition label="ENS"><bdi>{address.ens_domain_name}</bdi></Definition>}
           <Definition label={t("transfers")}>{num(counters.token_transfers_count)}</Definition>
           <Definition label={t("Gas consumed")}>{num(counters.gas_usage_count)} <small>{t("sourceIndex")}</small></Definition>
+          {address?.metadata?.tags?.length > 0 && <Definition label={t("Public labels")} wide><ul className="address-labels">{address.metadata.tags.map((tag:AnyRow,index:number)=><li key={tag.slug || index}><strong>{tag.name}</strong>{tag.meta?.tooltipDescription && <span> · {tag.meta.tooltipDescription}</span>}</li>)}</ul></Definition>}
           {address?.is_contract && <>
             {address?.name && <Definition label={t("smartContract")}>{address.name}</Definition>}
             {address?.token && <Definition label={t("tokenStandard")}>{address.token.type} {address.token.symbol && `· ${address.token.symbol}`}</Definition>}
@@ -2187,9 +2237,14 @@ function AddressDetail({ id }: { id: string }) {
             </Definition>)}
             {ADDRESS.test(address?.creator_address_hash) && <Definition label={t("creator")}><Copyable value={address.creator_address_hash} link={`/address/${address.creator_address_hash}`} /></Definition>}
             {TX.test(address?.creation_transaction_hash) && <Definition label={t("creationTx")}><Copyable value={address.creation_transaction_hash} link={`/tx/${address.creation_transaction_hash}`} /></Definition>}
+            {!address?.is_verified && <Definition label={t("contractSource")}><button className="text-link" onClick={()=>go(`/contract-verification?address=${id}`)}>{t("Verify contract")}</button></Definition>}
             {pool && <Definition label={t("pool")}><button className="text-link" onClick={() => go(`/pools/${id}`)}><Droplets size={16} /> {pool.base_token_symbol} / {pool.quote_token_symbol}</button></Definition>}
           </>}
         </dl>
+      ) : tab === "history" ? (
+        <Suspense fallback={<Loading />}><AddressHistory {...explorerProps("history", id)} /></Suspense>
+      ) : tab === "userops" ? (
+        <Suspense fallback={<Loading />}><UserOperationsList {...explorerProps("userops", id)} sender={id} /></Suspense>
       ) : (
         <div className="table-shell address-activity">
           {!data ? (
@@ -2304,7 +2359,8 @@ function AssetHolding({ item }: { item: AnyRow }) {
 }
 function NftItem({ item }: { item: AnyRow }) {
   const token = item.token || {};
-  const tokenId = String(item.id || item.token_id || "");
+  const tokenId = String(item.id ?? item.token_id ?? "");
+  const owner = addressOf(item.owner);
   const source =
     item.image_url ||
     item.media_url ||
@@ -2351,6 +2407,7 @@ function NftItem({ item }: { item: AnyRow }) {
       </div>
       <span>{item.metadata?.name || token.name || t("NFT collection")}</span>
       <strong>#{tokenId || "—"}</strong>
+      {owner && <span title={owner}>{t("owner")}: {labelOf(item.owner) || short(owner)}</span>}
     </button>
   );
 }
@@ -2371,7 +2428,7 @@ function ContractSource({ contract }: { contract: AnyRow }) {
       <div className="source-head">
         <div>
           <StatusPill ok={Boolean(contract.source_code)}>
-            {contract.is_fully_verified ? t("fullyVerified") : contract.source_code ? t("verified") : t("Not verified")}
+            {contract.is_fully_verified ? t("fullyVerified") : contract.source_code ? t("Partially verified") : t("Not verified")}
           </StatusPill>
           <h3>{contract.name || t("smartContract")}</h3>
           <span>{contract.file_path || t("Source code")}</span>
@@ -2401,6 +2458,8 @@ function ContractSource({ contract }: { contract: AnyRow }) {
             <dt>{t("ABI entries")}</dt>
             <dd>{num(contract.abi?.length)}</dd>
           </div>
+          <div><dt>{t("EVM version")}</dt><dd>{contract.evm_version || "—"}</dd></div>
+          <div><dt>{t("Verified at")}</dt><dd>{contract.verified_at ? new Date(contract.verified_at).toLocaleString(activeLocale) : "—"}</dd></div>
           <div>
             <dt>{t("Bytecode")}</dt>
             <dd>
@@ -2421,6 +2480,7 @@ function ContractSource({ contract }: { contract: AnyRow }) {
             key={`${source.file_path}-${index}`}
           >
             <summary>{source.file_path || tf("Source {number}", { number: index + 1 })}</summary>
+            <button className="text-link" onClick={() => { const url=URL.createObjectURL(new Blob([source.source_code || ""],{type:"text/plain"}));const a=document.createElement("a");a.href=url;a.download=String(source.file_path || `source-${index}.sol`).split("/").at(-1) || "source.sol";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000); }}>{t("Download source")}</button>
             <pre>{source.source_code}</pre>
           </details>
         ))
@@ -2432,6 +2492,7 @@ function ContractSource({ contract }: { contract: AnyRow }) {
           {tf("{count} source files are included in the verified build.", { count: num(sources.length) })}
         </footer>
       )}
+      {[["ABI",contract.abi], [t("Compiler settings"),contract.compiler_settings], [t("Creation bytecode"),contract.creation_bytecode], [t("Deployed bytecode"),contract.deployed_bytecode]].map(([label,value]) => value != null && <details className="source-file" key={label as string}><summary>{label as string}</summary><pre>{typeof value === "string" ? value : JSON.stringify(value,null,2)}</pre></details>)}
     </div>
   );
 }
@@ -2610,9 +2671,10 @@ function Tokens() {
 function TokenDetail({ id }: { id: string }) {
   const [token, setToken] = useState<any>();
   const [data, setData] = useState<any>();
-  const [tab, setTab] = useState("transfers");
+  const [tab, setTab] = useState(()=>sectionChoice("transfers",["transfers","holders","instances","contract","read","write"],{token_transfers:"transfers"}));
   const [params, setParams] = useState("");
   const [error, setError] = useState("");
+  const [retry,setRetry] = useState(0);
   const tokenRequest = useRef(0);
   const dataRequest = useRef(0);
   useEffect(() => {
@@ -2626,14 +2688,14 @@ function TokenDetail({ id }: { id: string }) {
   useEffect(() => {
     const request = ++dataRequest.current;
     setData(undefined);
-    get(`/explorer/tokens/${id}/${tab}${params}`)
+    get(["contract","read","write"].includes(tab) ? `/explorer/smart-contracts/${id}` : `/explorer/tokens/${id}/${tab}${params}`)
       .then((value) => request === dataRequest.current && setData(value))
       .catch(
         (e) =>
           request === dataRequest.current &&
           setData({ items: [], error: e.message }),
       );
-  }, [id, tab, params]);
+  }, [id, tab, params, retry]);
   if (!token && !error) return <Loading />;
   if (error) return <ErrorState error={error} />;
   return (
@@ -2673,11 +2735,18 @@ function TokenDetail({ id }: { id: string }) {
       </section>
       <SectionTabs value={tab} onChange={value => { setTab(value); setParams(""); }} items={[
         ["transfers", t("Transfers")], ["holders", t("Holders")],
+        ["contract",t("contractSource")], ["read",t("readContract")], ["write",t("writeContract")],
         ...(token.type !== "ERC-20" ? [["instances", t("Token instances")]] as [string, string][] : []),
       ]} />
       <div className="table-shell address-activity">
         {!data ? (
           <Loading />
+        ) : ["read","write"].includes(tab) ? (
+          <Suspense fallback={<Loading />}><ContractInteraction key={`${id}-${tab}`} address={id} contract={data.error ? {} : data} mode={tab === "read" ? "read" : "write"} locale={activeLocale} /></Suspense>
+        ) : data.error ? (
+          <ErrorState error={data.error} onRetry={()=>setRetry(value=>value+1)} />
+        ) : tab === "contract" ? (
+          <ContractSource contract={data} />
         ) : data.items?.length ? (
           tab === "transfers" ? (
             data.items.map((t: any, i: number) => (
@@ -2708,7 +2777,7 @@ function TokenDetail({ id }: { id: string }) {
         ) : (
           <Empty>{data.error || tf("No {type} found.", { type: activityLabel(tab) })}</Empty>
         )}
-        {data && (
+        {data && !["contract","read","write"].includes(tab) && (
           <Pagination
             next={data.next_page_params}
             onNext={() =>
@@ -2736,32 +2805,40 @@ function NftDetail({ id, tokenId }: { id: string; tokenId: string }) {
   const [failed, setFailed] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [pageError, setPageError] = useState("");
+  const [transferRetry,setTransferRetry] = useState(0);
+  const [transfersCount,setTransfersCount] = useState<any>();
+  const profileRequest = useRef(0);
   const dataRequest = useRef(0);
   useEffect(() => {
-    const request = ++dataRequest.current;
+    const request = ++profileRequest.current;
+    const controller = new AbortController();
     setFailed(false);
     setError("");
     setInstance(undefined);
-    setTransfers(undefined);
-    setLoadingMore(false);
-    setPageError("");
+    setTransfersCount(undefined);
     Promise.all([
-      get(`/explorer/tokens/${id}/instances/${encodeURIComponent(tokenId)}`),
-      get(`/explorer/tokens/${id}`),
-      get(
-        `/explorer/tokens/${id}/instances/${encodeURIComponent(tokenId)}/transfers`,
-      ),
+      get(`/explorer/tokens/${id}/instances/${encodeURIComponent(tokenId)}`,controller.signal),
+      get(`/explorer/tokens/${id}`,controller.signal),
     ])
-      .then(([item, collection, activity]) => {
-        if (request !== dataRequest.current) return;
+      .then(([item, collection]) => {
+        if (request !== profileRequest.current || controller.signal.aborted) return;
         setInstance(item);
         setToken(collection);
-        setTransfers(activity);
       })
       .catch(
-        (e) => request === dataRequest.current && setError(e.message),
+        (e) => request === profileRequest.current && !controller.signal.aborted && setError(e.message),
       );
+    get(`/explorer/tokens/${id}/instances/${encodeURIComponent(tokenId)}/transfers-count`,controller.signal)
+      .then(value=>{if(request===profileRequest.current && /^\d+$/.test(String(value?.transfers_count)))setTransfersCount(value.transfers_count);}).catch(()=>{});
+    return ()=>{controller.abort();++profileRequest.current;};
   }, [id, tokenId]);
+  useEffect(()=>{
+    const request=++dataRequest.current,controller=new AbortController();setTransfers(undefined);setLoadingMore(false);setPageError("");
+    get(`/explorer/tokens/${id}/instances/${encodeURIComponent(tokenId)}/transfers`,controller.signal)
+      .then(value=>{if(request===dataRequest.current)setTransfers(value);})
+      .catch(e=>{if(request===dataRequest.current&&!controller.signal.aborted)setTransfers({items:[],error:e.message});});
+    return ()=>{controller.abort();++dataRequest.current;};
+  },[id,tokenId,transferRetry]);
   if (!instance && !error) return <Loading />;
   if (error) return <ErrorState error={error} />;
   const loadMore = async () => {
@@ -2842,7 +2919,7 @@ function NftDetail({ id, tokenId }: { id: string; tokenId: string }) {
               )}
             </Definition>
             <Definition label={t("Transfers")}>
-              {num(instance.transfers_count || transfers?.items?.length)}
+              {num(instance.transfers_count ?? transfersCount ?? transfers?.items?.length)}{instance.transfers_count == null && transfersCount == null && transfers?.items && <small> · {t("recordsLoaded")}</small>}
             </Definition>
             <Definition label={t("Collection")}>
               <button className="text-link" onClick={() => go(`/token/${id}`)}>
@@ -2853,10 +2930,10 @@ function NftDetail({ id, tokenId }: { id: string; tokenId: string }) {
               <Copyable value={id} link={`/address/${id}`} />
             </Definition>
           </dl>
-          {instance.external_app_url && (
+          {externalDestination(instance.external_app_url) && (
             <a
               className="external-action"
-              href={instance.external_app_url}
+              href={externalDestination(instance.external_app_url)}
               target="_blank"
               rel="noreferrer"
             >{t("External collection")} <ExternalLink />
@@ -2889,7 +2966,7 @@ function NftDetail({ id, tokenId }: { id: string; tokenId: string }) {
       <section className="nft-activity">
         <SectionTitle eyebrow={t("TRANSFERS")} title={t("latestActivity")} />
         <div className="table-shell">
-          {transfers?.items?.length ? (
+          {transfers === undefined ? <Loading /> : transfers.error ? <ErrorState error={transfers.error} onRetry={() => setTransferRetry(value => value + 1)} /> : transfers?.items?.length ? (
             transfers.items.map((item: any, index: number) => (
               <GenericActivity
                 key={`${item.transaction_hash || "transfer"}:${index}`}
@@ -3466,9 +3543,9 @@ function PoolDetail({ id }: { id: string }) {
           <button onClick={() => go(`/address/${id}`)}>
             {t("openAddress")} <ArrowRight />
           </button>
-          {pool.coin_gecko_terminal_url && (
+          {externalDestination(pool.coin_gecko_terminal_url) && (
             <a
-              href={pool.coin_gecko_terminal_url}
+              href={externalDestination(pool.coin_gecko_terminal_url)}
               target="_blank"
               rel="noreferrer"
             >
@@ -3613,8 +3690,8 @@ function HolderRow({
   );
 }
 
-function AdvancedPage() {
-  const [mode, setMode] = useState("deposits");
+function AdvancedPage({ initialMode = "deposits" }: { initialMode?: string }) {
+  const [mode, setMode] = useState(initialMode);
   const [data, setData] = useState<any>();
   const [params, setParams] = useState("");
   const [error, setError] = useState("");
@@ -3650,6 +3727,7 @@ function AdvancedPage() {
           </span>
         </div>
       </PageIntro>
+      <details className="explorer-tools"><summary>{t("Explorer tools")}</summary><Suspense fallback={<Loading />}><ExplorerDirectory t={t} go={go} /></Suspense></details>
       <SectionTabs value={mode} onChange={value => { setMode(value); setParams(""); }} items={[
         ["deposits", t("L1 → L2 deposits")], ["withdrawals", t("L2 → L1 withdrawals")],
         ["userops", t("User operations")],
@@ -3724,7 +3802,7 @@ function ProtocolRow({ item, mode }: { item: AnyRow; mode: string }) {
           {item.status ? t("Success") : t("Failed")}
         </StatusPill>
         <div>
-          <Copyable value={item.hash} display={short(item.hash, 10, 8)} />
+          <Copyable value={item.hash} display={short(item.hash, 10, 8)} link={`/op/${item.hash}`} />
           <small>
             {age(item.timestamp)} · EntryPoint {item.entry_point_version}
           </small>
@@ -3891,20 +3969,33 @@ function Contracts() {
   );
 }
 
-function StatChart({ title, note, metric, color, formatValue = compact, refresh }: {
+function StatChart({ title, note, metric, color, formatValue = compact, refresh, enableData = false }: {
   title: string;
   note: string;
   metric: string;
   color?: string;
   formatValue?: (value: number) => string;
   refresh: number;
+  enableData?: boolean;
 }) {
   const [period, setPeriod] = useState(30);
   const [data, setData] = useState<AnyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
+  const [showData, setShowData] = useState(false);
+  const [visible, setVisible] = useState(!enableData);
+  const chartRef = useRef<HTMLElement>(null);
   useEffect(() => {
+    if (!enableData || typeof IntersectionObserver === "undefined") { setVisible(true); return; }
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) { setVisible(true); observer.disconnect(); }
+    }, { rootMargin: "200px" });
+    if (chartRef.current) observer.observe(chartRef.current);
+    return () => observer.disconnect();
+  }, [enableData]);
+  useEffect(() => {
+    if (!visible) return;
     const controller = new AbortController();
     setLoading(true);
     setError("");
@@ -3915,20 +4006,21 @@ function StatChart({ title, note, metric, color, formatValue = compact, refresh 
       .catch(error => { if (!controller.signal.aborted) setError(error.message); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [metric, period, refresh, retry]);
+  }, [metric, period, refresh, retry, visible]);
   const points = data.map(row => Number(row.value));
-  return <article className="stat-chart" aria-label={title} aria-busy={loading}>
+  return <article ref={chartRef} className="stat-chart" aria-label={title} aria-busy={loading}>
     <div className="stat-chart-heading">
-      <h3>{title}</h3>
-      <ChartRange title={title} value={period} onChange={setPeriod} />
+      {enableData ? <h2>{title}</h2> : <h3>{title}</h3>}
+      <ChartRange title={title} value={period} onChange={setPeriod} options={enableData ? [...chartRanges,[0,"All time"]] : chartRanges} />
     </div>
     <strong className="stat-chart-value">{loading || error ? "—" : points.length ? formatValue(points.at(-1)!) : "—"}</strong>
     {loading ? <div className="chart-loading" role="status">{t("loadingRecords")}</div>
       : error ? <div className="chart-error" role="status"><span>{t("Data source unavailable")}</span><button onClick={() => setRetry(value => value + 1)}>{t("retry")}</button></div>
       : <Sparkline key={period} points={points} labels={data.map(row => row.date)} color={color} height={130}
           formatValue={formatValue} ariaLabel={title} approximateLast={Boolean(data.at(-1)?.is_approximate)} />}
-    <div className="chart-axis"><span>{t(period >= 365 ? "Weekly" : "Daily")}</span><span>{!loading && !error && data.length ? `${dateText(data[0].date)} – ${dateText(data.at(-1)?.date)}` : ""}</span></div>
+    <div className="chart-axis"><span>{t(period === 0 || period >= 365 ? "Weekly" : "Daily")}</span><span>{!loading && !error && data.length ? `${dateText(data[0].date)} – ${dateText(data.at(-1)?.date)}` : ""}</span></div>
     <p>{note}</p>
+    {enableData && <details className="chart-data" onToggle={event => setShowData(event.currentTarget.open)}><summary>{t("Data")}</summary><button className="text-link" disabled={loading || !!error || !data.length} onClick={()=>downloadCsv(`ink-${network.chainId}-${metric}.csv`,["date","date_to","value","approximate"],data.map(item=>[item.date,item.date_to,item.value,item.is_approximate ?? false]))}><Download size={16}/>{t("exportPage")}</button>{showData && !loading && !error && <table><caption className="sr-only">{title}</caption><thead><tr><th>{t("Date")}</th><th>{t("Raw value")}</th></tr></thead><tbody>{data.map((row,index)=><tr key={`${row.date}:${index}`}><td>{dateText(row.date)}</td><td className="mono">{String(row.value)}{row.is_approximate ? ` · ${t("Incomplete interval")}` : ""}</td></tr>)}</tbody></table>}</details>}
   </article>;
 }
 
@@ -4029,7 +4121,7 @@ function Analytics() {
     setLoading(true);
     setError("");
     Promise.all([
-      load("/explorer/stats"),
+      load("/explorer/stats?gas_oracle=updated"),
       load(`/stats/lines/newTxns${q}`),
       load("/stats/counters"),
       load(`/stats/lines/activeAccounts${q}`),
@@ -4281,20 +4373,20 @@ function Analytics() {
           <div className="analytic-label">
             <Fuel />
             <span>{t("Gas price")}</span>
-            <strong>{unit(data.stats.gas_prices?.average, " Gwei")}</strong>
+            <strong>{gasPrice(data.stats.gas_prices?.average)}</strong>
           </div>
           <div className="gas-scale">
             <span>
               <i style={{ width: "34%" }} />
-              {t("Slow")} · {unit(data.stats.gas_prices?.slow, " Gwei")}
+              {t("Slow")} · {gasPrice(data.stats.gas_prices?.slow)}
             </span>
             <span>
               <i style={{ width: "58%" }} />
-              {t("Standard")} · {unit(data.stats.gas_prices?.average, " Gwei")}
+              {t("Standard")} · {gasPrice(data.stats.gas_prices?.average)}
             </span>
             <span>
               <i style={{ width: "82%" }} />
-              {t("Fast")} · {unit(data.stats.gas_prices?.fast, " Gwei")}
+              {t("Fast")} · {gasPrice(data.stats.gas_prices?.fast)}
             </span>
           </div>
           <p>{t("Slow, standard and fast estimates reported by Blockscout.")}</p>
@@ -4582,6 +4674,7 @@ function Footer({ live }: { live: LiveData }) {
         <button onClick={() => go("/txs")}>{t("transactions")}</button>
         <button onClick={() => go("/pools")}>{t("pools")}</button>
         <button onClick={() => go("/analytics")}>{t("analytics")}</button>
+        <button onClick={() => go("/advanced")}>{t("Explorer tools")}</button>
       </div>
       <div>
         <span>{t("build")}</span>
@@ -4590,13 +4683,6 @@ function Footer({ live }: { live: LiveData }) {
         </button>
         <a href="https://docs.inkonchain.com" target="_blank" rel="noreferrer">
           {t("documentation")} <ExternalLink />
-        </a>
-        <a
-          href={network.explorer}
-          target="_blank"
-          rel="noreferrer"
-        >
-          {t("officialExplorer")} <ExternalLink />
         </a>
       </div>
       <div className="footer-status">
@@ -4635,6 +4721,14 @@ function initialLocale(): Locale {
 }
 
 function pageMetadata(view: View) {
+  const explorerTitles: Record<string,string> = {
+    accounts: "Top accounts", "internal-txs": "Internal transactions", "token-transfers": "Token transfers",
+    deposits: "L1 → L2 deposits", withdrawals: "L2 → L1 withdrawals", batches: "Transaction batches",
+    "dispute-games": "Dispute games", ops: "User operations", op: "User operation",
+    "name-services": "Name services", "gas-tracker": "Gas tracker", apps: "Dapps",
+    "contract-verification": "Verify contract", "public-tags": "Submit public tag", stats: "All statistics",
+  };
+  if (explorerTitles[view.name]) return [`Ink · ${t(explorerTitles[view.name])}`, t("homeDescription")];
   const base: Record<string, [string, string]> = {
     home: ["Ink Explorer — Ink Mainnet", t("homeDescription")],
     blocks: [
@@ -4753,6 +4847,8 @@ export default function App() {
     content = <LedgerList key="blocks" type="blocks" live={live} />;
   else if (view.name === "transactions")
     content = <LedgerList key="transactions" type="transactions" live={live} />;
+  else if (["internal-txs", "token-transfers"].includes(view.name))
+    content = <LedgerList key={view.name} type="transactions" initialMode={view.name === "internal-txs" ? "internal" : "tokens"} live={live} />;
   else if (view.name === "block" && view.id)
     content = <BlockDetail id={view.id} live={live} />;
   else if (view.name === "transaction" && view.id)
@@ -4770,6 +4866,8 @@ export default function App() {
   else if (view.name === "contracts") content = <Contracts />;
   else if (view.name === "analytics") content = <Analytics />;
   else if (view.name === "advanced") content = <AdvancedPage />;
+  else if (["deposits", "withdrawals", "ops"].includes(view.name)) content = <AdvancedPage key={view.name} initialMode={view.name === "ops" ? "userops" : view.name} />;
+  else if (["accounts", "batches", "dispute-games", "gas-tracker", "name-services", "apps", "contract-verification", "public-tags", "op", "stats"].includes(view.name)) content = <Suspense fallback={<div className="explorer-route-loading"><Loading /></div>}><ExplorerPages key={`${view.name}/${view.id || ""}`} {...explorerProps(view.name, view.id)} /></Suspense>;
   else if (view.name === "developers") content = <DevelopersPage />;
   else if (view.name === "network") content = <NetworkPage live={live} />;
   else

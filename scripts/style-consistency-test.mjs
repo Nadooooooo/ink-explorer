@@ -36,7 +36,6 @@ async function inspect(page, name, width) {
       ['panels', '.definitions,.entity-profile,.detail-feed,.table-shell,.live-columns,.raw-metadata,.code-panel,.nft-detail,.nft-attributes > div,.pool-detail-grid,.rpc-community,.developer-grid,.network-detail,.pool-workbench,.signal-main', { backgroundColor: '--surface-panel', borderTopColor: '--line', borderTopLeftRadius: '--radius-panel' }],
       ['heroes', '.page-intro,.detail-header,.token-hero,.pool-hero', { borderTopLeftRadius: '--radius-hero', borderTopColor: '--line' }],
       ['headers', '.panel-head,.table-toolbar,.ledger-columns,.token-table-head,.pool-table-head,.source-head,.source-file summary,.raw-metadata summary', { backgroundImage: '--surface-header' }],
-      ['detail-links', '.detail-link', { borderTopColor: '--line', borderTopLeftRadius: '--radius-control', fontFamily: '--font-ui' }],
       ['primary-actions', '.primary-action,.external-action:not(.entity-profile > .external-action),.not-found button,.pool-actions a', { backgroundImage: '--action-fill', borderTopLeftRadius: '--radius-control', fontFamily: '--font-ui' }],
       ['secondary-actions', '.pagination button,.analytics-actions button,.pool-pagination button,.pool-filter-status button,.pool-actions button,.ledger-filters button', { borderTopLeftRadius: '--radius-control', fontFamily: '--font-ui' }],
       ['search-fields', '.global-search,.pool-search', { backgroundColor: '--surface-field', borderTopColor: '--field-border', borderTopLeftRadius: '--radius-control', boxShadow: '--shadow-field' }],

@@ -77,7 +77,7 @@ try {
     assert.match(await page.locator('.code-panel').innerText(),/9007199254740993/);
     assert.match(await page.locator('.code-panel').innerText(),/0xdead/);
     await tab('l2');
-    assert.match(await page.locator('.definitions').innerText(),/0\.0000000006 ETH/);
+    assert.match(await page.locator('.definitions').innerText(),/0\.000000000632389801 ETH/);
     await tab('logs');
     await page.locator('.event-log').waitFor();
     assert.match(await page.locator('.event-log').innerText(),/0x1234/);

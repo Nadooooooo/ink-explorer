@@ -90,6 +90,16 @@ for (const [name, browserType] of [
             () => !document.querySelector("main > .loading"),
             { timeout: 30000 },
           );
+          const transientErrors = [];
+          for (let retry = 0; retry < 3; retry++) {
+            const error = await page.evaluate(() => document.querySelector("main > .error-state")?.textContent);
+            if (!error?.includes("Upstream returned 429")) break;
+            transientErrors.push({ attempt: retry + 1, error });
+            await page.waitForTimeout(2500 * (retry + 1));
+            await page.locator("main > .error-state button").click();
+            await page.waitForLoadState("networkidle");
+            await page.waitForFunction(() => !document.querySelector("main > .loading"), { timeout: 30000 });
+          }
           const measurement = await page.evaluate(() => ({
             overflow: document.documentElement.scrollWidth - innerWidth,
             heading: document.querySelector("h1")?.textContent,
@@ -102,6 +112,7 @@ for (const [name, browserType] of [
             route,
             width,
             ...measurement,
+            transientErrors,
             errors,
             leaks,
           };

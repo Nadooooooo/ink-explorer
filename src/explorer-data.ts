@@ -1,5 +1,19 @@
 type Row = Record<string, any>;
 
+// Detail amounts retain every wei, including values beyond Number precision.
+export function formatWei(value: unknown, locale = "en"): string {
+  if(value == null || value === "")return "—";
+  try {
+    const amount=BigInt(String(value)),absolute=amount<0n?-amount:amount;
+    const whole=absolute/1000000000000000000n;
+    const fraction=String(absolute%1000000000000000000n).padStart(18,"0").replace(/0+$/,"");
+    const formatter=new Intl.NumberFormat(locale,{useGrouping:false});
+    const decimal=new Intl.NumberFormat(locale).formatToParts(1.1).find(part=>part.type==="decimal")?.value || ".";
+    const digits=fraction.replace(/\d/g,digit=>formatter.format(Number(digit)));
+    return `${amount<0n?"−":""}${whole.toLocaleString(locale)}${fraction?decimal+digits:""}`;
+  }catch{return "—";}
+}
+
 export function stateChangeText(value: unknown): string {
   if(value == null)return "—";
   // ERC-721 changes are arrays of {direction,total}, not a scalar balance diff.

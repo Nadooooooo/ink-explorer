@@ -24,6 +24,19 @@ try {
     assert.match(await page.locator('.asset-row').nth(1).textContent(), /Priced fixture.*\$6/);
     assert.equal(await page.locator('.asset-row').last().isDisabled(), true);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+    await page.route(`**/api/explorer/addresses/${address}/nft`, route => route.fulfill({ json: { items: [
+      { id: 0, owner: { hash: address, name: 'NFT owner fixture' }, token: { address_hash: address, name: 'Zero ID NFT', type: 'ERC-721' } },
+    ] } }));
+    if (width < 500) await page.locator('.section-picker select').selectOption('nft');
+    else await page.getByRole('button', { name: 'NFTs', exact: true }).click();
+    const nft = page.locator('.nft-item').filter({ hasText: 'Zero ID NFT' });
+    await nft.waitFor();
+    assert.match(await nft.textContent(), /#0/);
+    assert.match(await nft.textContent(), /NFT owner fixture/);
+    assert.equal(await nft.locator('span[title]').getAttribute('title'), address);
+    await nft.click();
+    await page.waitForURL(`**/token/${address}/instance/0*`);
+    await page.goto(`${base}/address/${address}?lang=en`, { waitUntil: 'networkidle' });
     if (width < 500) await page.locator('.section-picker select').selectOption('contract');
     else await page.getByRole('button', { name: 'Contract source', exact: true }).click();
     await page.locator('.source-file').first().waitFor();

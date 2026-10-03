@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { blockFinality, executionFee, cursorQuery, transactionState, stateChangeText } from '../src/explorer-data.ts';
+import { blockFinality, executionFee, cursorQuery, transactionState, stateChangeText, formatWei } from '../src/explorer-data.ts';
 
 test('Inclusion, success, revert and pending are distinct', () => {
   assert.equal(transactionState({ block_number: null, status: null }), 'pending');
@@ -34,4 +34,14 @@ test('OP execution fees preserve wei precision and unknown values', () => {
 test('Cursors keep zero and escape query values', () => {
   assert.equal(cursorQuery({index:0,missing:null,token:'a&b'}),'?index=0&token=a%26b');
   assert.equal(cursorQuery(null),'');
+});
+
+test('detail ETH values preserve single wei and integers beyond floating point precision',()=>{
+  assert.equal(formatWei('9007199254740993000000000000000001'),'9,007,199,254,740,993.000000000000000001');
+  assert.equal(formatWei('1'),'0.000000000000000001');
+  assert.equal(formatWei('-1'),'−0.000000000000000001');
+  assert.equal(formatWei('1000000000000000000'),'1');
+  assert.equal(formatWei('0'),'0');
+  assert.equal(formatWei('1000000000000000001','fr'),'1,000000000000000001');
+  assert.equal(formatWei(undefined),'—');assert.equal(formatWei('not-wei'),'—');
 });

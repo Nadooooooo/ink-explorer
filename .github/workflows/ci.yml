@@ -24,6 +24,7 @@ jobs:
       - run: node --experimental-strip-types --test scripts/activity-data-test.mjs
       - run: npm run test:node-readiness
       - run: npm run test:upstream-cache
+      - run: npm run test:explorer-services
       - name: Test server security boundary
         run: |
           npm start &

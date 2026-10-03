@@ -69,7 +69,7 @@ For the Sepolia worker, copy `.env.sepolia.example` to `.env.sepolia` before sta
 
 ## Data and caching
 
-A static frontend such as Vercel does not run `server/server.mjs`. To connect it to a private Tailscale Serve endpoint, set `VITE_API_ORIGIN` in the frontend build environment to the Serve HTTPS origin and `EXPLORER_BROWSER_ORIGIN` on both server workers to the exact frontend origin. Redeploy the frontend and restart both workers after changing these values. The browser must be connected to the tailnet to reach the API; modern browsers may also ask for local-network access permission. Tailscale Serve does not make the node public. The API permits cross-origin reads and contract simulations only from that configured origin. Do not put RPC credentials or local RPC URLs in `VITE_*` variables. `vercel.json` routes deep links back to the single-page interface.
+A static frontend such as Vercel does not run `server/server.mjs`. To connect it to a private Tailscale Serve endpoint, set `VITE_API_ORIGIN` in the frontend build environment to the Serve HTTPS origin and `EXPLORER_BROWSER_ORIGIN` on both server workers to the exact frontend origin. Redeploy the frontend and restart both workers after changing these values. The browser must be connected to the tailnet to reach the API; modern browsers may also ask for local-network access permission. Tailscale Serve does not make the node public. The API permits cross-origin reads, simulations and explicit source/tag submissions only from that configured origin. Do not put RPC credentials or local RPC URLs in `VITE_*` variables. `vercel.json` routes deep links back to the single-page interface.
 
 Ink Blockscout API v2 and Stats Service provide network-wide indexed history. Blockscout Contract Info supplies pool discovery and market estimates. OP-Reth and OP Node provide only the operator's independent live checks.
 
@@ -130,7 +130,11 @@ On **Transactions → Advanced filters**, combine activity type, method selector
 - `WS /api/live` — `ink-observer.live.v1` welcome, network and block frames
 - `GET /api/overview` and `/api/network` — composed overview and local node status
 - `GET /api/explorer/*` — allow-listed Blockscout-compatible reads
-- `GET /api/stats/*` — read-only statistics reads
+- `GET /api/stats/*` — statistics catalogue, counters and chart reads
+- `GET /api/names/*` — name protocols, domains and registration events
+- `GET /api/dapps` — selected network’s application catalogue
+- `POST /api/verification/submit` and `GET /api/verification/status/:ticket` — explicit contract-source publication and progress
+- `POST /api/public-tags/submit` — private proposals for operator review
 - `GET /api/contract-info/pools[/:address[/check]]` — pool list/detail/cross-link data
 - `GET /api/media?url=…` — validated same-origin NFT/token image cache
 - `POST /api/contract-rpc` — restricted `eth_call`, `eth_estimateGas`, chain/head/code/receipt reads; signing and broadcast remain in the user's wallet
@@ -141,7 +145,7 @@ The network selector opens `/testnet/` for Ink Sepolia. The main server proxies 
 
 All testnet API and WebSocket paths carry the `/testnet` prefix. Network changes reload the page to discard state from the previous chain. Indexed history remains usable during node sync; network health and live blocks only represent the local node. Contract reads explicitly identify the public RPC fallback when the local node is not ready. The server never forwards signing, admin or transaction-broadcast methods.
 
-On a contract address, open **Read contract** or **Write contract**. Select its ABI, an indexed proxy implementation, or paste a custom JSON ABI. Proxy calls target the proxy address. Writes require a browser wallet, a successful simulation and confirmation inside that wallet. Large integers in JSON arrays must be quoted; payable amounts use ETH and other integer arguments use raw base units. WalletConnect QR and native source-verification submission are not implemented.
+On a contract address, open **Read contract** or **Write contract**. Select its ABI, an indexed proxy implementation, or paste a custom JSON ABI. Proxy calls target the proxy address. Writes require a browser wallet, a successful simulation and confirmation inside that wallet. Large integers in JSON arrays must be quoted; payable amounts use ETH and other integer arguments use raw base units. Source verification runs inside the explorer and supports the Solidity/Vyper methods enabled by the index. WalletConnect QR is not implemented.
 
 `npm run test:contracts` starts an isolated Anvil chain and explorer on ports 18546, 18547 and 4192, compiles the Solidity fixtures and verifies actual EVM state changes through the browser workflow. It never submits to public mainnet/testnet. It requires the development dependencies and Chrome. `npm run test:networks` audits both real networks with Chromium, Firefox and WebKit; install engines with `npx playwright install firefox webkit` and their OS dependencies. If your host needs a custom library path for those browsers, set `INK_BROWSER_LIBS`.
 
@@ -158,3 +162,22 @@ Ink Explorer is not affiliated with or endorsed by Ink, Kraken, Blockscout, Geck
 See [third-party notices](THIRD_PARTY_NOTICES.md) for the Ink mark, bundled fonts and external data sources.
 
 Licensed under the [MIT License](LICENSE).
+
+### Additional explorer pages
+
+Accounts, internal transactions, token transfers, deposits, withdrawals, batches,
+dispute games, user operations, names, gas, Dapps and the full statistics catalogue
+are available from **Advanced → Explorer tools**. Detail destinations and wallet
+receipts stay inside this explorer. The public index remains a data source.
+
+Source verification requires consent to publish the submitted contract sources.
+No wallet signature or transaction is required. Standard compiler JSON preserves
+optimizer, libraries and compilation settings. Single-file and multipart inputs
+also expose these settings. Never upload confidential contract sources.
+
+Public-label proposals are stored privately until an operator approves them.
+Use `npm run tags:review -- 57073 list` (or `763373`) on the server, then
+`npm run tags:review -- 57073 approve <request-id>` or `reject`. The list includes
+private contact details: keep it on the operator’s machine. Approval publishes
+only labels and their chosen public metadata; it does not verify contract code.
+The queue belongs to this explorer, independently of Blockscout’s moderation.

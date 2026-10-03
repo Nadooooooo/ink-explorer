@@ -8,11 +8,15 @@ import {spawn} from 'node:child_process';
 import {createHash} from 'node:crypto';
 
 const temp=await mkdtemp(join(tmpdir(),'ink-cache-age-'));
-let status=503, hits=0, child, log='';
+let status=503, hits=0, oracleHits=0, child, log='';
 const upstream=createServer((req,res)=>{
   if(req.url==='/blocks/12345'){
     hits++;res.writeHead(status,{'content-type':'application/json'});
     res.end(JSON.stringify(status===200?{height:12345,marker:'fresh'}:{error:'Controlled failure'}));
+  }else if(req.url==='/stats'){
+    res.writeHead(200,{'content-type':'application/json'});
+    if(req.headers['updated-gas-oracle']==='true'){oracleHits++;res.end(JSON.stringify({gas_prices:{average:{wei:'172840',time:3000,priority_fee_wei:'172559'}}}));}
+    else res.end(JSON.stringify({gas_prices:{average:0.01}}));
   }else{res.writeHead(200,{'content-type':'application/json'});res.end('{}');}
 });
 await new Promise(resolve=>upstream.listen(0,'127.0.0.1',resolve));
@@ -30,11 +34,21 @@ try{
   await writeFile(clockPath,String(now));
   await writeFile(clockImport,`import {readFileSync} from 'node:fs';\nDate.now=()=>Number(readFileSync(${JSON.stringify(clockPath)},'utf8'));\n`);
   await writeFile(cachePath,JSON.stringify({url,at:originalAt,value:{height:12345,marker:'old'}}));
+  const statsUrl=api+'/stats';
+  await writeFile(join(temp,'data/upstream-cache',createHash('sha256').update(statsUrl).digest('hex')+'.json'),JSON.stringify({url:statsUrl,at:now,value:{gas_prices:{average:0.01}}}));
   child=spawn(process.execPath,['--import',pathToFileURL(clockImport).href,'server/server.mjs'],{cwd:temp,env:{...process.env,PORT:String(port),HOST:'127.0.0.1',INK_NETWORK:'mainnet',BLOCKSCOUT_API:api,INK_RPC:api,INK_OP_NODE_RPC:api,INK_METRICS_URL:api},stdio:['ignore','pipe','pipe']});
   child.stdout.on('data',data=>log+=data);child.stderr.on('data',data=>log+=data);
   const base=`http://127.0.0.1:${port}`;
   let ready=false;for(let i=0;i<100;i++){try{ready=(await fetch(base+'/api/health')).ok;if(ready)break;}catch{}await new Promise(r=>setTimeout(r,50));}
   assert(ready,log);
+  const legacy=await fetch(base+'/api/explorer/stats').then(response=>response.json());
+  assert.equal(legacy.gas_prices.average,0.01,'Existing clients retain numeric gas estimates');
+  const oracle=await fetch(base+'/api/explorer/stats?gas_oracle=updated').then(response=>response.json());
+  assert.deepEqual(oracle.gas_prices.average,{wei:'172840',time:3000,priority_fee_wei:'172559'},'Detailed gas requires the oracle header and must not reuse the legacy numeric cache');
+  assert.equal(oracleHits,1);
+  await fetch(base+'/api/explorer/stats?gas_oracle=updated');
+  assert.equal(oracleHits,1,'Detailed oracle responses should still share their own cache');
+  assert.equal((await fetch(base+'/api/explorer/stats').then(response=>response.json())).gas_prices.average,0.01,'Detailed requests must not overwrite the legacy response');
   const first=await fetch(base+'/api/explorer/blocks/12345');
   assert.equal(first.status,200);assert.equal((await first.json()).marker,'old');
   // Wait for the asynchronous disk write before checking original provenance.

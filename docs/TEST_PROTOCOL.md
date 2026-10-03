@@ -83,7 +83,7 @@ pass. Run the complete campaign on the final source after fixing failures.
 | SEO and shareability | `security`, `ui`, `content`, Lighthouse reports | Crawlable route metadata, canonicals, multilingual sitemap, proper missing-page status |
 | Reproducibility | Release report and logs | All suites pass, no filters/timeouts, source unchanged |
 
-Lighthouse must produce all 12 reports (six routes, mobile and desktop), with
+Lighthouse must produce all 24 reports (12 routes, mobile and desktop), with
 performance >= 90 and accessibility, best practices and SEO >= 95. The runner
 enforces these thresholds. Lab scores still need review of individual findings.
 Manual
@@ -138,3 +138,37 @@ report. Permanent index errors, malformed successful JSON, exhausted retries,
 missing records and equality failures still fail the suite. Acceptance requires
 all actual blocks, balances, receipts and finalized hashes to match; an outage
 without recovery never passes. The overall 180-second suite deadline remains.
+
+## Native page acceptance
+
+`test:explorer-pages` exercises 24 page states in Chromium, Firefox and WebKit
+on both networks at 320 px (Arabic RTL), 390 px (French) and 1440 px (English).
+It checks severe accessibility violations, overflow, runtime failures, absence
+of official-explorer destinations, correct supply percentages and raw amounts,
+cursor ranks/recovery, scoped ERC-4337 logs, raw trace objects, reverted movements,
+independent NFT history errors, source consent and build-info extraction,
+statistics data/ranges and locally intercepted tag submissions.
+
+`test:explorer-services` uses disposable HTTP services, Phoenix socket fixtures
+and temporary label stores. It checks all supported compiler payloads,
+asynchronous outcomes, rejection boundaries, contact isolation, moderation and
+concurrent approvals. It must never publish real sources or labels. These two
+gates bring the release campaign to 36 suites. Lighthouse now audits 12 route
+families in mobile and desktop profiles (24 reports), including the new native
+accounts, batches, gas, statistics, Dapps and verification pages.
+
+Actual official pages, tabs, menus and public API responses are compared
+separately. Browser fixtures demonstrate behavior; they are not evidence that
+chain data matches the node. Preserve the live comparison and its failures.
+
+## Recorded test-harness correction
+
+The 3 October 2026 native-page campaign completed all 36 gates with unchanged
+source and matching served assets. Its original report remains NOT CERTIFIED:
+35 gates passed, while the loading test failed because it matched full URLs
+without allowing the new stats query string. Only that harness was corrected
+to match request pathnames and wait for the actual request before asserting.
+The corrected loading suite passed against the unchanged application and build.
+Separate combined evidence records those 36 validated checks, the sole harness
+difference and all 24 passing Lighthouse reports; it does not relabel or replace
+the original campaign result. Future complete runs use the corrected harness.

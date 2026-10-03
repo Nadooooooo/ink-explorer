@@ -16,6 +16,8 @@ import { proxyTestnet, proxyTestnetSocket } from "./testnet-proxy.mjs";
 import { createContractRpc } from "./contract-rpc.mjs";
 import { nodeReadiness, rollupReadiness } from "./node-readiness.mjs";
 import { verifyAddressBalance } from "./address-balance.mjs";
+import { createSourceVerification } from "./source-verification.mjs";
+import { communityTagStore, createTagSubmission, tagTypes } from "./community-tags.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..");
@@ -46,6 +48,9 @@ const nodeDataDir = process.env.INK_NODE_DATA_DIR?.trim();
 const contractRpc = createContractRpc({ localUrl: rpcUrl, chainId,
   publicUrl: process.env.INK_PUBLIC_RPC || (testnet ? "https://rpc-gel-sepolia.inkonchain.com" : "https://rpc-gel.inkonchain.com"),
   browserOrigin });
+const sourceVerification = createSourceVerification({api:explorerApi,socketOrigin:explorerOrigin,browserOrigin,send:json});
+const communityTags = communityTagStore(path.join(root,"data","community-tags",String(chainId)));
+const submitCommunityTag = createTagSubmission({store:communityTags,browserOrigin,send:json});
 const l1FailoverStatusUrl =
   process.env.INK_L1_FAILOVER_STATUS || "http://127.0.0.1:18545/readyz";
 const startedAt = Date.now();
@@ -312,41 +317,42 @@ async function cached(key, ttl, loader) {
   return value;
 }
 
-async function fetchJson(url, timeout = 12000, allowStale = true) {
-  let previous = upstreamCache.get(url);
+async function fetchJson(url, timeout = 12000, allowStale = true, updatedGasOracle = false) {
+  const key = updatedGasOracle ? `${url}#updated-gas-oracle` : url;
+  let previous = upstreamCache.get(key);
   if (!previous) {
     try {
-      const stored = JSON.parse(await readFile(diskCachePath(url), "utf8"));
-      if (stored.url === url) {
+      const stored = JSON.parse(await readFile(diskCachePath(key), "utf8"));
+      if (stored.url === key) {
         previous = { at: stored.at, value: stored.value };
-        setBounded(upstreamCache, url, previous, 2000);
+        setBounded(upstreamCache, key, previous, 2000);
       }
     } catch {
       /* cold cache */
     }
   }
   if (previous && Date.now() - previous.at < 15000) return previous.value;
-  if (upstreamInflight.has(url)) return (await upstreamInflight.get(url)).value;
+  if (upstreamInflight.has(key)) return (await upstreamInflight.get(key)).value;
   if (upstreamInflight.size >= 200) throw new Error("Too many upstream requests");
-  const request = fetchJsonUncached(url, timeout, allowStale ? previous : undefined);
-  upstreamInflight.set(url, request);
+  const request = fetchJsonUncached(url, timeout, allowStale ? previous : undefined, updatedGasOracle);
+  upstreamInflight.set(key, request);
   try {
     const entry = await request;
-    setBounded(upstreamCache, url, entry, 2000);
+    setBounded(upstreamCache, key, entry, 2000);
     // A fallback is the same snapshot, not a new upstream observation. Preserve
     // its original timestamp so repeated outages cannot renew its 24h lifetime.
     if (entry !== previous)
-      writeFile(diskCachePath(url), JSON.stringify({ url, ...entry })).catch(
+      writeFile(diskCachePath(key), JSON.stringify({ url: key, ...entry })).catch(
         () => {},
       );
     scheduleCachePrune();
     return entry.value;
   } finally {
-    upstreamInflight.delete(url);
+    upstreamInflight.delete(key);
   }
 }
 
-async function fetchJsonUncached(url, timeout, previous) {
+async function fetchJsonUncached(url, timeout, previous, updatedGasOracle = false) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
   try {
@@ -358,6 +364,7 @@ async function fetchJsonUncached(url, timeout, previous) {
           headers: {
             accept: "application/json",
             "user-agent": "InkExplorer/0.1",
+            ...(updatedGasOracle ? { "updated-gas-oracle": "true" } : {}),
           },
         });
       } catch (error) {
@@ -686,6 +693,9 @@ const sitemapPaths = [
   "/advanced",
   "/developers",
   "/network",
+  "/accounts", "/internal-txs", "/token-transfers", "/deposits", "/withdrawals",
+  "/batches", "/dispute-games", "/ops", "/name-services", "/gas-tracker", "/apps",
+  "/contract-verification", "/public-tags/submit",
 ];
 
 function escapeHtml(value) {
@@ -720,24 +730,42 @@ function allowedExplorerPath(suffix) {
   const transaction = "0x[a-fA-F0-9]{64}";
   const block = `(?:\\d+|${transaction})`;
   return [
-    /^(?:stats|blocks|transactions|tokens|smart-contracts|token-transfers|internal-transactions|advanced-filters)$/,
+    /^(?:stats|addresses|blocks|transactions|tokens|smart-contracts|token-transfers|internal-transactions|advanced-filters)$/,
     new RegExp(`^blocks/${block}(?:/transactions)?$`),
     new RegExp(
       `^transactions/${transaction}(?:/(?:token-transfers|internal-transactions|logs|state-changes|raw-trace))?$`,
     ),
     new RegExp(
-      `^addresses/${address}(?:/(?:token-balances|counters|transactions|tokens|nft|token-transfers|internal-transactions|logs))?$`,
+      `^addresses/${address}(?:/(?:token-balances|counters|transactions|tokens|nft|token-transfers|internal-transactions|logs|coin-balance-history|coin-balance-history-by-day))?$`,
     ),
     new RegExp(`^smart-contracts/${address}$`),
+    /^smart-contracts\/verification\/config$/,
     new RegExp(
-      `^tokens/${address}(?:/(?:transfers|holders|instances(?:/[a-zA-Z0-9_.-]{1,160}(?:/transfers)?)))?$`,
+      `^tokens/${address}(?:/(?:transfers|holders|instances(?:/[a-zA-Z0-9_.-]{1,160}(?:/(?:transfers|transfers-count))?)?))?$`,
     ),
-    /^optimism\/(?:deposits|withdrawals)$/,
-    /^proxy\/account-abstraction\/operations$/,
+    /^optimism\/(?:deposits|withdrawals|games|batches)(?:\/(?:count|\d+))?$/,
+    /^(?:blocks|transactions)\/optimism-batch\/\d+$/,
+    new RegExp(`^proxy/account-abstraction/operations(?:/${transaction})?$`),
   ].some((pattern) => pattern.test(suffix));
 }
 
 function seoFor(pathname) {
+  const explorerTitles = {
+    "/accounts": "Top Ink accounts", "/internal-txs": "Ink internal transactions",
+    "/token-transfers": "Ink token transfers", "/deposits": "Ethereum to Ink deposits",
+    "/withdrawals": "Ink to Ethereum withdrawals", "/batches": "Ink transaction batches",
+    "/dispute-games": "Ink dispute games", "/ops": "Ink user operations",
+    "/name-services": "Name services lookup", "/gas-tracker": "Ink gas tracker",
+    "/apps": "Ink Dapps", "/contract-verification": "Verify Ink contract source",
+    "/public-tags/submit": "Submit an Ink public tag", "/verified-contracts": "Verified Ink contracts",
+    "/stats": "Ink network analytics",
+  };
+  if (explorerTitles[pathname]) return [`${explorerTitles[pathname]} — Ink Explorer`, "Browse Ink Mainnet chain data and tools inside Ink Explorer."];
+  if (/^\/batches\/\d+$/.test(pathname)) return [`Ink transaction batch ${pathname.slice(9)} — Ink Explorer`, "L1 publication, L2 blocks and transactions in an Ink batch."];
+  if (/^\/op\/0x[\da-f]{64}$/i.test(pathname)) return ["Ink user operation — Ink Explorer", "ERC-4337 sender, gas, fees, inclusion and decoded operation data."];
+  if (/^\/name-services\/domains\/[a-zA-Z0-9_.%~-]{1,750}$/.test(pathname)) return ["Domain details — Ink Explorer", "Domain registration, expiry, owner and resolved address."];
+  if (/^\/apps\/[a-zA-Z0-9_.-]{1,160}$/.test(pathname)) return ["Ink Dapp — Ink Explorer", "Application description, categories and website."];
+  if (/^\/stats\/[a-zA-Z0-9_-]{1,120}$/.test(pathname)) return ["Ink statistic — Ink Explorer", "Interactive network history, exact chart values and CSV export."];
   const routes = {
     "/": [
       "Ink Explorer — Ink Mainnet",
@@ -979,6 +1007,8 @@ const server = http.createServer(async (req, res) => {
     return json(res, 414, { error: "Query string too long" });
   if (!testnet && /^\/testnet(?:\/|$)/.test(url.pathname)) return proxyTestnet(req, res);
   if (url.pathname === "/api/contract-rpc" && req.method === "POST") return contractRpc(req, res);
+  if (url.pathname === "/api/verification/submit" || /^\/api\/verification\/status\/[\da-f-]{36}$/.test(url.pathname)) return sourceVerification(req, res, url.pathname);
+  if (url.pathname === "/api/public-tags/submit") return submitCommunityTag(req, res);
   // HEAD follows the same read-only routing as GET; Node suppresses the body
   // while preserving status and headers for crawlers and uptime monitors.
   if (req.method !== "GET" && req.method !== "HEAD")
@@ -998,6 +1028,7 @@ const server = http.createServer(async (req, res) => {
         },
       });
     }
+    if (url.pathname === "/api/public-tags/types") return json(res,200,{items:tagTypes});
     if (url.pathname === "/api/live/status") {
       return json(res, 200, {
         ok: Boolean(liveState.network?.online),
@@ -1034,20 +1065,25 @@ const server = http.createServer(async (req, res) => {
       if (!allowedExplorerPath(suffix)) {
         return json(res, 400, { error: "Invalid explorer path" });
       }
-      const upstream = `${explorerApi}/${suffix}${url.search}`;
+      const params = new URLSearchParams(url.search);
+      const detailedStats = suffix === "stats" && params.get("gas_oracle") === "updated";
+      if (suffix === "stats") params.delete("gas_oracle");
+      const search = suffix === "stats" ? (params.size ? `?${params}` : "") : url.search;
+      const upstream = `${explorerApi}/${suffix}${search}`;
       const profilePath = /^addresses\/0x[\da-f]{40}$/i.test(suffix);
       return json(
         res,
         200,
         // Advanced queries may legitimately run for up to 60 seconds upstream.
         // Never disguise an old filtered page as a successful current query.
-        await cached(upstream, 5000, async () => {
-          const value = await fetchJson(upstream, suffix === "advanced-filters" ? 65000 : 12000, suffix !== "advanced-filters");
+        await cached(detailedStats ? `${upstream}#updated-gas-oracle` : upstream, 5000, async () => {
+          const value = await fetchJson(upstream, suffix === "advanced-filters" ? 65000 : 12000, suffix !== "advanced-filters", detailedStats);
           if (!profilePath || !value || typeof value !== 'object') return value;
-          return verifyAddressBalance(value, {chainId,
+          const verified = await verifyAddressBalance(value, {chainId,
             rpc:(method, params, signal) => rpc(rpcUrl, method, params, signal),
             signal:AbortSignal.timeout(5000),
           });
+          return communityTags.enrich(verified);
         }),
       );
     }
@@ -1062,6 +1098,24 @@ const server = http.createServer(async (req, res) => {
         200,
         await cached(upstream, 15000, () => fetchJson(upstream)),
       );
+    }
+    if (url.pathname.startsWith("/api/names/")) {
+      const suffix = url.pathname.slice("/api/names/".length);
+      if (!/^(?:protocols|addresses:lookup|domains:lookup|domains\/[a-zA-Z0-9_.%~-]{1,750}(?:\/events)?)$/.test(suffix))
+        return json(res, 400, { error: "Invalid name-service path" });
+      if (suffix.startsWith("domains/")) {
+        let domain;try { domain=decodeURIComponent(suffix.slice(8).replace(/\/events$/, "")); } catch { return json(res,400,{error:"Invalid domain name"}); }
+        if (!domain || domain.length > 250 || /[\s/\\\u0000-\u001f?#]/u.test(domain) || domain === "." || domain === "..") return json(res,400,{error:"Invalid domain name"});
+      }
+      const params=new URLSearchParams(url.search);if(suffix.startsWith("domains/") && params.has("protocols")){if(!params.has("protocol_id"))params.set("protocol_id",params.get("protocols"));params.delete("protocols");}
+      const upstream = `https://bens.services.blockscout.com/api/v1/${suffix}${params.size ? `?${params}` : ""}`;
+      const result = await cached(upstream, 15000, () => fetchJson(upstream));
+      if(suffix === "protocols" && Array.isArray(result.items)) return json(res,200,{...result,items:result.items.filter(item=>item.id === "ens" || item.deployment_blockscout_base_url?.replace(/\/$/,"") === explorerOrigin)});
+      return json(res, 200, result);
+    }
+    if (url.pathname === "/api/dapps") {
+      const upstream = `https://admin-rs.services.blockscout.com/api/v1/chains/${chainId}/marketplace/dapps`;
+      return json(res, 200, await cached(upstream, 60000, () => fetchJson(upstream)));
     }
     if (url.pathname.startsWith("/api/contract-info/")) {
       const suffix = url.pathname.slice("/api/contract-info/".length);

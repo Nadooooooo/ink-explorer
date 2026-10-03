@@ -1,5 +1,9 @@
 # Explorer validation
 
+This historical report describes the earlier readability snapshot. The new
+public-page comparison is tracked in [EXPLORER_PARITY.md](EXPLORER_PARITY.md) and
+requires a fresh expanded release campaign.
+
 The source snapshot reviewed on 3 October 2026 passed all **34 release suites**
 on isolated Mainnet and Sepolia explorer workers. The campaign ran from
 06:17:09 to 06:56:37 UTC without coverage restrictions or test timeouts. All 70

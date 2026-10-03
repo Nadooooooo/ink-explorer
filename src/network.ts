@@ -5,13 +5,11 @@ export const network = isTestnet
       name: "Ink Sepolia",
       chainId: 763373,
       rpc: "https://rpc-gel-sepolia.inkonchain.com",
-      explorer: "https://explorer-sepolia.inkonchain.com",
     }
   : {
       name: "Ink Mainnet",
       chainId: 57073,
       rpc: "https://rpc-gel.inkonchain.com",
-      explorer: "https://explorer.inkonchain.com",
     };
 // A static deployment can use the private HTTPS API exposed through Tailscale.
 // The value is a public origin, never an RPC credential or a local node URL.
@@ -24,4 +22,8 @@ export const liveWebSocketUrl = (() => {
 })();
 export function networkPath(path: string) {
   return `${basePath}${path.startsWith("/") ? path : `/${path}`}`;
+}
+export function externalDestination(value: unknown) {
+  try { const url=new URL(String(value)); return url.protocol === "https:" && !/^explorer(?:-sepolia)?\.inkonchain\.com$/.test(url.hostname) ? url.href : undefined; }
+  catch { return undefined; }
 }

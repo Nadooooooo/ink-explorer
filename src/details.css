@@ -18,21 +18,6 @@ main:has(> .detail-header), main:has(> .address-page) { min-height: 0; }
 .detail-header > p { margin: 0; font-size: 13px; line-height: 1.6; }
 .detail-header .copyable { max-width: 100%; }
 .detail-header .copyable > .mono { white-space: normal; overflow: visible; overflow-wrap: anywhere; direction: ltr; unicode-bidi: isolate; }
-.detail-actions { grid-column: 2; grid-row: 1 / 4; align-self: center; }
-.detail-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 8px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  color: var(--purple-deep);
-  font-size: 13px;
-  font-weight: 600;
-  text-decoration: none;
-}
-.detail-link:hover { background: var(--surface-hover); }
 
 .address-page { min-width: 0; }
 .address-page .address-summary { grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
@@ -101,9 +86,6 @@ main:has(> .detail-header), main:has(> .address-page) { min-height: 0; }
   .detail-header { padding: 14px 16px; grid-template-columns: minmax(0, 1fr) auto; }
   .detail-header h1 { font-size: 22px; }
   .detail-header > p { font-size: 12px; grid-column: 1 / -1; }
-  .detail-actions { grid-column: 2; grid-row: 1 / 3; }
-  .detail-link { width: 44px; justify-content: center; padding: 8px; }
-  .detail-link > span { display: none; }
   .address-page .address-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .address-page .address-summary .metric:first-child { grid-column: 1 / -1; }
   .address-page .address-summary .metric { padding: 12px 14px; }

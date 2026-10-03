@@ -16,6 +16,7 @@ const suites = [
   ['identicons',['run','test:identicons'],180], ['content',['run','test:content'],300],
   ['address-loading',['run','test:address-loading'],180], ['loading',['run','test:loading'],180], ['performance',['run','test:performance'],180],
   ['readability',['run','test:readability'],300],
+  ['explorer-services',['run','test:explorer-services'],120], ['explorer-pages',['run','test:explorer-pages'],900],
   ['layout',['run','test:layout'],1200], ['responsive',['run','test:responsive'],900],
   ['mobile',['run','test:mobile'],900], ['style',['run','test:style'],900],
   ['space',['run','test:space'],300], ['networks',['run','test:networks'],1800],
@@ -71,7 +72,7 @@ for(const [name,args,seconds] of suites.filter(([name])=>!selected||selected.inc
       const audits=JSON.parse(await readFile(`${process.env.LIGHTHOUSE_DIR || 'reports/lighthouse'}/summary.json`,'utf8'));
       const minimums={performance:90,accessibility:95,'best-practices':95,seo:95};
       result.scoreFailures=audits.flatMap(audit=>Object.entries(minimums).filter(([category,minimum])=>!(audit.scores[category]>=minimum)).map(([category,minimum])=>({route:audit.route,profile:audit.profile,category,score:audit.scores[category],minimum})));
-      if(audits.length!==12 || result.scoreFailures.length)result.passed=false;
+      if(audits.length!==24 || result.scoreFailures.length)result.passed=false;
     } catch(error) {result.passed=false;result.auditError=error.message;}
   }
   report.results.push(result);await persist();

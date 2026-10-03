@@ -9,6 +9,7 @@
 import { pageCopy } from "./page-copy";
 import { dynamicCopy } from "./dynamic-copy";
 import { activityCopy } from "./activity-copy";
+import { explorerCopy } from "./explorer-copy";
 export const locales = [
   "en",
   "zh",
@@ -1969,6 +1970,8 @@ export function isLocale(value: string | null | undefined): value is Locale {
 }
 
 export function message(locale: Locale, key: string): string {
+  if (key in (explorerCopy[locale] || {})) return explorerCopy[locale][key];
+  if (key in (explorerCopy.en || {})) return explorerCopy.en[key];
   if (key in activityCopy[locale]) return activityCopy[locale][key];
   if (key in mobileCopy[locale]) return mobileCopy[locale][key];
   if (key in chartCopy[locale]) return chartCopy[locale][key];

@@ -5,7 +5,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 
 const base = process.env.BASE_URL || 'http://127.0.0.1:4188';
 const output = process.env.LIGHTHOUSE_DIR || 'reports/lighthouse';
-const routes = (process.env.LIGHTHOUSE_ROUTES || '/,/blocks,/tokens,/pools,/contracts,/analytics').split(',');
+const routes = (process.env.LIGHTHOUSE_ROUTES || '/,/blocks,/tokens,/pools,/contracts,/analytics,/accounts,/batches,/gas-tracker,/stats,/apps,/contract-verification').split(',');
 const profiles = (process.env.LIGHTHOUSE_PROFILES || 'mobile,desktop').split(',');
 await mkdir(output, { recursive: true });
 const summary = [];

@@ -27,13 +27,13 @@ The local node being unavailable does not make historical Blockscout pages unava
 
 `GET /api/explorer/*` forwards only these Blockscout v2 shapes:
 
-- collection routes: `stats`, `blocks`, `transactions`, `tokens`, `smart-contracts`, `token-transfers`, `internal-transactions`, `advanced-filters`;
+- collection routes: `stats`, `addresses`, `blocks`, `transactions`, `tokens`, `smart-contracts`, `token-transfers`, `internal-transactions`, `advanced-filters`;
 - a block by height or hash, and its transactions;
 - a transaction by hash, plus its token transfers, internal transactions, logs, state changes or raw trace;
-- an address by hash, plus balances, counters, transactions, tokens, NFTs, token transfers, internal transactions or logs;
-- a smart contract by address;
-- a token by address, plus transfers, holders and NFT instances or an instance's transfers;
-- Optimism deposits and withdrawals; ERC-4337 operations.
+- an address by hash, plus balances, counters, transactions, tokens, NFTs, token transfers, internal transactions, logs or coin-balance history (paged and daily);
+- a smart contract by address, and verification configuration;
+- a token by address, plus transfers, holders and NFT instances or an instance’s transfers and separate total transfer count;
+- Optimism deposits, withdrawals, batches, games and their counts; blocks and transactions by batch; ERC-4337 operation lists and individual details.
 
 `GET /api/stats/*` forwards read-only Stats Service paths using a restricted path character set. `GET /api/contract-info/pools` and `/api/contract-info/pools/:address[/check]` supply pool metadata. All upstream query strings are limited to 4096 characters. Invalid explorer or pool paths return HTTP 400. A failed upstream request normally returns HTTP 502; a recent, verified disk snapshot may be served instead for up to 24 hours during connection failures, rate limits or upstream server errors. Serving a fallback preserves its original fetch time; repeated outages cannot extend that lifetime. Permanent 4xx responses fail instead of resurrecting cached records.
 
@@ -76,3 +76,56 @@ For `GET /api/explorer/addresses/{address}`, address metadata remains from the I
 `balance_check` reports `matched` or `corrected`, `source: "local"`, the original `indexed_balance`, `block_number`, `block_hash` and `checked_at`. A disagreement replaces the displayed amount with the exact node balance and is shown explicitly in the interface. If the node is unavailable, stale, on another chain, lacks the historical block, or rejects the canonical read, the index amount remains available with `balance_check.status: "unavailable"`; the interface labels it unverified. This does not imply that token balances, counters or contract metadata have been verified by the node.
 
 An OP Node `current_l1` cursor can be one block ahead of its perceived `head_l1`. That is considered coherent only when both block hashes are valid and distinct, the cursor's `parentHash` matches the observed head hash, and the cursor timestamp is newer. Raw heights remain unchanged in the response. Missing ancestry, forks at an equal height, larger ahead gaps, stale observations and future timestamps cannot claim readiness. The 150-block and 30-minute behind limits are unchanged. See the upstream [SyncStatus definition](https://pkg.go.dev/github.com/ethereum-optimism/optimism@v1.19.6/op-service/eth#SyncStatus).
+
+## Names, Dapps and publication forms
+
+`GET /api/names/protocols`, `/domains:lookup`, `/addresses:lookup`, `/domains/:name` and
+`/domains/:name/events` use the fixed BENS service. Protocol discovery retains ENS
+and protocols deployed for the selected Ink network. Lookup queries use `protocols`; individual domains and their events use
+`protocol_id`. Mainnet Ink names use `zns-ink`. Registration can occur on another
+chain, so its transactions are not linked as Ink transactions. Encoded path
+separators and traversal names are rejected.
+
+`GET /api/dapps` returns the selected chain’s marketplace catalogue. External
+application websites must be HTTPS; official explorer destinations are filtered
+from visitor-facing actions.
+
+`POST /api/verification/submit` requires JSON, an address and `consent: true`.
+The bounded request accepts a supported method (`standard-input`,
+`vyper-standard-input`, `flattened-code`, `vyper-code`, `multi-part`,
+`vyper-multi-part`, `sourcify`), compiler version, license and original sources.
+Compiler input is capped at 2 MiB. Multipart uploads use an inline `sources`
+object; single-file inputs are source text. Standard JSON keeps all compilation
+settings. Sourcify requires the address and consent without source upload.
+
+The server sends only the method’s compiler payload to the fixed verification
+service. It returns HTTP 202 with a random ticket. `GET
+/api/verification/status/:ticket` reports `pending`, `verified` or `failed`.
+Phoenix verification events supply completion. Jobs expire after 15 minutes;
+live subscriptions last at most two minutes. The browser stops automatic polling
+after one minute and offers a further check or the local source page. A queued
+request is never reported as verified. These routes do not sign or broadcast.
+
+`GET /api/public-tags/types` lists supported types. `POST
+/api/public-tags/submit` accepts the company/contact fields, address, label,
+comment and explicit consent; up to 20 labels can be proposed together. Optional
+label links/icons must be HTTPS, colors must be six-digit hex, and public
+descriptions are bounded. HTTP 202 is an acknowledgement of a pending proposal.
+There is no public queue endpoint. Contacts are stored in mode-0600 files under
+`data/community-tags/<chain-id>/requests`, outside Git and the served frontend.
+Only operator approval adds public profile metadata. Rejection never adds a tag.
+Concurrent moderation is serialized, retaining all approved labels. Operator
+instructions are in the README. These labels are this instance’s decisions,
+not statements of verification or endorsements by the public index.
+
+Publication forms accept only same-origin browsers or `EXPLORER_BROWSER_ORIGIN`.
+They have bounded bodies, upstream deadlines and per-client rate limits. All
+actual publication tests use temporary stores and mock upstream services.
+
+The native `/api/explorer/stats?gas_oracle=updated` response requests the updated gas oracle and
+contains per-priority wei, inclusion time and priority-fee data. Its cache is
+isolated from the legacy numeric gas estimates used in `/api/overview`.
+
+Without `gas_oracle=updated`, the stats endpoint preserves the legacy numeric
+gas-price shape for existing clients. The detailed and legacy responses use
+separate caches, including when both are requested during a rolling update.

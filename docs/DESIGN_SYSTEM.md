@@ -46,7 +46,7 @@ The header uses the official horizontal logo from `public/brand/ink-wordmark.svg
 `src/details.css` follows the mobile rules with entity-specific layouts, including
 their touch and narrow-screen variants. Address pages open on transactions.
 The header shows the indexed ENS name or contract name, the full copyable address,
-meaningful risk/verification status and a link to the official explorer. Recognized
+meaningful risk/verification status and internal navigation. Recognized
 pools use their token pair as the title and retain their pool-detail destination
 in Overview. Essential figures use three compact cards: ETH balance, transaction
 count and token holdings.

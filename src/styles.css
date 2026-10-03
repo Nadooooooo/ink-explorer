@@ -5397,7 +5397,7 @@ main > .error-state,
   color: var(--purple-deep);
   letter-spacing: .06em;
 }
-.stat-chart-heading h3 {
+.stat-chart-heading :is(h2, h3) {
   margin: 0;
   font: 600 13px/1.5 var(--font-ui);
   color: var(--ink);
@@ -5442,7 +5442,7 @@ main > .error-state,
   .chart-range select { min-height: 44px; }
   .chart-heading-actions .arrow-link { width: 44px; min-height: 44px; }
   .signal-main .section-title { gap: 10px; }
-  .stat-chart-heading h3 { font-size: 13px; }
+  .stat-chart-heading :is(h2, h3) { font-size: 13px; }
 }
 @media (pointer: coarse) {
   .chart-range select { font-size: 16px; min-height: 44px; }

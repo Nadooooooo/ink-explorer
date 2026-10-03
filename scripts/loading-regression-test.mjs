@@ -9,12 +9,16 @@ try {
       const page = await browser.newPage();
       await page.setViewport({ width, height: 900 });
       const held = [];
+      const heldPath = request => /^\/api\/(overview|explorer\/(blocks|tokens|stats))$/.test(new URL(request.url()).pathname);
+      const expectedPath = {'/':'/api/overview','/blocks':'/api/explorer/blocks','/tokens':'/api/explorer/tokens','/analytics':'/api/explorer/stats'}[route];
       await page.setRequestInterception(true);
       page.on('request', request => {
-        if (/\/api\/(overview|explorer\/(blocks|tokens|stats))$/.test(request.url())) held.push(request);
+        if (heldPath(request)) held.push(request);
         else request.continue();
       });
+      const pending = page.waitForRequest(request => new URL(request.url()).pathname === expectedPath, {timeout:15000});
       await page.goto(base + route, { waitUntil: 'domcontentloaded' });
+      await pending;
       await page.waitForSelector('main .loading');
       assert(held.length > 0, 'The real data request must still be pending');
       assert(await page.$eval('main h1', el => el.textContent.trim().length > 0), 'Title must be available before data');
