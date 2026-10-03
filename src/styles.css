@@ -1257,6 +1257,10 @@ main > .empty {
 .generic-row > strong {
   text-align: right;
 }
+.activity-identity, .activity-party { min-width: 0; }
+.activity-asset, .activity-party > small { display: none; }
+.activity-party { display: flex; }
+.activity-party .copyable { min-width: 0; }
 .generic-address {
   display: flex;
   align-items: center;

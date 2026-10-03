@@ -163,7 +163,7 @@ function scaled(value: unknown, decimals: unknown) {
   const precision = finiteNumber(decimals);
   return amount === null ? undefined : amount / 10 ** (precision ?? 0);
 }
-function age(date: string) {
+function age(date: string, style: "narrow" | "short" = "narrow") {
   if (!date || !Number.isFinite(new Date(date).getTime())) return "—";
   const s = Math.max(
     0,
@@ -181,7 +181,7 @@ function age(date: string) {
           : Math.floor(s / 86400);
   return new Intl.RelativeTimeFormat(activeLocale, {
     numeric: "always",
-    style: "narrow",
+    style,
   }).format(-value, unit);
 }
 function short(value?: string, left = 7, right = 5) {
@@ -561,7 +561,7 @@ function Copyable({
   return (
     <span className="copyable">
       {link ? (
-        <button className="text-link mono" onClick={() => go(link)}>
+        <button className="text-link mono" title={value} onClick={() => go(link)}>
           {display || short(value)}
         </button>
       ) : (
@@ -2499,6 +2499,8 @@ function ContractSource({ contract }: { contract: AnyRow }) {
 
 function GenericActivity({ item, type }: { item: AnyRow; type: string }) {
   const hash = item.transaction_hash || item.tx_hash;
+  const from = addressOf(item.from);
+  const to = addressOf(item.to || item.created_contract);
   if (type === "logs") return <LogEntry item={item} />;
   return (
     <div className="generic-row">
@@ -2508,9 +2510,12 @@ function GenericActivity({ item, type }: { item: AnyRow; type: string }) {
           src={item.token?.icon_url}
           label={item.token?.symbol || type}
         />
-        <span className="method">{activityLabel(type)}</span>
+        <span className="activity-identity">
+          <span className="activity-asset">{item.token?.name || item.token?.symbol || t("nativeTransfer")}</span>
+          <span className="method">{item.token ? t("token transfer") : activityLabel(type)}</span>
+        </span>
       </span>
-      <div>
+      <div className="activity-reference">
         {hash ? (
           <Copyable value={hash} link={`/tx/${hash}`} />
         ) : (
@@ -2518,30 +2523,24 @@ function GenericActivity({ item, type }: { item: AnyRow; type: string }) {
         )}
         <small>
           {item.timestamp
-            ? age(item.timestamp)
+            ? <time dateTime={item.timestamp} title={new Date(item.timestamp).toLocaleString(activeLocale)}>{age(item.timestamp, "short")}</time>
             : item.method || item.type || t("Chain event")}
         </small>
       </div>
       <div className="generic-address">
-        <Copyable
-          value={addressOf(item.from)}
-          link={
-            addressOf(item.from)
-              ? `/address/${addressOf(item.from)}`
-              : undefined
-          }
-        />
-        <ArrowRight />
-        <Copyable
-          value={addressOf(item.to || item.created_contract)}
-          link={
-            addressOf(item.to || item.created_contract) ? `/address/${addressOf(item.to || item.created_contract)}` : undefined
-          }
-        />
+        <span className="activity-party">
+          <small>{t("from")}</small>
+          <Copyable value={from} display={labelOf(item.from) || short(from)} link={from ? `/address/${from}` : undefined} />
+        </span>
+        <ArrowRight aria-hidden="true" />
+        <span className="activity-party">
+          <small>{t("to")}</small>
+          <Copyable value={to} display={labelOf(item.to || item.created_contract) || short(to)} link={to ? `/address/${to}` : undefined} />
+        </span>
       </div>
-      <strong>
+      <strong className="activity-amount">
         {item.total?.value != null
-          ? `${num(scaled(item.total.value, item.total.decimals ?? item.token?.decimals), 4)} ${item.token?.symbol || ""}`
+          ? <>{num(scaled(item.total.value, item.total.decimals ?? item.token?.decimals), 4)} <span>{item.token?.symbol || ""}</span></>
           : eth(item.value)}
       </strong>
     </div>
