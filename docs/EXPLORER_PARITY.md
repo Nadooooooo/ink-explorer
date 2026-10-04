@@ -25,6 +25,7 @@ wallet explorer configuration.
 | Token transfers | `/token-transfers` | Token identity, participants, indexed movements and cursors. |
 | Accounts | `/accounts` | Rank, address/name, balance, transactions and supply share; the upstream total supply is ETH, not wei. Unequal page sizes preserve rank offsets. |
 | Address and contract | `/address/:address` | Compact activity-first layout, full identity, assets/NFTs, history, logs, operations, source and read/write interactions. Deployment/proxy information appears only when available. |
+| Token permissions | `/approvals`, address Approvals section | ERC-20 allowances, individual ERC-721 approvals and ERC-721/ERC-1155 operators; canonical state reads, wallet-owned simulation, explicit confirmation and receipt/state refresh. |
 | Address history | Address History section | Paged exact historical balances/deltas; daily chart when the index supplies data. |
 | Tokens | `/tokens`, `/token/:address` | Standards, supply, holders, transfers, instance owners (including token ID zero) and contract source/read/write sections. |
 | NFT instances | `/token/:address/instance/:id` | Media, owner, creator, metadata, attributes and independent paged transfer history. Transfer totals use the count API, not the number of loaded rows. |
@@ -60,10 +61,7 @@ The comparison covers the chain explorer’s public pages and their functional
 states. Blockscout’s separate identity, Merits, multichain and notification
 services are not presented as services of this application. Opening the reference
 watchlist route without a Blockscout session redirected to Home; no private
-account records were accessed. WalletConnect QR, a dedicated approvals-revocation
-tool, account watchlists and email notifications remain absent. Their absence
-must stay explicit; source display or generic ABI interaction does not establish
-those capabilities. This comparison does not claim identical auxiliary services
+account records were accessed. WalletConnect QR connections are implemented and require the operator’s public Reown project ID/domain configuration. A dedicated approvals tool covers indexed standard ERC-20/ERC-721/ERC-1155 events, with live state verification and wallet-confirmed revocation. Non-standard or unindexed permissions and Permit2 are outside its scope. Account watchlists and email notifications remain absent. Configuration and actual relay pairing must be verified before claiming a working WalletConnect deployment. This comparison does not claim identical auxiliary services
 or a mathematical absence of bugs.
 
 ## Evidence and release status
@@ -100,3 +98,7 @@ Chart requests are deferred until their panels approach the viewport. Closed
 data tables do not construct hidden rows; opening them still exposes exact
 source values. Loading states reserve space before data and the lazy page module
 arrive, including gas cards, to prevent visible content jumps.
+
+The earlier release evidence above applies only to its recorded snapshot. The wallet, approvals, translation and public-gateway additions require a fresh complete campaign and deployed-site verification. Dedicated tests use an isolated Anvil EVM and three browser engines; no public-network transactions are submitted. Public access evidence must identify the Internet destination, not rely on a connected tailnet.
+
+The 4 October wallet/public-API validation executed all 38 suites without coverage filters. All 37 functional suites passed on unchanged source with matching served build assets. The original report remains NOT CERTIFIED because the mobile Blocks Lighthouse measurement scored 89. A complete recheck of all 24 Lighthouse reports on that same source passed every threshold (performance at least 92; accessibility, best practices and SEO 100); Blocks scored 93. Both measurements are retained in the combined validation evidence. This establishes the recorded functional and audit checks, not a claim that every individual performance sample passes. Actual WalletConnect relay pairing still requires the operator's public project ID.

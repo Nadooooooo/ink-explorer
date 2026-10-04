@@ -11,15 +11,24 @@ export const network = isTestnet
       chainId: 57073,
       rpc: "https://rpc-gel.inkonchain.com",
     };
-// A static deployment can use the private HTTPS API exposed through Tailscale.
-// The value is a public origin, never an RPC credential or a local node URL.
-export const apiOrigin = (import.meta.env.VITE_API_ORIGIN || "").replace(/\/$/, "");
+// Same-origin API routes work on local hosting and Vercel. Legacy private
+// VITE_API_ORIGIN is consumed only by the server-side migration adapter.
+export const apiOrigin = (import.meta.env.VITE_PUBLIC_API_ORIGIN || "").replace(/\/$/, "");
 export const API = `${apiOrigin}${basePath}/api`;
-export const liveWebSocketUrl = (() => {
+export let liveWebSocketUrl = (() => {
   const url = new URL(`${API}/live`, location.href);
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
   return url.toString();
 })();
+export async function resolveLiveWebSocketUrl() {
+  try {
+    const response = await fetch(`${API}/live/config`, { signal: AbortSignal.timeout(5000) });
+    const value = await response.json();
+    const url = new URL(value.url);
+    if (response.ok && ["ws:", "wss:"].includes(url.protocol) && !url.username && !url.password && url.pathname.endsWith(`${basePath}/api/live`) && (isTestnet || !/\/testnet\/api\/live$/.test(url.pathname))) liveWebSocketUrl = url.href;
+  } catch { /* The local WebSocket remains usable while config is unavailable. */ }
+  return liveWebSocketUrl;
+}
 export function networkPath(path: string) {
   return `${basePath}${path.startsWith("/") ? path : `/${path}`}`;
 }

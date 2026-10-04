@@ -20,6 +20,7 @@ for (const [engine, browserType] of [['chromium', chromium], ['firefox', firefox
       for (const [width, locale] of views) {
         const context = await browser.newContext({ viewport: { width, height: 900 }, hasTouch: width < 500 });
         await context.routeWebSocket(/\/api\/live$/, socket => socket.close());
+        await context.route('**/api/live/snapshot', route => route.fulfill({ status: 503, json: { error: 'Live data disabled for deterministic fixtures' } }));
         const page = await context.newPage(), errors = [];
         page.on('pageerror', error => errors.push(error.message));
         let scenario = 'account';

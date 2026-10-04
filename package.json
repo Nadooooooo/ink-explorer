@@ -25,7 +25,7 @@
     "test:ws": "node scripts/test-websocket.mjs",
     "test:network-live": "node scripts/network-live-test.mjs",
     "test:a11y": "node scripts/a11y-test.mjs",
-    "test:i18n": "node scripts/i18n-test.mjs",
+    "test:i18n": "node --experimental-strip-types scripts/i18n-test.mjs",
     "test:assets": "node scripts/asset-holdings-test.mjs",
     "test:charts": "node scripts/chart-interactions-test.mjs",
     "test:ui": "node scripts/smoke-test.mjs",
@@ -58,15 +58,19 @@
     "test:upstream-cache": "node scripts/upstream-cache-test.mjs",
     "test:explorer-services": "node --test scripts/explorer-services-test.mjs",
     "test:explorer-pages": "node scripts/explorer-pages-test.mjs",
-    "tags:review": "node scripts/moderate-tags.mjs"
+    "tags:review": "node scripts/moderate-tags.mjs",
+    "test:approvals": "node --experimental-strip-types scripts/approvals-test.mjs",
+    "test:public-proxy": "node --experimental-strip-types --test scripts/public-proxy-test.mjs"
   },
   "dependencies": {
     "@fontsource-variable/plus-jakarta-sans": "5.3.0",
     "@fontsource/dm-mono": "5.3.0",
+    "@walletconnect/ethereum-provider": "2.21.8",
     "blo": "2.0.0",
     "ethers": "6.17.0",
     "ipaddr.js": "2.5.0",
     "lucide-react": "1.41.0",
+    "qrcode.react": "4.2.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "undici": "7.29.1",
@@ -89,6 +93,9 @@
   "overrides": {
     "solc": {
       "tmp": "0.2.7"
-    }
+    },
+    "ws": "8.21.3",
+    "decode-uri-component": "0.5.0",
+    "viem": "2.57.2"
   }
 }

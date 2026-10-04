@@ -11,6 +11,7 @@ try {
     const context=await browser.newContext({viewport:{width,height:900}});
     // Prevent a real node stream from contaminating deterministic finality.
     await context.routeWebSocket(/\/api\/live$/,ws=>ws.close());
+    await context.route('**/api/live/snapshot',route=>route.fulfill({status:503,json:{error:'Live data disabled for deterministic fixtures'}}));
     const page=await context.newPage(), errors=[];
     page.on('pageerror',e=>errors.push(e.message));
     let pageFailure=true, delayPage=false, stateFailure=true, sourceAvailable=false, sourceFailure=false;

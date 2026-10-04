@@ -56,7 +56,12 @@ For the Sepolia worker, copy `.env.sepolia.example` to `.env.sepolia` before sta
 | `INK_NETWORK`            | mainnet                                  | `sepolia` selects chain 763373 and its upstreams |
 | `PUBLIC_URL`             | request origin                           | Canonical, sitemap and Open Graph origin |
 | `EXPLORER_BROWSER_ORIGIN` | empty                                    | Exact HTTPS origin allowed to read the API from a separate browser site |
-| `VITE_API_ORIGIN`        | empty                                    | HTTPS origin of the API for a static frontend build; empty keeps same-origin requests |
+| `INK_PUBLIC_API_ORIGIN` | empty | Public HTTPS API gateway, used only by the static hosting function |
+| `VITE_PUBLIC_API_ORIGIN` | empty | Optional public API for other static hosts; default uses same-origin requests |
+| `WALLETCONNECT_PROJECT_ID` | empty | Public Reown project ID returned by the API at runtime |
+| `VITE_WALLETCONNECT_PROJECT_ID` | empty | Optional frontend build override for the same public project ID |
+| `INK_GATEWAY_PORT` | `4186` | Optional API-only loopback gateway |
+| `INK_GATEWAY_UPSTREAM` | `http://127.0.0.1:4188` | Loopback explorer upstream for that gateway |
 | `BLOCKSCOUT_API`         | Ink Blockscout v2                        | Indexed chain history                    |
 | `BLOCKSCOUT_STATS_API`   | Ink Stats Service                        | Counters and time series                 |
 | `CONTRACT_INFO_API`      | Blockscout Contract Info for chain 57073 | DEX pool market metadata                 |
@@ -69,7 +74,13 @@ For the Sepolia worker, copy `.env.sepolia.example` to `.env.sepolia` before sta
 
 ## Data and caching
 
-A static frontend such as Vercel does not run `server/server.mjs`. To connect it to a private Tailscale Serve endpoint, set `VITE_API_ORIGIN` in the frontend build environment to the Serve HTTPS origin and `EXPLORER_BROWSER_ORIGIN` on both server workers to the exact frontend origin. Redeploy the frontend and restart both workers after changing these values. The browser must be connected to the tailnet to reach the API; modern browsers may also ask for local-network access permission. Tailscale Serve does not make the node public. The API permits cross-origin reads, simulations and explicit source/tag submissions only from that configured origin. Do not put RPC credentials or local RPC URLs in `VITE_*` variables. `vercel.json` routes deep links back to the single-page interface.
+A static frontend does not run `server/server.mjs`. On Vercel, `/api/*` and `/testnet/api/*` use `api/gateway.mjs`, which forwards to `INK_PUBLIC_API_ORIGIN`. Configure a public HTTPS reverse proxy (or Tailscale **Funnel**, not tailnet-only Serve) to the loopback `server/public-gateway.mjs`. Its fixed destination exposes explorer API routes and the live WebSocket; node RPC, metrics and static filesystem routes remain private. Set `EXPLORER_BROWSER_ORIGIN` on both workers to the exact site origin so explicit simulations and submissions pass their origin checks. The browser uses same-origin HTTP without a VPN or local-network permission. The WebSocket is discovered through `/api/live/config`; public HTTP snapshots keep live data updating if WebSockets are blocked.
+
+Existing deployments with a server-side `VITE_API_ORIGIN` pointing to a `.ts.net:4189` Serve origin migrate through the public port `8443` and `/ink` mount. New installations should set `INK_PUBLIC_API_ORIGIN` explicitly. Never put credentials or local node URLs in `VITE_*` variables. API requests must be tested through public DNS from outside the tailnet; successful tests on a VPN-connected machine are insufficient. Static hosting limits apply to source uploads (the proxy accepts up to 4 MiB). Deep links continue to use the single-page interface.
+
+WalletConnect uses a public project ID from [Reown Dashboard](https://dashboard.reown.com/); configure `WALLETCONNECT_PROJECT_ID` on both API workers (or `VITE_WALLETCONNECT_PROJECT_ID` before building) and authorize the site's actual domains. Runtime configuration does not require another frontend build. The QR contains a temporary pairing URI and is never logged. Connections request transaction permission only; the explorer does not request message signatures or private keys. The SDK is pinned to the Apache-2.0 release, with security fixes pinned in transitive dependencies; dependency upgrades must recheck licensing and advisories.
+
+`/approvals` and the address Approvals section discover standard ERC-20/ERC-721 `Approval` and ERC-721/ERC-1155 `ApprovalForAll` events, then reread current permissions on a ready RPC at a canonical block. Saturated index ranges are split without skipping boundary events. Failed or cancelled scans remain explicitly incomplete. Only the owner on the selected chain can simulate and confirm a zero-value revoke; receipt success is followed by a fresh state read. Non-standard contracts, missing indexed events and Permit2 permissions are outside this discovery scope.
 
 Ink Blockscout API v2 and Stats Service provide network-wide indexed history. Blockscout Contract Info supplies pool discovery and market estimates. OP-Reth and OP Node provide only the operator's independent live checks.
 
@@ -105,6 +116,8 @@ npm run test:loading
 npm run test:address-loading
 npm run test:chain-reconciliation
 npm run test:contracts
+npm run test:approvals
+npm run test:public-proxy
 npm run test:networks
 npm run test:node-testnet
 npm run test:node-readiness

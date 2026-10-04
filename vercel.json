@@ -1,6 +1,22 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
+    {
+      "source": "/testnet/api/:path*",
+      "destination": "/api/gateway?path=/testnet/api/:path*"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "/api/gateway?path=/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "functions": {
+    "api/gateway.mjs": {
+      "maxDuration": 60
+    }
+  }
 }

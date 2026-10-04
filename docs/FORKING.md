@@ -39,6 +39,9 @@ The PM2 process names still use `ink-observer` and `ink-observer-sepolia` so exi
 | `HOST`, `PORT` | HTTP server | Bind address and port. Put the main process behind HTTPS in production. |
 | `INK_TESTNET_PORT` | Mainnet proxy | Loopback port of the Sepolia worker; match its `PORT`. |
 | `PUBLIC_URL` | SEO output | The public HTTPS origin, without a path or trailing slash. Use the same origin for both workers. |
+| `INK_PUBLIC_API_ORIGIN` | Static host API function | Public HTTPS gateway, reachable without VPN. |
+| `WALLETCONNECT_PROJECT_ID` | Both API workers | Public Reown project ID; allow the actual site domains in the Reown dashboard. |
+| `VITE_WALLETCONNECT_PROJECT_ID` | Frontend build | Optional build-time override for the public project ID. |
 | `INK_NETWORK` | Server | `sepolia` for the second worker; any other value selects Mainnet. |
 | `BLOCKSCOUT_API` | Server | Blockscout v2 API root for that chain. |
 | `BLOCKSCOUT_STATS_API` | Server | Stats Service API root for that chain. |

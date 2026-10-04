@@ -11,12 +11,9 @@ import { requestJson } from "./api-request";
 import { exactJson, parseArgument } from "./contract-abi";
 import { formatMessage, message, type Locale } from "./i18n";
 
-type Provider = {
-  request: (args: { method: string; params?: unknown[] }) => Promise<any>;
-  on?: (name: string, listener: (...args: any[]) => void) => void;
-  removeListener?: (name: string, listener: (...args: any[]) => void) => void;
-};
-type Wallet = { provider: Provider; account: string; chain: number };
+import WalletConnection from "./WalletConnection";
+import { useWallet, type Wallet } from "./wallet";
+
 type RpcResult = { result: any; source: string };
 async function rpc(method: string, params: unknown[]): Promise<RpcResult> {
   const response = await fetch(`${API}/contract-rpc`, {
@@ -394,9 +391,8 @@ export default function ContractInteraction({
 }) {
   const ct = (key: string) => message(locale, key);
   const cf = (key: string, values: Record<string, string | number>) => formatMessage(locale, key, values);
-  const [wallet, setWallet] = useState<Wallet>();
-  const [walletError, setWalletError] = useState("");
-  const [connecting, setConnecting] = useState(false);
+  const connection = useWallet();
+  const { wallet } = connection;
   const [abiSource, setAbiSource] = useState("direct");
   const [custom, setCustom] = useState("");
   const [customAbi, setCustomAbi] = useState<any[]>();
@@ -405,23 +401,6 @@ export default function ContractInteraction({
   const [abiError, setAbiError] = useState("");
   const [filter, setFilter] = useState("");
   const implementations = contract.implementations || [];
-  useEffect(() => {
-    if (!wallet) return;
-    const changed = () => {
-      setWallet(undefined);
-      setWalletError(
-        ct("walletChangedReconnect"),
-      );
-    };
-    wallet.provider.on?.("accountsChanged", changed);
-    wallet.provider.on?.("chainChanged", changed);
-    wallet.provider.on?.("disconnect", changed);
-    return () => {
-      wallet.provider.removeListener?.("accountsChanged", changed);
-      wallet.provider.removeListener?.("chainChanged", changed);
-      wallet.provider.removeListener?.("disconnect", changed);
-    };
-  }, [wallet]);
   useEffect(() => {
     if (abiSource === "direct" || abiSource === "custom") return;
     const controller = new AbortController();
@@ -459,54 +438,6 @@ export default function ContractInteraction({
   });
   const matchesFilter = (fragment: FunctionFragment) =>
     fragment.format("sighash").toLowerCase().includes(filter.toLowerCase());
-  const connect = async () => {
-    setConnecting(true);
-    setWalletError("");
-    try {
-      const provider = (window as unknown as { ethereum?: Provider }).ethereum;
-      if (!provider)
-        throw new Error(
-          ct("walletRequired"),
-        );
-      await provider.request({ method: "eth_requestAccounts" });
-      let chain = Number(await provider.request({ method: "eth_chainId" }));
-      if (chain !== network.chainId) {
-        try {
-          await provider.request({
-            method: "wallet_switchEthereumChain",
-            params: [{ chainId: toQuantity(network.chainId) }],
-          });
-        } catch (error: any) {
-          if (error.code !== 4902) throw error;
-          await provider.request({
-            method: "wallet_addEthereumChain",
-            params: [
-              {
-                chainId: toQuantity(network.chainId),
-                chainName: network.name,
-                nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-                rpcUrls: [network.rpc],
-                blockExplorerUrls: [new URL(networkPath("/"), location.origin).href],
-              },
-            ],
-          });
-          await provider.request({
-            method: "wallet_switchEthereumChain",
-            params: [{ chainId: toQuantity(network.chainId) }],
-          });
-        }
-      }
-      chain = Number(await provider.request({ method: "eth_chainId" }));
-      const accounts = await provider.request({ method: "eth_accounts" });
-      if (chain !== network.chainId || !/^0x[\da-f]{40}$/i.test(accounts[0]))
-        throw new Error(cf("selectAccountOn", { network: network.name }));
-      setWallet({ provider, account: accounts[0], chain });
-    } catch (error) {
-      setWalletError(errorText(error, undefined, locale));
-    } finally {
-      setConnecting(false);
-    }
-  };
   return (
     <section className="contract-interaction">
       <h2>{ct(mode === "read" ? "readContract" : "writeContract")}</h2>
@@ -517,28 +448,7 @@ export default function ContractInteraction({
           : ct("writeIntro")}
       </p>
       <p className="contract-target">{ct("target")}: {address}</p>
-      {mode === "write" && (
-        <div className="contract-wallet">
-          {wallet ? (
-            <>
-              <span>{wallet.account}</span>
-              <button type="button" onClick={() => setWallet(undefined)}>
-                {ct("disconnect")}
-              </button>
-            </>
-          ) : (
-            <button
-              type="button"
-              className="primary-action"
-              disabled={connecting}
-              onClick={connect}
-            >
-              {connecting ? ct("connecting") : cf("connectWallet", { network: network.name })}
-            </button>
-          )}
-          {walletError && <p role="alert">{walletError}</p>}
-        </div>
-      )}
+      {mode === "write" && <WalletConnection connection={connection} locale={locale} />}
       <label>
         {ct("contractInterface")}
         <select

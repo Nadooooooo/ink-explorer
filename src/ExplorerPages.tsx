@@ -21,6 +21,7 @@ export type ExplorerPageProps = {
 };
 
 export const explorerDestinations = [
+  ["/approvals", "approvalsTitle"],
   ["/accounts", "Top accounts"],
   ["/internal-txs", "Internal transactions"],
   ["/token-transfers", "Token transfers"],

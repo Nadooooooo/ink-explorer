@@ -55,9 +55,10 @@ import { formatMessage, isLocale, localeNames, locales, message, type Locale } f
 import { EntityMark } from "./EntityMark";
 import { mediaUrl } from "./media";
 import { blockFinality, cursorQuery, executionFee, transactionState, stateChangeText, formatWei } from "./explorer-data";
-import { API, apiOrigin, basePath, network, networkPath, isTestnet, liveWebSocketUrl, externalDestination } from "./network";
+import { API, basePath, network, networkPath, isTestnet, liveWebSocketUrl, resolveLiveWebSocketUrl, externalDestination } from "./network";
 import { requestJson } from "./api-request";
 import "./explorer-pages.css";
+const Approvals = lazy(() => import("./Approvals"));
 const ContractInteraction = lazy(() => import("./ContractInteraction"));
 const FilteredActivity = lazy(() => import("./FilteredActivity"));
 const ExplorerPages = lazy(() => import("./ExplorerPages"));
@@ -72,6 +73,7 @@ type AnyRow = Record<string, any>;
 type View = { name: string; id?: string; tokenId?: string; query?: string };
 type LiveData = {
   connected: boolean;
+  polling?: boolean;
   sequence: number;
   sentAt?: string;
   network?: AnyRow;
@@ -219,8 +221,6 @@ async function get<T = any>(path: string, signal?: AbortSignal): Promise<T> {
   } catch (error) {
     if (signal?.aborted) throw error;
     const key = error instanceof Error ? error.message : "Data source unavailable";
-    if (apiOrigin && ["apiConnectionFailed", "requestTimeout"].includes(key))
-      throw new Error(t("Private API unavailable. Connect to Tailscale, allow local network access in your browser, and retry."));
     throw new Error(t(key));
   }
 }
@@ -232,44 +232,42 @@ function useLiveStream(): LiveData {
       socket: WebSocket | undefined,
       retry = 0,
       timer: number | undefined;
+    let pollTimer: number | undefined;
+    const pollController = new AbortController();
+    let socketHealthy = false;
+    const accept = (msg: AnyRow, polling: boolean) => {
+      if (stopped || msg.protocol !== "ink-observer.live.v1" || (msg.network?.expectedChainId != null ? msg.network.expectedChainId !== network.chainId : (msg.network?.chainId !== network.chainId && !(msg.network?.chainId == null && msg.network?.online === false))) || !["welcome", "network", "block", "snapshot"].includes(msg.type)) return;
+      setLive({ connected: true, polling, sequence: msg.sequence || 0, sentAt: msg.sentAt,
+        network: msg.network, block: msg.network?.chainId === network.chainId ? msg.block : undefined, transactions: msg.network?.chainId === network.chainId ? msg.transactions || [] : [], event: msg.type });
+    };
+    const poll = async () => {
+      if (stopped) return;
+      if (!socketHealthy) {
+        try {
+          const msg = await requestJson<AnyRow>(`${API}/live/snapshot`, { signal: pollController.signal }, 12000);
+          if (!socketHealthy) accept(msg, true);
+        } catch { if (!stopped && !socketHealthy) setLive(v => ({ ...v, connected: false, polling: false })); }
+      }
+      if (!stopped) pollTimer = window.setTimeout(poll, 4000);
+    };
     const connect = () => {
       if (stopped) return;
       socket = new WebSocket(liveWebSocketUrl);
-      socket.onopen = () => {
-        retry = 0;
-        setLive((v) => ({ ...v, connected: true }));
-      };
-      socket.onmessage = (e) => {
-        try {
-          const msg = JSON.parse(e.data);
-          if (["welcome", "network", "block"].includes(msg.type))
-            setLive({
-              connected: true,
-              sequence: msg.sequence || 0,
-              sentAt: msg.sentAt,
-              network: msg.network,
-              block: msg.block,
-              transactions: msg.transactions || [],
-              event: msg.type,
-            });
-        } catch {
-          /* ignore malformed frames */
-        }
-      };
+      socket.onopen = () => { retry = 0; socketHealthy = true; setLive(v => ({ ...v, connected: true, polling: false })); };
+      socket.onmessage = e => { try { accept(JSON.parse(e.data), false); } catch { /* Ignore malformed frames. */ } };
       socket.onclose = () => {
-        setLive((v) => ({ ...v, connected: false }));
-        if (!stopped)
-          timer = window.setTimeout(
-            connect,
-            Math.min(1000 * 2 ** retry++, 10000),
-          );
+        socketHealthy = false;
+        if (!stopped) timer = window.setTimeout(connect, Math.min(1000 * 2 ** retry++, 10000));
       };
       socket.onerror = () => socket?.close();
     };
-    connect();
+    resolveLiveWebSocketUrl().then(() => { if (!stopped) connect(); });
+    poll();
     return () => {
       stopped = true;
       if (timer) clearTimeout(timer);
+      if (pollTimer) clearTimeout(pollTimer);
+      pollController.abort();
       socket?.close();
     };
   }, []);
@@ -327,7 +325,7 @@ function sectionChoice(fallback: string, allowed: string[], aliases: Record<stri
   return allowed.includes(selected) ? selected : fallback;
 }
 function addressSection() {
-  return sectionChoice("transactions", ["overview", "transactions", "history", "userops", "tokens", "nft", "token-transfers", "internal-transactions", "logs", "contract", "read", "write"], {details:"overview",txs:"transactions",account_history:"history",coin_balance_history:"history",user_ops:"userops",token_transfers:"token-transfers",internal_txns:"internal-transactions"});
+  return sectionChoice("transactions", ["overview", "transactions", "history", "userops", "approvals", "tokens", "nft", "token-transfers", "internal-transactions", "logs", "contract", "read", "write"], {details:"overview",txs:"transactions",account_history:"history",coin_balance_history:"history",user_ops:"userops",token_transfers:"token-transfers",internal_txns:"internal-transactions"});
 }
 function explorerProps(page: string, id?: string): ExplorerPageProps {
   return { page, id, t, go, get,
@@ -445,7 +443,7 @@ function Header({
           </label>
           <span>CHAIN ID {network.chainId}</span>
           <span className={live.connected ? "ribbon-live" : "ribbon-offline"}>
-            <i /> {live.connected ? t("websocketLive") : t("reconnecting")}
+            <i /> {live.connected ? t(live.polling ? "liveHttp" : "websocketLive") : t("reconnecting")}
           </span>
         </div>
         <div>
@@ -1130,7 +1128,7 @@ function Home({ live }: { live: LiveData }) {
               <dd>#{num(nodeStatus?.finalizedBlock)}</dd>
             </div>
             <div>
-              <dt>WebSocket</dt>
+              <dt>{live.polling ? "HTTP" : "WebSocket"}</dt>
               <dd className={live.connected ? "positive" : "negative"}>
                 {live.connected ? t("live") : t("retryShort")}
               </dd>
@@ -2226,13 +2224,13 @@ function AddressDetail({ id }: { id: string }) {
         ["history", t("Account history")], ["userops", t("User operations")],
         ["tokens", t("assets")], ["nft", t("nfts")],
         ["token-transfers", t("transfers")], ["internal-transactions", t("internal")],
-        ["logs", t("logs")],
+        ["logs", t("logs")], ["approvals", t("approvalsTitle")],
         ...(address?.is_contract ? [
           ["contract", t("contractSource")], ["read", t("readContract")],
           ["write", t("writeContract")],
         ] as [string, string][] : []),
       ]} />
-      {tab === "overview" ? (
+      {tab === "approvals" ? <Suspense fallback={<Loading />}><Approvals address={id} locale={activeLocale} embedded /></Suspense> : tab === "overview" ? (
         <dl className="definitions standalone address-facts">
           <Definition label={t("address")} wide><Copyable value={id} display={id} /></Definition>
           {address?.ens_domain_name && <Definition label="ENS"><bdi>{address.ens_domain_name}</bdi></Definition>}
@@ -4742,7 +4740,7 @@ function initialLocale(): Locale {
 
 function pageMetadata(view: View) {
   const explorerTitles: Record<string,string> = {
-    accounts: "Top accounts", "internal-txs": "Internal transactions", "token-transfers": "Token transfers",
+    approvals: "approvalsTitle", accounts: "Top accounts", "internal-txs": "Internal transactions", "token-transfers": "Token transfers",
     deposits: "L1 → L2 deposits", withdrawals: "L2 → L1 withdrawals", batches: "Transaction batches",
     "dispute-games": "Dispute games", ops: "User operations", op: "User operation",
     "name-services": "Name services", "gas-tracker": "Gas tracker", apps: "Dapps",
@@ -4875,6 +4873,7 @@ export default function App() {
     content = <TxDetail id={view.id} />;
   else if (view.name === "address" && view.id)
     content = <AddressDetail id={view.id} />;
+  else if (view.name === "approvals") content = <Suspense fallback={<Loading />}><Approvals address={view.id || ""} locale={activeLocale} /></Suspense>;
   else if (view.name === "tokens") content = <Tokens />;
   else if (view.name === "token" && view.id)
     content = <TokenDetail key={view.id} id={view.id} />;

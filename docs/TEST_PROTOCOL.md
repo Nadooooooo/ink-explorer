@@ -81,6 +81,8 @@ pass. Run the complete campaign on the final source after fixing failures.
 | Upstream snapshot lifetime | `upstream-cache`, `activity-server` | Preserve original fetch time across outages; reject expired snapshots and permanent upstream errors; retain query semantics and public JSON shapes under concurrent reads |
 | Explorer/node reconciliation | `chain-reconciliation`, `node-testnet` | Same-height block hash, parent, timestamp, gas, complete transaction set, receipt status/fees, exact displayed address balance at the indexed update height and canonical block hash, retained index balance and explicit node provenance, finalized public hash and current L1 derivation |
 | SEO and shareability | `security`, `ui`, `content`, Lighthouse reports | Crawlable route metadata, canonicals, multilingual sitemap, proper missing-page status |
+| Native approvals | `approvals` | ERC-20/ERC-721/ERC-1155, exact integers, state reads, saturated history, wallet guards, confirmed EVM revocations and readable mobile cards |
+| Public data access | `public-proxy` and deployment probes | Same-origin API on both networks, errors/binary media and public Internet routing evidence without tailnet authorization |
 | Reproducibility | Release report and logs | All suites pass, no filters/timeouts, source unchanged |
 
 Lighthouse must produce all 24 reports (12 routes, mobile and desktop), with
@@ -153,7 +155,8 @@ statistics data/ranges and locally intercepted tag submissions.
 and temporary label stores. It checks all supported compiler payloads,
 asynchronous outcomes, rejection boundaries, contact isolation, moderation and
 concurrent approvals. It must never publish real sources or labels. These two
-gates bring the release campaign to 36 suites. Lighthouse now audits 12 route
+gates originally brought the release campaign to 36 suites. The approvals and
+public-proxy gates bring the current campaign to 38 suites. Lighthouse audits 12 route
 families in mobile and desktop profiles (24 reports), including the new native
 accounts, batches, gas, statistics, Dapps and verification pages.
 
@@ -172,3 +175,5 @@ The corrected loading suite passed against the unchanged application and build.
 Separate combined evidence records those 36 validated checks, the sole harness
 difference and all 24 passing Lighthouse reports; it does not relabel or replace
 the original campaign result. Future complete runs use the corrected harness.
+
+WalletConnect deployment acceptance additionally requires the actual Reown project/domain configuration and a real relay pairing QR/session. An explicit configuration error or mocked pairing is not proof of a working mobile connection. Preserve that limitation until verified.

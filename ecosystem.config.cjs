@@ -1,5 +1,12 @@
 module.exports = {
   apps: [{
+    name: "ink-public-gateway",
+    script: "server/public-gateway.mjs",
+    cwd: __dirname,
+    env: { NODE_ENV: "production", INK_GATEWAY_PORT: "4186" },
+    max_memory_restart: "200M",
+    time: true,
+  }, {
     name: "ink-observer",
     script: "server/server.mjs",
     cwd: __dirname,

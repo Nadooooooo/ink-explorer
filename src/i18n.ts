@@ -6,6 +6,7 @@
  * never render an empty label. Numbers and dates are formatted by Intl in the
  * selected locale in App.tsx.
  */
+import { walletCopy } from "./wallet-copy";
 import { pageCopy } from "./page-copy";
 import { dynamicCopy } from "./dynamic-copy";
 import { activityCopy } from "./activity-copy";
@@ -1970,6 +1971,7 @@ export function isLocale(value: string | null | undefined): value is Locale {
 }
 
 export function message(locale: Locale, key: string): string {
+  if (key in walletCopy[locale]) return walletCopy[locale][key];
   if (key in (explorerCopy[locale] || {})) return explorerCopy[locale][key];
   if (key in (explorerCopy.en || {})) return explorerCopy.en[key];
   if (key in activityCopy[locale]) return activityCopy[locale][key];

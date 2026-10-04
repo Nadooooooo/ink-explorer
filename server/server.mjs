@@ -14,6 +14,7 @@ import {
 import { WebSocket, WebSocketServer } from "ws";
 import { proxyTestnet, proxyTestnetSocket } from "./testnet-proxy.mjs";
 import { createContractRpc } from "./contract-rpc.mjs";
+import { createApprovals } from "./approvals.mjs";
 import { nodeReadiness, rollupReadiness } from "./node-readiness.mjs";
 import { verifyAddressBalance } from "./address-balance.mjs";
 import { createSourceVerification } from "./source-verification.mjs";
@@ -48,6 +49,10 @@ const nodeDataDir = process.env.INK_NODE_DATA_DIR?.trim();
 const contractRpc = createContractRpc({ localUrl: rpcUrl, chainId,
   publicUrl: process.env.INK_PUBLIC_RPC || (testnet ? "https://rpc-gel-sepolia.inkonchain.com" : "https://rpc-gel.inkonchain.com"),
   browserOrigin });
+const approvals = createApprovals({ localUrl: rpcUrl, chainId,
+  publicUrl: process.env.INK_PUBLIC_RPC || (testnet ? "https://rpc-gel-sepolia.inkonchain.com" : "https://rpc-gel.inkonchain.com"),
+  logsUrl: process.env.BLOCKSCOUT_LOGS_API || new URL("/api", explorerApi).href,
+  browserOrigin, send: json });
 const sourceVerification = createSourceVerification({api:explorerApi,socketOrigin:explorerOrigin,browserOrigin,send:json});
 const communityTags = communityTagStore(path.join(root,"data","community-tags",String(chainId)));
 const submitCommunityTag = createTagSubmission({store:communityTags,browserOrigin,send:json});
@@ -750,7 +755,9 @@ function allowedExplorerPath(suffix) {
 }
 
 function seoFor(pathname) {
+  if (/^\/approvals\/0x[\da-f]{40}$/i.test(pathname)) return ["Ink token approvals — Ink Explorer", "Inspect and revoke ERC-20 and NFT approvals on Ink."];
   const explorerTitles = {
+    "/approvals": "Ink token approvals",
     "/accounts": "Top Ink accounts", "/internal-txs": "Ink internal transactions",
     "/token-transfers": "Ink token transfers", "/deposits": "Ethereum to Ink deposits",
     "/withdrawals": "Ink to Ethereum withdrawals", "/batches": "Ink transaction batches",
@@ -963,7 +970,7 @@ async function staticFile(reqPath, req, res, requestUrl) {
       ...(file.endsWith("index.html")
         ? {
             "content-security-policy":
-              "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' ws: wss:; form-action 'self'",
+              "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; frame-src https://verify.walletconnect.org https://secure.walletconnect.org https://verify.walletconnect.com https://secure.walletconnect.com; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' ws: wss: https://*.walletconnect.com https://*.walletconnect.org https://*.reown.com https://rpc-gel.inkonchain.com https://rpc-gel-sepolia.inkonchain.com; form-action 'self'",
           }
         : {}),
     });
@@ -1006,6 +1013,7 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname.startsWith("/api/") && url.search.length > 4096)
     return json(res, 414, { error: "Query string too long" });
   if (!testnet && /^\/testnet(?:\/|$)/.test(url.pathname)) return proxyTestnet(req, res);
+  if (/^\/api\/approvals\/0x[\da-f]{40}\/(?:events|state)$/i.test(url.pathname)) return approvals.handler(req, res, url);
   if (url.pathname === "/api/contract-rpc" && req.method === "POST") return contractRpc(req, res);
   if (url.pathname === "/api/verification/submit" || /^\/api\/verification\/status\/[\da-f-]{36}$/.test(url.pathname)) return sourceVerification(req, res, url.pathname);
   if (url.pathname === "/api/public-tags/submit") return submitCommunityTag(req, res);
@@ -1028,7 +1036,21 @@ const server = http.createServer(async (req, res) => {
         },
       });
     }
+    if (url.pathname === "/api/wallet/config") {
+      const projectId = process.env.WALLETCONNECT_PROJECT_ID?.trim() || "";
+      return json(res,200,{chainId,projectId:/^[\da-f]{32}$/i.test(projectId) ? projectId : ""});
+    }
     if (url.pathname === "/api/public-tags/types") return json(res,200,{items:tagTypes});
+    if (url.pathname === "/api/live/config") {
+      const socketUrl = new URL(`${basePath}/api/live`, publicOrigin(req));
+      socketUrl.protocol = socketUrl.protocol === "https:" ? "wss:" : "ws:";
+      return json(res,200,{url:socketUrl.href});
+    }
+    if (url.pathname === "/api/live/snapshot") {
+      if (!liveState.network) return json(res,503,{error:"Live data not yet available"});
+      return json(res,200,{type:"snapshot",protocol:"ink-observer.live.v1",sequence:liveState.sequence,
+        sentAt:new Date().toISOString(),network:liveState.network,block:liveState.block,transactions:liveState.transactions});
+    }
     if (url.pathname === "/api/live/status") {
       return json(res, 200, {
         ok: Boolean(liveState.network?.online),

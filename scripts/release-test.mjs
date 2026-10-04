@@ -10,6 +10,7 @@ const suites = [
   ['upstream-cache',['run','test:upstream-cache'],120], ['security',['run','test:security'],120], ['integrity',['run','test:integrity'],180],
   ['activity',['run','test:activity'],600],
   ['activity-server',['run','test:activity-server'],120], ['activity-live',['run','test:activity-live'],480],
+  ['public-proxy',['run','test:public-proxy'],120], ['approvals',['run','test:approvals'],600],
   ['contracts',['run','test:contracts'],300], ['ui',['run','test:ui'],900],
   ['a11y',['run','test:a11y'],300], ['i18n',['run','test:i18n'],300],
   ['assets',['run','test:assets'],180], ['charts',['run','test:charts'],300],
@@ -35,7 +36,7 @@ async function filesIn(directory) {
 }
 const hashes=async()=>{
   // Enumerate again at the end so additions and deletions also invalidate a run.
-  const sourceFiles=[...(await Promise.all(['src','server','scripts'].map(filesIn))).flat(),'package.json','package-lock.json','vite.config.ts','index.html'].sort();
+  const sourceFiles=[...(await Promise.all(['src','server','scripts','api'].map(filesIn))).flat(),'package.json','package-lock.json','vite.config.ts','vercel.json','index.html'].sort();
   return Object.fromEntries(await Promise.all(sourceFiles.map(async file=>[file,createHash('sha256').update(await readFile(file)).digest('hex')])));
 };
 const report={startedAt:new Date().toISOString(),baseUrl:process.env.BASE_URL || 'http://127.0.0.1:4188',fullRun:!selected && !restricted.length,restrictions:restricted,source:await hashes(),results:[],passed:false};

@@ -129,3 +129,12 @@ isolated from the legacy numeric gas estimates used in `/api/overview`.
 Without `gas_oracle=updated`, the stats endpoint preserves the legacy numeric
 gas-price shape for existing clients. The detailed and legacy responses use
 separate caches, including when both are requested during a rolling update.
+
+## Public deployment and approvals
+
+Static Vercel deployments forward `/api/*` and `/testnet/api/*` through a fixed operator-configured public HTTPS origin. `/api/live/config` provides the public WebSocket URL; `/api/live/snapshot` returns the same network/block/transaction frame over HTTP when WebSockets are unavailable. Both networks remain scoped by the path.
+
+- `GET /api/approvals/:owner/events?from=0&to=...&snapshot=...`: standard owner-indexed approval events, collapsed by permission within the scanned range. `next` is a contiguous continuation when a saturated range had to be split. Follow all continuations and collapse newer events across ranges before checking state. An unsplittable saturated block fails instead of claiming complete discovery.
+- `POST /api/approvals/:owner/state` with `{ "items": [...] }`: up to 12 validated ERC-20, individual ERC-721 or operator permission records. Returns exact decimal amounts, boolean/unknown status, canonical block/hash, source and chain ID. Operator standard is checked through ERC-165; metadata failure does not invent decimals. Reads are bounded, rate limited and never cached as current permissions.
+
+There is no server-side revoke/broadcast endpoint. Simulation uses the existing restricted contract RPC; signing and transmission happen only in the owner’s wallet. Permit2 and non-standard/unindexed events are outside the discovery scope.

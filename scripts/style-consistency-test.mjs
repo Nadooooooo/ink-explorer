@@ -129,7 +129,7 @@ try {
     await page.waitForSelector('.error-state');
     await inspect(page, 'error-simulated', width);
     page.removeAllListeners('request');
-    page.on('request', request => request.url().includes('/api/explorer/search') ? request.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [] }) }) : request.continue());
+    page.on('request', request => new URL(request.url()).pathname === '/api/search' ? request.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [] }) }) : request.continue());
     await page.goto(base + '/search?q=style-review-empty', { waitUntil: 'networkidle0' });
     await page.waitForSelector('.empty');
     await inspect(page, 'empty-simulated', width);

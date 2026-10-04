@@ -11,6 +11,7 @@ for(const [engine,type] of [['chromium',chromium],['firefox',firefox],['webkit',
  try{for(const prefix of ['', '/testnet'])for(const width of [320,768,844,1440]){
   const context=await browser.newContext({viewport:{width,height:width===844?390:900},hasTouch:width<=844,acceptDownloads:true,timezoneId:width===320?'Europe/Paris':'UTC'});
   await context.routeWebSocket(/\/api\/live$/,ws=>ws.close());
+  await context.route('**/api/live/snapshot',route=>route.fulfill({status:503,json:{error:'Live data disabled for deterministic fixtures'}}));
   const page=await context.newPage(),errors=[],requests=[],leaks=[];
   page.on('pageerror',e=>errors.push(e.message));
   page.on('request',r=>{const u=new URL(r.url());if(prefix && u.origin===new URL(base).origin && u.pathname.startsWith('/api/'))leaks.push(u.pathname);});

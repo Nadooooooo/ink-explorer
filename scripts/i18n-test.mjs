@@ -1,3 +1,4 @@
+import { walletCopy } from "../src/wallet-copy.ts";
 import puppeteer from "puppeteer-core";
 
 const base = process.env.BASE_URL || "http://127.0.0.1:4188";
@@ -27,6 +28,10 @@ for (const locale of locales) {
   if (state.choices !== locales.length) failures.push(`${locale}: language picker contains ${state.choices} choices`);
   if (state.dir !== (locale === "ar" ? "rtl" : "ltr")) failures.push(`${locale}: incorrect text direction ${state.dir}`);
   if (state.overflow) failures.push(`${locale}: horizontal overflow at 320px`);
+  await page.goto(`${base}/stats/newBlocks?lang=${locale}`, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".explorer-chart h2");
+  const chartTitle = await page.$eval(".explorer-chart h2", node => node.textContent.trim());
+  if (chartTitle !== walletCopy[locale]["New blocks"]) failures.push(`${locale}: New blocks title is not translated: ${chartTitle}`);
   // A real picker change, unlike a shareable URL override, is persisted.
   await page.select(".language-picker select", locale);
   if (await page.evaluate(() => localStorage.getItem("ink-observer-language")) !== locale) failures.push(`${locale}: picker choice was not persisted`);

@@ -10,6 +10,7 @@ try {
   for (const prefix of ['', '/testnet']) for (const width of [320,390,1440]) {
     const context=await browser.newContext({viewport:{width,height:900}});
     await context.routeWebSocket(/\/api\/live$/,ws=>ws.close());
+    await context.route('**/api/live/snapshot',route=>route.fulfill({status:503,json:{error:'Live data disabled for deterministic fixtures'}}));
     const page=await context.newPage(), errors=[];
     page.on('pageerror',e=>errors.push(e.message));
     await page.clock.install();
