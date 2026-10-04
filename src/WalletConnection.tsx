@@ -28,6 +28,9 @@ export default function WalletConnection({ connection, locale }: { connection: C
     let provider: Provider | undefined;
     let remember = () => {};
     let timeout: ReturnType<typeof setTimeout> | undefined;
+    const initialization = new AbortController();
+    let abandon = () => initialization.abort();
+    cancelPairing.current = abandon;
     try {
       if (kind === "browser") {
         provider = (window as unknown as { ethereum?: Provider }).ethereum;
@@ -41,12 +44,13 @@ export default function WalletConnection({ connection, locale }: { connection: C
         }
         if (request !== attempt.current) return;
         if (!/^[\da-f]{32}$/i.test(projectId)) throw new Error("walletConnectUnconfigured");
-        const { walletConnectProvider, cancelWalletConnectProvider, rememberWalletConnectProvider } = await import("./WalletConnectProvider");
-        const wc = await walletConnectProvider(projectId);
+        const { walletConnectProvider, connectWalletConnectProvider, cancelWalletConnectProvider, rememberWalletConnectProvider } = await import("./WalletConnectProvider");
+        const wc = await walletConnectProvider(projectId, initialization.signal);
         if (request !== attempt.current) { cancelWalletConnectProvider(wc); return; }
         provider = wc;
         let topic = "";
         const expire = () => {
+          initialization.abort();
           if (topic) expireWalletPairing(wc.signer.client, topic);
           cancelWalletConnectProvider(wc);
         };
@@ -57,18 +61,19 @@ export default function WalletConnection({ connection, locale }: { connection: C
         };
         wc.on("display_uri", display);
         cleanup = () => wc.removeListener("display_uri", display);
-        cancelPairing.current = expire;
+        abandon = expire; cancelPairing.current = expire;
         remember = () => rememberWalletConnectProvider(wc);
         timeout = setTimeout(() => {
           if (request !== attempt.current) return;
           cancel(); connection.setError("walletConnectExpired");
         }, 180000);
-        if (!wc.session) await wc.connect();
+        if (!wc.session) await connectWalletConnectProvider(wc, initialization.signal);
         if (request !== attempt.current) { if (wc.session) await wc.disconnect(); cancelWalletConnectProvider(wc); return; }
       }
       if (request === attempt.current) await connection.connect(provider!, kind, () => request === attempt.current);
       if (request === attempt.current) remember();
     } catch (error: any) {
+      if (kind === "walletconnect") abandon();
       if (request === attempt.current) connection.setError(error.code === 4001 || error.code === "ACTION_REJECTED" ? "walletRejected" : error.message || "requestFailed");
     } finally {
       cleanup(); if (timeout) clearTimeout(timeout);

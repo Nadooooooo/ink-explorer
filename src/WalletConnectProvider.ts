@@ -1,5 +1,7 @@
 import { EthereumProvider } from "@walletconnect/ethereum-provider";
+import { Core } from "@walletconnect/core";
 import { network } from "./network";
+import { guardWalletRelay } from "./wallet-relay";
 
 type WalletConnect = Awaited<ReturnType<typeof EthereumProvider.init>>;
 let provider: WalletConnect | undefined;
@@ -19,7 +21,7 @@ export function rememberWalletConnectProvider(value: WalletConnect) {
   provider = value;
   try { localStorage.setItem(context.key, context.prefix); } catch { /* Private browsing can disable storage. */ }
 }
-export async function walletConnectProvider(projectId: string) {
+export async function walletConnectProvider(projectId: string, signal?: AbortSignal) {
   if (!/^[\da-f]{32}$/i.test(projectId)) throw new Error("walletConnectUnconfigured");
   const key = `ink-walletconnect:${network.chainId}:${projectId}`;
   if (compatible(provider) && contexts.get(provider!)?.key === key && !contexts.get(provider!)?.cancelled) return provider!;
@@ -28,16 +30,19 @@ export async function walletConnectProvider(projectId: string) {
   try { stored = localStorage.getItem(key) || ""; } catch { /* Session remains usable without persistence. */ }
   const saved = /^ink-explorer:[\da-f-]{36}$/.test(stored) ? stored : "";
   let prefix = saved || `ink-explorer:${crypto.randomUUID()}`;
-  const initialize = (storagePrefix: string) => EthereumProvider.init({
-    projectId, optionalChains: [network.chainId], methods: [], events: [],
-    optionalMethods: ["eth_sendTransaction", "wallet_switchEthereumChain", "wallet_addEthereumChain"],
-    optionalEvents: ["accountsChanged", "chainChanged"],
-    rpcMap: { [network.chainId]: network.rpc }, showQrModal: false,
-    metadata: { name: "Ink Explorer", description: "Ink chain explorer", url: location.origin, icons: [new URL("/brand/ink-symbol.png", location.origin).href] },
-    // No SDK analytics and no signing, message signing or batch permissions.
-    telemetryEnabled: false,
-    customStoragePrefix: storagePrefix,
-  });
+  const initialize = async (storagePrefix: string) => {
+    const core = new Core({ projectId, customStoragePrefix: storagePrefix, telemetryEnabled: false });
+    return guardWalletRelay(core.relayer, () => EthereumProvider.init({
+      core, projectId, optionalChains: [network.chainId], methods: [], events: [],
+      optionalMethods: ["eth_sendTransaction", "wallet_switchEthereumChain", "wallet_addEthereumChain"],
+      optionalEvents: ["accountsChanged", "chainChanged"],
+      rpcMap: { [network.chainId]: network.rpc }, showQrModal: false,
+      metadata: { name: "Ink Explorer", description: "Ink chain explorer", url: location.origin, icons: [new URL("/brand/ink-symbol.png", location.origin).href] },
+      // No SDK analytics and no signing, message signing or batch permissions.
+      telemetryEnabled: false,
+      customStoragePrefix: storagePrefix,
+    }), signal);
+  };
   let value = await initialize(prefix);
   if (saved && !compatible(value)) {
     if (!value.session) value.signer.client.core.relayer.transportClose().catch(() => {});
@@ -48,4 +53,11 @@ export async function walletConnectProvider(projectId: string) {
   contexts.set(value, { key, prefix, cancelled: false });
   if (request === generation) provider = value;
   return value;
+}
+
+export function connectWalletConnectProvider(value: WalletConnect, signal: AbortSignal) {
+  return guardWalletRelay(value.signer.client.core.relayer, async () => {
+    await value.connect();
+    if (signal.aborted && value.session) await value.disconnect();
+  }, signal, value);
 }

@@ -25,6 +25,7 @@ jobs:
       - run: npm run test:node-readiness
       - run: npm run test:upstream-cache
       - run: npm run test:explorer-services
+      - run: npm run test:public-proxy
       - name: Test server security boundary
         run: |
           npm start &

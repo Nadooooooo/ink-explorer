@@ -60,11 +60,12 @@
     "test:explorer-pages": "node scripts/explorer-pages-test.mjs",
     "tags:review": "node scripts/moderate-tags.mjs",
     "test:approvals": "node --experimental-strip-types scripts/approvals-test.mjs",
-    "test:public-proxy": "node --experimental-strip-types --test scripts/public-proxy-test.mjs"
+    "test:public-proxy": "node --experimental-strip-types --test scripts/public-proxy-test.mjs scripts/wallet-relay-test.mjs"
   },
   "dependencies": {
     "@fontsource-variable/plus-jakarta-sans": "5.3.0",
     "@fontsource/dm-mono": "5.3.0",
+    "@walletconnect/core": "2.21.8",
     "@walletconnect/ethereum-provider": "2.21.8",
     "blo": "2.0.0",
     "ethers": "6.17.0",
