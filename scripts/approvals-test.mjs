@@ -152,9 +152,14 @@ try {
     check(`${engine.name()} ${testChain}: confirmation hash remains visible after filtering the revoked row`, await page.locator(".approval-submissions a").count() === 1);
     check(`${engine.name()} ${testChain}: remaining NFTs stay authorized`, await erc721.isApprovedForAll(owner, spender) && await erc1155.isApprovedForAll(owner, spender));
     check(`${engine.name()} ${testChain}: no overflow or runtime errors`, await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1) && runtime.length === 0);
-    // WalletConnect configuration failure is explicit, never an indefinite spinner.
+    // Native connections remain usable without a configured external relay.
     await page.locator(".contract-wallet button").last().click();
-    await page.locator(".contract-wallet button").filter({ hasText: "WalletConnect" }).click();
+    const config = await (await fetch(`${base}${prefix}/api/wallet/config`)).json();
+    const qr = page.locator(".contract-wallet button").filter({ hasText: "WalletConnect" });
+    if (!/^[\da-f]{32}$/i.test(config.projectId || "")) {
+      check(`${engine.name()} ${testChain}: unconfigured external connection is not offered`, await qr.count() === 0);
+    } else {
+    await qr.click();
     const walletResult = await Promise.race([
       page.locator(".wallet-qr-dialog[open] svg").waitFor({timeout:20000}).then(() => "qr"),
       page.locator(".wallet-connection [role=alert]").waitFor({timeout:20000}).then(() => "error"),
@@ -165,7 +170,8 @@ try {
       await page.keyboard.press("Escape");
       await page.waitForFunction(() => !document.querySelector(".wallet-qr-dialog[open]"));
     }
-    check(`${engine.name()} ${testChain}: WalletConnect cancellation or configuration error remains retryable`, await page.locator(".contract-wallet button:disabled").count() === 0);
+    }
+    check(`${engine.name()} ${testChain}: native wallet or optional QR remains retryable`, await page.locator(".contract-wallet button:disabled").count() === 0);
     await browser.close(); browser = undefined;
   }
 } finally {

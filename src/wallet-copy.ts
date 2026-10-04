@@ -1,5 +1,9 @@
 export const walletCopy: Record<string, Record<string, string>> = {
   "en": {
+    "chooseWallet": "Choose a wallet",
+    "browserWallet": "Browser wallet",
+    "noInstalledWallet": "No installed wallet was detected.",
+    "walletBrowserHelp": "On your phone, open this page inside your wallet’s browser. On a computer, install a wallet extension, then retry.",
     "approvalAmount": "Amount",
     "New blocks": "New blocks",
     "walletConnectQr": "WalletConnect · QR code",
@@ -35,6 +39,10 @@ export const walletCopy: Record<string, Record<string, string>> = {
     "cancel": "Cancel"
   },
   "fr": {
+    "chooseWallet": "Choisir un portefeuille",
+    "browserWallet": "Portefeuille du navigateur",
+    "noInstalledWallet": "Aucun portefeuille installé n’a été détecté.",
+    "walletBrowserHelp": "Sur téléphone, ouvrez cette page dans le navigateur de votre portefeuille. Sur ordinateur, installez une extension de portefeuille, puis réessayez.",
     "approvalAmount": "Quantité",
     "New blocks": "Nouveaux blocs",
     "walletConnectQr": "WalletConnect · QR code",
@@ -70,6 +78,10 @@ export const walletCopy: Record<string, Record<string, string>> = {
     "cancel": "Annuler"
   },
   "es": {
+    "chooseWallet": "Elegir una cartera",
+    "browserWallet": "Cartera del navegador",
+    "noInstalledWallet": "No se detectó ninguna cartera instalada.",
+    "walletBrowserHelp": "En tu teléfono, abre esta página en el navegador de tu cartera. En un ordenador, instala una extensión de cartera y vuelve a intentarlo.",
     "approvalAmount": "Cantidad",
     "New blocks": "Nuevos bloques",
     "walletConnectQr": "WalletConnect · código QR",
@@ -105,6 +117,10 @@ export const walletCopy: Record<string, Record<string, string>> = {
     "cancel": "Cancelar"
   },
   "pt": {
+    "chooseWallet": "Escolher uma carteira",
+    "browserWallet": "Carteira do navegador",
+    "noInstalledWallet": "Nenhuma carteira instalada foi detectada.",
+    "walletBrowserHelp": "No celular, abra esta página no navegador da sua carteira. No computador, instale uma extensão de carteira e tente novamente.",
     "approvalAmount": "Quantidade",
     "New blocks": "Novos blocos",
     "walletConnectQr": "WalletConnect · código QR",
@@ -140,6 +156,10 @@ export const walletCopy: Record<string, Record<string, string>> = {
     "cancel": "Cancelar"
   },
   "zh": {
+    "chooseWallet": "选择钱包",
+    "browserWallet": "浏览器钱包",
+    "noInstalledWallet": "未检测到已安装的钱包。",
+    "walletBrowserHelp": "在手机上，请使用钱包内置浏览器打开此页面。在电脑上，请安装钱包扩展后重试。",
     "approvalAmount": "数量",
     "New blocks": "新区块",
     "walletConnectQr": "WalletConnect · 二维码",
@@ -175,6 +195,10 @@ export const walletCopy: Record<string, Record<string, string>> = {
     "cancel": "取消"
   },
   "hi": {
+    "chooseWallet": "वॉलेट चुनें",
+    "browserWallet": "ब्राउज़र वॉलेट",
+    "noInstalledWallet": "कोई इंस्टॉल किया गया वॉलेट नहीं मिला।",
+    "walletBrowserHelp": "फ़ोन पर यह पेज अपने वॉलेट के ब्राउज़र में खोलें। कंप्यूटर पर वॉलेट एक्सटेंशन इंस्टॉल करें और फिर से प्रयास करें।",
     "approvalAmount": "राशि",
     "New blocks": "नए ब्लॉक",
     "walletConnectQr": "WalletConnect · QR कोड",
@@ -210,6 +234,10 @@ export const walletCopy: Record<string, Record<string, string>> = {
     "cancel": "रद्द करें"
   },
   "ar": {
+    "chooseWallet": "اختيار محفظة",
+    "browserWallet": "محفظة المتصفح",
+    "noInstalledWallet": "لم يتم العثور على محفظة مثبتة.",
+    "walletBrowserHelp": "على الهاتف، افتح هذه الصفحة داخل متصفح محفظتك. على الكمبيوتر، ثبّت إضافة محفظة ثم حاول مجدداً.",
     "approvalAmount": "الكمية",
     "New blocks": "الكتل الجديدة",
     "walletConnectQr": "WalletConnect · رمز QR",
@@ -245,6 +273,10 @@ export const walletCopy: Record<string, Record<string, string>> = {
     "cancel": "إلغاء"
   },
   "bn": {
+    "chooseWallet": "ওয়ালেট বেছে নিন",
+    "browserWallet": "ব্রাউজারের ওয়ালেট",
+    "noInstalledWallet": "কোনো ইনস্টল করা ওয়ালেট পাওয়া যায়নি।",
+    "walletBrowserHelp": "ফোনে এই পৃষ্ঠা আপনার ওয়ালেটের ব্রাউজারে খুলুন। কম্পিউটারে ওয়ালেট এক্সটেনশন ইনস্টল করে আবার চেষ্টা করুন।",
     "approvalAmount": "পরিমাণ",
     "New blocks": "নতুন ব্লক",
     "walletConnectQr": "WalletConnect · QR কোড",
@@ -280,6 +312,10 @@ export const walletCopy: Record<string, Record<string, string>> = {
     "cancel": "বাতিল"
   },
   "ru": {
+    "chooseWallet": "Выберите кошелёк",
+    "browserWallet": "Кошелёк браузера",
+    "noInstalledWallet": "Установленные кошельки не обнаружены.",
+    "walletBrowserHelp": "На телефоне откройте эту страницу в браузере своего кошелька. На компьютере установите расширение кошелька и повторите попытку.",
     "approvalAmount": "Количество",
     "New blocks": "Новые блоки",
     "walletConnectQr": "WalletConnect · QR-код",
@@ -315,6 +351,10 @@ export const walletCopy: Record<string, Record<string, string>> = {
     "cancel": "Отмена"
   },
   "ja": {
+    "chooseWallet": "ウォレットを選択",
+    "browserWallet": "ブラウザのウォレット",
+    "noInstalledWallet": "インストール済みウォレットが見つかりません。",
+    "walletBrowserHelp": "スマートフォンではウォレット内のブラウザでこのページを開いてください。パソコンではウォレット拡張機能をインストールして再試行してください。",
     "approvalAmount": "数量",
     "New blocks": "新しいブロック",
     "walletConnectQr": "WalletConnect · QRコード",

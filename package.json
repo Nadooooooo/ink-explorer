@@ -60,7 +60,9 @@
     "test:explorer-pages": "node scripts/explorer-pages-test.mjs",
     "tags:review": "node scripts/moderate-tags.mjs",
     "test:approvals": "node --experimental-strip-types scripts/approvals-test.mjs",
-    "test:public-proxy": "node --experimental-strip-types --test scripts/public-proxy-test.mjs scripts/wallet-relay-test.mjs"
+    "test:public-proxy": "node --experimental-strip-types --test scripts/public-proxy-test.mjs scripts/wallet-relay-test.mjs",
+    "test:wallet-discovery": "node --experimental-strip-types --test scripts/wallet-discovery-test.mjs",
+    "test:wallet-discovery-browser": "node scripts/wallet-discovery-browser-test.mjs"
   },
   "dependencies": {
     "@fontsource-variable/plus-jakarta-sans": "5.3.0",

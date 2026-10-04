@@ -5,22 +5,40 @@ import { API, network } from "./network";
 import { requestJson } from "./api-request";
 import { type Provider, type useWallet } from "./wallet";
 import { expireWalletPairing, pairingTopic } from "./wallet-pairing";
+import { discoverInjectedWallets, injectedWalletName, subscribeInjectedWallets, type InjectedWallet } from "./wallet-discovery";
 
 type Connection = ReturnType<typeof useWallet>;
 export default function WalletConnection({ connection, locale }: { connection: Connection; locale: Locale }) {
   const t = (key: string) => message(locale, key);
   const [busy, setBusy] = useState(false);
   const [uri, setUri] = useState("");
+  const [choices, setChoices] = useState<InjectedWallet[]>();
+  const [qrEnabled, setQrEnabled] = useState(/^[\da-f]{32}$/i.test(import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || ""));
   const dialog = useRef<HTMLDialogElement>(null);
+  const walletDialog = useRef<HTMLDialogElement>(null);
   const cancelPairing = useRef<() => void>(() => {});
   const attempt = useRef(0);
   useEffect(() => () => { attempt.current++; cancelPairing.current(); }, []);
   useEffect(() => {
+    if (/^[\da-f]{32}$/i.test(import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "")) return;
+    const controller = new AbortController();
+    requestJson<{ projectId: string; chainId: number }>(`${API}/wallet/config`, { signal: controller.signal }, 10000)
+      .then(config => { if (!controller.signal.aborted) setQrEnabled(config.chainId === network.chainId && /^[\da-f]{32}$/i.test(config.projectId)); })
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
+  useEffect(() => {
     if (uri) dialog.current?.showModal();
     else dialog.current?.close();
   }, [uri]);
-  const cancel = () => { attempt.current++; cancelPairing.current(); setUri(""); setBusy(false); };
-  const connect = async (kind: "browser" | "walletconnect") => {
+  useEffect(() => {
+    if (choices) walletDialog.current?.showModal();
+    else walletDialog.current?.close();
+  }, [choices]);
+  const choosing = choices !== undefined;
+  useEffect(() => choosing ? subscribeInjectedWallets(setChoices) : undefined, [choosing]);
+  const cancel = () => { attempt.current++; cancelPairing.current(); setUri(""); setChoices(undefined); setBusy(false); };
+  const connect = async (kind: "browser" | "walletconnect", chosen?: Provider) => {
     if (busy) return;
     const request = ++attempt.current;
     setBusy(true); connection.setError("");
@@ -33,8 +51,13 @@ export default function WalletConnection({ connection, locale }: { connection: C
     cancelPairing.current = abandon;
     try {
       if (kind === "browser") {
-        provider = (window as unknown as { ethereum?: Provider }).ethereum;
-        if (!provider) throw new Error("walletRequired");
+        if (!chosen) {
+          const wallets = await discoverInjectedWallets();
+          if (request !== attempt.current) return;
+          if (wallets.length !== 1) { setChoices(wallets); return; }
+          chosen = wallets[0].provider;
+        }
+        provider = chosen;
       } else {
         let projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "";
         if (!projectId) {
@@ -82,12 +105,19 @@ export default function WalletConnection({ connection, locale }: { connection: C
   };
   return <div className="wallet-connection">
     <div className="contract-wallet">
-      {connection.wallet ? <><bdi>{connection.wallet.account}</bdi><button type="button" onClick={() => connection.disconnect().catch(() => connection.setError("requestFailed"))}>{t("disconnect")}</button></>
+      {connection.wallet ? <><span>{connection.wallet.kind === "walletconnect" ? "WalletConnect" : injectedWalletName(connection.wallet.provider) || t("browserWallet")}</span><bdi>{connection.wallet.account}</bdi><button type="button" onClick={() => connection.disconnect().catch(() => connection.setError("requestFailed"))}>{t("disconnect")}</button></>
         : <><button type="button" className="primary-action" disabled={busy} onClick={() => connect("browser")}>{busy ? t("connecting") : formatMessage(locale, "connectWallet", { network: network.name })}</button>
-        <button type="button" disabled={busy} onClick={() => connect("walletconnect")}>{t("walletConnectQr")}</button>
+        {qrEnabled && <button type="button" disabled={busy} onClick={() => connect("walletconnect")}>{t("walletConnectQr")}</button>}
         {busy && <button type="button" onClick={cancel}>{t("cancel")}</button>}</>}
     </div>
     {connection.error && <p role="alert" className="contract-error">{t(connection.error)}</p>}
+    <dialog className="wallet-picker-dialog" ref={walletDialog} onCancel={event => { event.preventDefault(); cancel(); }} aria-labelledby="wallet-picker-title">
+      <h2 id="wallet-picker-title">{t("chooseWallet")}</h2>
+      <p>{network.name}</p>
+      {choices?.length ? <div className="wallet-picker-options">{choices.map(wallet => <button type="button" key={wallet.id} onClick={() => { setChoices(undefined); connect("browser", wallet.provider); }}>{wallet.name || t("browserWallet")}</button>)}</div>
+        : <><p>{t("noInstalledWallet")}</p><p>{t("walletBrowserHelp")}</p><button type="button" onClick={() => { setChoices(undefined); connect("browser"); }}>{t("retry")}</button></>}
+      <button type="button" onClick={cancel}>{t("cancel")}</button>
+    </dialog>
     <dialog className="wallet-qr-dialog" ref={dialog} onCancel={event => { event.preventDefault(); cancel(); }} aria-labelledby="wallet-qr-title">
       <h2 id="wallet-qr-title">{t("walletConnectQr")}</h2>
       <p>{t("walletScanQr")}</p>
