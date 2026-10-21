@@ -91,7 +91,7 @@
     "puppeteer-core": "25.10.0",
     "solc": "0.8.37",
     "typescript": "7.0.2",
-    "vite": "8.2.2"
+    "vite": "8.3.5"
   },
   "overrides": {
     "solc": {
