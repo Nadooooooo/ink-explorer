@@ -1,0 +1,21 @@
+[Unit]
+Description=Start the Ink Explorer public site, Tunnel and required local services
+Wants=network-online.target
+After=network-online.target
+RequiresMountsFor=/srv/ink-explorer
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+User=inkexplorer
+Group=inkexplorer
+WorkingDirectory=/srv/ink-explorer
+EnvironmentFile=-/etc/ink-explorer/hosting.env
+ExecStart=/usr/bin/env node scripts/public-services-bootstrap.mjs
+RemainAfterExit=yes
+Restart=on-failure
+RestartSec=30
+TimeoutStartSec=180
+
+[Install]
+WantedBy=multi-user.target

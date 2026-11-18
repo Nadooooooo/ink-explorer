@@ -19,7 +19,7 @@ wallet explorer configuration.
 | Official page family | Native destination | Information and interactions checked |
 | --- | --- | --- |
 | Home | `/` | Latest blocks/transactions, chain status, search, gas and totals. |
-| Blocks | `/blocks`, `/block/:id` | Hashes, parents, timestamps, finality evidence, gas, exact total fees and paged transactions. |
+| Blocks | `/blocks`, `/block/:id` | Hashes, parents, timestamps, finality evidence, gas, exact L2 execution fees and paged transactions. Live fees remain unknown until indexed; transaction details separate L1 data fees. |
 | Transactions | `/txs`, `/tx/:hash` | Inclusion versus success/pending/revert; addresses, exact ETH amounts, gas and L1/L2 fee separation. |
 | Internal transactions | `/internal-txs` | Internal calls, participants, values and pagination. |
 | Token transfers | `/token-transfers` | Token identity, participants, indexed movements and cursors. |

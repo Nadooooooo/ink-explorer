@@ -1,0 +1,8 @@
+/* The first document and React use the same responsive search layout. */
+.mobile-search-trigger { display:none; }
+.mobile-search-trigger[aria-expanded="false"] .search-close-icon,
+.mobile-search-trigger[aria-expanded="true"] .search-open-icon { display:none; }
+@media (max-width:760px) {
+  .mobile-search-trigger { display:inline-flex; }
+  .header-search-field[data-collapsible="true"][data-open="false"] { display:none; }
+}

@@ -98,6 +98,13 @@ try {
     browser = await engine.launch({ headless: true, ...(engine === chromium ? { executablePath: "/usr/bin/google-chrome", args: ["--no-sandbox"] } : {}) });
     const page = await browser.newPage({ viewport: { width, height: 850 } });
     const runtime = [], sent = [];
+    let holdEstimate = false, releaseEstimate;
+    // These synthetic lifecycle signals isolate races; the dedicated lifecycle
+    // suite proves actual browser cache entry and restoration.
+    const restoreSignal = () => page.evaluate(() => {
+      dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true }));
+      dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true }));
+    });
     page.on("pageerror", error => runtime.push(error.message));
     await page.exposeFunction("approvalTestRequest", async request => {
       if (request.method === "eth_requestAccounts" || request.method === "eth_accounts") return [owner];
@@ -122,7 +129,14 @@ try {
     await page.route("**/api/contract-rpc", async route => {
       const { method, params } = route.request().postDataJSON();
       assert(["eth_call", "eth_estimateGas", "eth_getTransactionReceipt"].includes(method));
-      try { const result = await rpc.send(method, params); await route.fulfill({ json: { result, chainId: testChain, source: "local" } }); }
+      try {
+        const result = await rpc.send(method, params);
+        if (method === "eth_estimateGas" && holdEstimate) {
+          holdEstimate = false;
+          await new Promise(resolve => { releaseEstimate = resolve; });
+        }
+        await route.fulfill({ json: { result, chainId: testChain, source: "local" } });
+      }
       catch (error) { await route.fulfill({ status: 502, json: { error: error.message } }); }
     });
     await page.goto(`${base}${prefix}/approvals/${owner}?lang=${locale}`, { waitUntil: "domcontentloaded" });
@@ -136,6 +150,25 @@ try {
     await card.locator(".approval-action > button").click();
     await card.locator(".transaction-review").waitFor();
     check(`${engine.name()} ${testChain}: simulation does not broadcast`, sent.length === 0);
+    await page.evaluate(() => dispatchEvent(new PageTransitionEvent("pageshow", { persisted: false })));
+    check(`${engine.name()} ${testChain}: ordinary pageshow preserves revoke preparation`, await card.locator(".transaction-review").count() === 1);
+    await restoreSignal();
+    await card.locator(".transaction-review").waitFor({ state: "detached" });
+    check(`${engine.name()} ${testChain}: cached restoration invalidates revoke preparation and keeps wallet connected`,
+      await page.locator(".approval-action > button:not(:disabled)").count() === 4 && sent.length === 0);
+    holdEstimate = true;
+    await card.locator(".approval-action > button").click();
+    for (let attempt = 0; !releaseEstimate && attempt < 100; attempt++) await wait(20);
+    assert(releaseEstimate, "Delayed revoke gas estimate reached the isolated EVM");
+    await restoreSignal();
+    const lateEstimate = page.waitForResponse(response => response.url().endsWith("/api/contract-rpc") && response.request().postDataJSON()?.method === "eth_estimateGas");
+    releaseEstimate();
+    await (await lateEstimate).finished();
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    check(`${engine.name()} ${testChain}: pre-restoration RPC completion cannot revive revoke preparation`, await card.locator(".transaction-review").count() === 0 && sent.length === 0);
+    await card.locator(".approval-action > button").click();
+    await card.locator(".transaction-review").waitFor();
+    check(`${engine.name()} ${testChain}: fresh revoke simulation remains available after restoration`, sent.length === 0);
     await page.evaluate(() => window.approvalTestEvent("accountsChanged", ["0x1111111111111111111111111111111111111111"]));
     await page.waitForFunction(() => !document.querySelector(".transaction-review"));
     check(`${engine.name()} ${testChain}: changing wallet invalidates a prepared revoke`, sent.length === 0);
@@ -150,6 +183,11 @@ try {
     await page.waitForFunction(() => document.querySelectorAll(".approval-card").length === 3, undefined, { timeout: 20000 });
     check(`${engine.name()} ${testChain}: confirmed revoke refreshes actual state`, await erc20.allowance(owner, spender) === 0n && sent.length === 1);
     check(`${engine.name()} ${testChain}: confirmation hash remains visible after filtering the revoked row`, await page.locator(".approval-submissions a").count() === 1);
+    const submissionLink = await page.locator(".approval-submissions a").getAttribute("href");
+    const submissionText = await page.locator(".approval-submissions").textContent();
+    await restoreSignal();
+    check(`${engine.name()} ${testChain}: cached restoration preserves revoke hash and receipt status`,
+      await page.locator(".approval-submissions a").getAttribute("href") === submissionLink && await page.locator(".approval-submissions").textContent() === submissionText && sent.length === 1);
     check(`${engine.name()} ${testChain}: remaining NFTs stay authorized`, await erc721.isApprovedForAll(owner, spender) && await erc1155.isApprovedForAll(owner, spender));
     check(`${engine.name()} ${testChain}: no overflow or runtime errors`, await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1) && runtime.length === 0);
     // Native connections remain usable without a configured external relay.

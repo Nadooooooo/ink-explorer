@@ -23,6 +23,34 @@ curl http://127.0.0.1:4188/testnet/api/network
 
 The local node being unavailable does not make historical Blockscout pages unavailable. Network fields can be null or mark themselves unavailable. Do not infer node health from `GET /api/health` alone.
 
+## Data freshness and fee semantics
+
+Indexed responses expose `X-Ink-Data-Status: fresh|stale` and
+`X-Ink-Data-Fetched-At` (UTC ISO timestamp) without changing their JSON shape.
+`stale` means an upstream outage required a saved response; its original fetch
+time is preserved through memory caches and both API proxies. Composed responses
+report the oldest contributing snapshot and are stale if any source fell back.
+`fresh` describes the fetch, not the upstream index's own synchronization state.
+Local-node-only endpoints do not inherit index freshness headers.
+
+The interface warns about fallback snapshots with their date and a retry action.
+Node status is separate and must not imply that every index is available. Cache
+entries with invalid or future timestamps are rejected. The 24-hour stale limit
+still applies; advanced filters do not use stale fallback responses.
+
+Indexed block `transaction_fees` represent L2 execution fees, excluding L1 data
+fees. The block UI labels this explicitly; transaction pages carry the individual
+L1 amounts. Live node block frames have `_live: true` and `transaction_fees: null`
+until indexed receipts provide the actual fee. Base fee multiplied by gas used
+is not a replacement for actual charged fees. Index refreshes enrich matching
+live rows and replace superseded hashes at the same height.
+
+ETH and token integer formatting never converts nonzero base units into an
+apparent zero. Compact rows show a localized lower bound for amounts below their
+display precision; exact values remain available in detail views, title text
+and raw exports. Missing token decimals stay explicitly in base units and do not
+produce fabricated fiat balances.
+
 ## Indexed reads
 
 `GET /api/explorer/*` forwards only these Blockscout v2 shapes:
@@ -59,7 +87,9 @@ A successful response contains the JSON-RPC result plus `source` (`local` or `pu
 
 ## Media
 
-`GET /api/media?url=...` fetches HTTPS token and NFT images into the local cache. It rejects private IP ranges, validates each redirect, pins the checked DNS address for the connection, accepts a small image type list and stops at 8 MB. Cache hits return `X-Media-Cache: HIT`; a new fetch returns `MISS`. Treat remote artwork and metadata as untrusted.
+`GET /api/media?url=...` caches supported token and NFT media. Fetches use public HTTPS destinations and validate each redirect, pinning the checked DNS address for the connection. The handler also accepts `ipfs://` input and resolves it through its public IPFS gateways. Downloads are limited to 16 MiB for images and 64 MiB for MP4 or WebM video. Generated thumbnails are limited to 2 MiB. Install FFmpeg with `libwebp` support on servers that generate previews.
+
+Use `kind=original` for original bytes, `kind=info` for media metadata, and `kind=thumbnail` for a preview. Byte responses expose `X-Media-Cache` with `HIT` or `MISS`. Treat remote artwork and metadata as untrusted.
 
 ## Live stream
 

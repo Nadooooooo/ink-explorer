@@ -1,0 +1,9 @@
+/* Keep the help icon in the label flow; the decorative desktop icon has its
+   own position. The same geometry applies in RTL and at enlarged text sizes. */
+.home-overview [data-counter="newTxns24h"] .metric-top { display:block; min-width:0; }
+.home-overview [data-counter="newTxns24h"] .info-disclosure { position:static; display:block; width:100%; min-width:0; }
+.home-overview [data-counter="newTxns24h"] .info-button { width:100%; min-width:0; min-height:44px; height:auto; padding:0; gap:8px; font:inherit; line-height:1.4; text-align:start; }
+.home-overview [data-counter="newTxns24h"] .info-visible-label { min-width:0; white-space:normal; overflow-wrap:normal; }
+.home-overview [data-counter="newTxns24h"] .metric-top .info-symbol { position:static; inset:auto; display:block; width:16px; height:16px; flex:0 0 16px; transform:none; filter:none; }
+.home-overview [data-counter="newTxns24h"] > strong { margin-top:0; }
+@media(max-width:760px) { .home-overview [data-counter="newTxns24h"] .metric-top > svg { display:none; } }

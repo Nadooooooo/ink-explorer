@@ -1,3 +1,4 @@
+import { navigateBlocks } from './navigation-actions.mjs';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 
@@ -24,11 +25,11 @@ try {
       else if(path===`tokens/${address}`)data={address_hash:address,name:'Fixture collection',symbol:'NFT',type:'ERC-721',decimals:0};
       else if(path===`tokens/${address}/instances/1`)data={id:'1',metadata:{name:'Fixture NFT'},owner:{hash:address}};
       else if(path===`tokens/${address}/instances/1/transfers`)data={items:[{transaction_hash:url.search?hash2:hash,from:{hash:address},to:{hash:address},token:{symbol:'NFT',decimals:0},total:{value:'1'}}],next_page_params:url.search?null:{index:0}};
-      else if(path==='blocks/100/transactions'){
+      else if(path==='blocks/100/transactions'||path===`blocks/${hash}/transactions`){
         if(url.search && pageFailure){await route.fulfill({status:502,json:{error:'Fixture page unavailable'}});return;}
         data={items:[{...tx,hash:url.search?hash2:hash}],next_page_params:url.search?null:{index:0,block_number:100}};
       }
-      else if(path==='tokens')data={items:[{address_hash:address,name:url.search?'Beta token':'Alpha token',type:'ERC-20',symbol:'TEST'}],next_page_params:url.search?null:{index:0}};
+      else if(path==='tokens')data={items:[{address_hash:address,name:url.searchParams.has('index')?'Beta token':'Alpha token',type:'ERC-20',symbol:'TEST'}],next_page_params:url.searchParams.has('index')?null:{index:0}};
       else if(path==='smart-contracts')data={items:[{address:{hash:address},name:url.search?'Beta contract':'Alpha contract'}],next_page_params:url.search?null:{index:0}};
       else if(path===`addresses/${address}`)data={hash:address,is_contract:true,is_verified:false};
       else if(path===`addresses/${address}/transactions`){
@@ -36,7 +37,7 @@ try {
         data={items:[{...tx,hash:url.search?hash2:hash}],next_page_params:url.search?null:{index:0}};
       }
       else if(path===`smart-contracts/${address}`){
-        if(sourceFailure){await route.fulfill({status:503,json:{error:'Source index unavailable'}});return;}
+        if(sourceFailure){await route.fulfill({status:503,headers:{'retry-after':'1'},json:{error:'Source index unavailable'}});return;}
         if(!sourceAvailable){await route.fulfill({status:404,json:{error:'Contract not verified'}});return;}
         await new Promise(r=>setTimeout(r,800));
         data={source_code:'pragma solidity ^0.8.0; contract Fixture {}',file_path:'Fixture.sol',additional_sources:[{file_path:'Helper.sol',source_code:'library Helper {}'}]};
@@ -48,19 +49,28 @@ try {
         data={items:[{transaction_hash:hash,index:url.search?1:0,address:{hash:address},topics:[url.search?hash2:hash],data:url.search?'0x5678':'0x1234',decoded:{method_call:'Event(uint256 value)',parameters:[{name:'value',type:'uint256',value:url.search?'43':'42'}]}}],next_page_params:url.search?null:{index:0}};
       }
       else if(path===`transactions/${hash}/state-changes`){
-        if(stateFailure){await route.fulfill({status:429,json:{error:'State index rate limited'}});return;}
+        if(stateFailure){await route.fulfill({status:429,headers:{'retry-after':'1'},json:{error:'State index rate limited'}});return;}
         data={items:[{type:'coin',address:{hash:address},balance_before:'900719925474099312345678901234567890',balance_after:'900719925474099312345678901234567932',change:'42'}, {type:'token',address:{hash:address},token:{symbol:'NFT'},token_id:'9007199254740993',change:[{direction:'from',total:{token_id:'9007199254740993',value:'1'}}]}]};
       }
       else data={items:[]};
-      await route.fulfill({json:data});
+      await route.fulfill({headers:{date:new Date().toUTCString(),'x-ink-data-status':'fresh','x-ink-data-fetched-at':new Date().toISOString()},json:data});
     });
     const visit=async path=>{await page.goto(base+path);await page.locator('.detail-header').waitFor();};
     const tab=async name=>{
-      if(width<500)await page.locator('.section-picker select').selectOption(name);
-      else await page.locator('.tabs button').filter({hasText:({logs:'Logs',l2:'L2 fees',input:'Input data',read:'Read contract',transactions:'Transactions',state:'State changes',contract:'Contract source'})[name]}).click();
+      if(await page.locator('.section-picker select').isVisible())await page.locator('.section-picker select').selectOption(name);
+      else await page.locator('.tabs button,.tabs a').filter({hasText:({logs:'Logs',l2:'L2 fees',input:'Input data',read:'Read contract',transactions:'Transactions',transfers:'Transfers',metadata:'Metadata',state:'State changes',contract:'Contract source'})[name]}).click();
     };
     await visit('/block/100');
     assert.equal((await page.locator('.detail-header .status').textContent()).trim(),'Confirmed','No node evidence must not imply finality');
+    await page.getByRole('button', { name: 'L2 fees', exact: true }).click();
+    await page.getByText('Execution fees only. L1 data fees are shown on each transaction.', { exact: true }).waitFor();
+    await page.keyboard.press('Escape');
+    await tab('transactions');
+    assert.equal(new URL(page.url()).searchParams.get('tab'), 'transactions');
+    await page.locator('.detail-feed .tx-row').waitFor();
+    assert.equal(await page.locator('.tx-value strong').textContent(), '0 ETH');
+    assert.equal(await page.locator('.tx-value small').textContent(), 'Fee 0.000000024 ETH');
+    assert.equal(await page.locator('.tx-value small').getAttribute('title'), '0.000000024003533088 ETH');
     await page.locator('.detail-feed .pagination button').click();
     await page.getByRole('alert').waitFor();
     assert.match(await page.getByRole('alert').innerText(),/Fixture page unavailable/);
@@ -72,7 +82,7 @@ try {
     await visit('/tx/'+hash2);
     assert.equal((await page.locator('.detail-header .status').textContent()).trim(),'Pending');
     assert.doesNotMatch(await page.locator('main').innerText(),/Invalid Date|NaN|1970/);
-    assert.equal(await page.locator('main button').filter({hasText:'NaN'}).count(),0);
+    assert.equal(await page.locator('main button,main a.explorer-link').filter({hasText:'NaN'}).count(),0);
     await visit('/tx/'+hash);
     await tab('input');
     assert.match(await page.locator('.code-panel').innerText(),/9007199254740993/);
@@ -95,8 +105,8 @@ try {
     assert.equal(await page.locator('main > .pagination').count(),0);
     await tab('state');await page.getByRole('alert').filter({hasText:'State index rate limited'}).waitFor();
     assert.equal(await page.locator('.section-picker select').inputValue(),'state','Failure must keep the selected section');
-    stateFailure=false;await page.getByRole('button',{name:'Retry',exact:true}).click();
-    await page.locator('.state-row').first().waitFor();assert.match(await page.locator('.state-row').first().innerText(),/42/);
+    stateFailure=false;await page.waitForTimeout(1100);await page.getByRole('button',{name:'Retry',exact:true}).click();
+    await page.locator('.state-row').first().waitFor().catch(async error => { console.error(JSON.stringify({width,url:page.url(),errors,body:(await page.locator('main').innerText()).slice(0,6000)},null,2)); await page.screenshot({path:`reports/integrity-failure-${width}.png`}); throw error; });assert.match(await page.locator('.state-row').first().innerText(),/42/);
     assert.match(await page.locator('.state-row').first().innerText(),/900719925474099312345678901234567890/,'Before balance must remain visible on mobile');
     assert.match(await page.locator('.state-row').first().innerText(),/900719925474099312345678901234567932/,'After balance must remain visible');
     assert.match(await page.locator('.state-row').nth(1).innerText(),/9007199254740993/);
@@ -106,16 +116,16 @@ try {
     await visit('/tx/'+hash);await tab('logs');await page.locator('.event-log').waitFor();
     delayPage=true;await page.locator('main > .pagination button').click();
     if(width<500)await page.locator('.section-picker select').selectOption('overview');
-    else await page.locator('.tabs button').filter({hasText:'Overview'}).click();
+    else await page.locator('.tabs button,.tabs a').filter({hasText:'Overview'}).click();
     await page.waitForTimeout(900);
     assert.equal(await page.locator('.event-log').count(),0);
     for(const [path,selector,first,second] of [['/tokens','.token-row','Alpha token','Beta token'],['/contracts','.contract-card','Alpha contract','Beta contract']]){
       await page.goto(base+path);await page.locator(selector).waitFor();
       assert.match(await page.locator(selector).innerText(),new RegExp(first));
-      await page.getByRole('button',{name:'Older',exact:true}).click();
+      await page.getByRole('button',{name:'Next page',exact:true}).first().click();
       await page.locator(selector).filter({hasText:second}).waitFor();
-      assert.equal(await page.getByRole('button',{name:'Older',exact:true}).isDisabled(),true);
-      await page.getByRole('button',{name:'Newest',exact:true}).click();
+      assert.equal(await page.getByRole('button',{name:'Next page',exact:true}).first().isDisabled(),true);
+      await page.getByRole('button',{name:path==='/tokens'?'Previous page':'Newest',exact:true}).first().click();
       await page.locator(selector).filter({hasText:first}).waitFor();
     }
     await page.goto(base+'/address/'+address);await page.locator('.detail-header').waitFor();
@@ -134,20 +144,21 @@ try {
     assert.equal(await page.locator('.address-pagination button').isDisabled(),true);
     sourceAvailable=true;sourceFailure=true;await tab('contract');
     await page.getByRole('alert').filter({hasText:'Source index unavailable'}).waitFor();
-    sourceFailure=false;await page.getByRole('button',{name:'Retry',exact:true}).click();
+    sourceFailure=false;await page.waitForTimeout(1100);await page.getByRole('button',{name:'Retry',exact:true}).click();
     await page.locator('.source-file').first().waitFor();assert.equal(await page.locator('.source-file').count(),2);
     assert.match(await page.locator('.source-file').first().innerText(),/pragma solidity/);
     assert.equal(await page.locator('.section-picker select').inputValue(),'contract');
     await page.goto(base+`/token/${address}/instance/1`);
+    await page.locator('.section-picker select').waitFor({state:'attached'});
+    await tab('transfers');
     await page.locator('.nft-activity .generic-row').waitFor();
     await page.locator('.nft-activity .pagination button').click();
     await page.waitForFunction(()=>document.querySelectorAll('.nft-activity .generic-row').length===2);
     assert.equal(await page.locator('.nft-activity .pagination').count(),0);
     await page.goto(base+'/txs');await page.locator('.tx-row').waitFor();
-    await page.getByRole('button',{name:'Older',exact:true}).click();
+    await page.getByRole('button',{name:'Next page',exact:true}).first().click();
     await page.locator('.tx-row').filter({hasText:hash2.slice(0,7)}).waitFor();
-    if(width<500)await page.locator('.menu').click();
-    await page.locator('header nav button').filter({hasText:'Blocks'}).click();
+    await navigateBlocks(page);
     await page.locator('.block-row').waitFor();
     assert.match(await page.locator('.block-height').innerText(),/100/,'Ledger navigation must discard the previous cursor');
     await page.goto(base+'/tx/%E0%A4%A');

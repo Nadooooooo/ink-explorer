@@ -26,6 +26,8 @@ test('Balances are exact, canonical-hash reads with retained index provenance',a
     assert.equal(value.balance_check.status,amount===profile.coin_balance?'matched':'corrected');
     assert.equal(value.balance_check.indexed_balance,profile.coin_balance);
     assert.equal(value.balance_check.block_hash,hash);
+    assert.equal(value.balance_check.scope,'head');assert.equal(value.balance_check.block_number,32);
+    assert.equal(value.balance_check.indexed_block_number,10);assert.equal(value.block_number_balance_updated_at,32);
     assert.deepEqual(config.calls.find(c=>c.method==='eth_getBalance').params,[address,{blockHash:hash,requireCanonical:true}]);
   }
 });
@@ -38,12 +40,14 @@ test('Wrong, syncing, stale, missing or reorged node data cannot be marked verif
     {eth_getBalance:'garbage'}, {eth_getBalance:'-0x1'},
   ]) {
     const value=await verifyAddressBalance(profile,fixture(overrides));
-    assert.equal(value.coin_balance,profile.coin_balance);assert.deepEqual(value.balance_check,{status:'unavailable'});
+    assert.equal(value.coin_balance,null);assert.equal(value.block_number_balance_updated_at,null);assert.equal(value.balance_check.status,'unavailable');assert.equal(value.balance_check.indexed_balance,profile.coin_balance);
   }
 });
-test('Invalid index heights and amounts retain index data without RPC reads',async()=>{
-  for(const bad of [{block_number_balance_updated_at:-1},{block_number_balance_updated_at:null},{coin_balance:null},{coin_balance:'-1'},{hash:'invalid'}]) {
+test('Current balances do not depend on the index having a usable amount or recent height',async()=>{
+  for(const bad of [{block_number_balance_updated_at:-1},{block_number_balance_updated_at:null},{coin_balance:null},{coin_balance:'-1'}]) {
     const config=fixture(),value=await verifyAddressBalance({...profile,...bad},config);
-    assert.equal(config.calls.length,0);assert.equal(value.balance_check.status,'unavailable');
+    assert.equal(value.coin_balance,profile.coin_balance);assert.equal(value.balance_check.scope,'head');assert.equal(value.balance_check.block_number,32);
   }
+  const config=fixture(),value=await verifyAddressBalance({...profile,hash:'invalid'},config);
+  assert.equal(config.calls.length,0);assert.equal(value.balance_check.status,'unavailable');
 });

@@ -1,0 +1,16 @@
+[Unit]
+Description=Start the Ink Explorer site, Tunnel and required local services
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/ink-explorer
+EnvironmentFile=-%h/.config/ink-explorer/hosting.env
+ExecStart=/usr/bin/env node scripts/public-services-bootstrap.mjs
+RemainAfterExit=yes
+Restart=on-failure
+RestartSec=30
+TimeoutStartSec=180
+
+[Install]
+WantedBy=default.target

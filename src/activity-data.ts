@@ -13,20 +13,24 @@ function compareAmounts(a: string, b: string) {
 export function activityFilters(params: URLSearchParams): ActivityFilters {
   return Object.fromEntries(activityKeys.flatMap(key=>params.get(key)?.trim() ? [[key,params.get(key)!.trim()]] : []));
 }
-export function validateActivity(filters: ActivityFilters) {
-  if(filters.transaction_types && !allowedTypes.includes(filters.transaction_types))return 'Invalid activity type';
-  if(filters.methods && !/^0x[\da-f]{8}$/i.test(filters.methods))return 'Use a four-byte method selector';
+export type ActivityValidation = { field: keyof ActivityFilters; message: string };
+export function activityValidation(filters: ActivityFilters): ActivityValidation | null {
+  if(filters.transaction_types && !allowedTypes.includes(filters.transaction_types))return {field:'transaction_types',message:'Invalid activity type'};
+  if(filters.methods && !/^0x[\da-f]{8}$/i.test(filters.methods))return {field:'methods',message:'Use a four-byte method selector'};
   for(const key of ['from_address_hashes_to_include','to_address_hashes_to_include','token_contract_address_hashes_to_include'] as const)
-    if(filters[key] && !address.test(filters[key]))return 'Use a complete contract or wallet address';
-  if(filters.address_relation && !['and','or'].includes(filters.address_relation))return 'Invalid address relation';
-  for(const key of ['amount_from','amount_to'] as const)if(filters[key] && !decimal.test(filters[key]))return 'Use nonnegative decimal amounts';
+    if(filters[key] && !address.test(filters[key]))return {field:key,message:'Use a complete contract or wallet address'};
+  if(filters.address_relation && !['and','or'].includes(filters.address_relation))return {field:'address_relation',message:'Invalid address relation'};
+  for(const key of ['amount_from','amount_to'] as const)if(filters[key] && !decimal.test(filters[key]))return {field:key,message:'Use nonnegative decimal amounts'};
   // Blockscout normalizes native values to ETH and token values by decimals.
   // Its query rejects zero upper bounds and equal bounds; expose that constraint.
-  if(filters.amount_to && compareAmounts(filters.amount_to,'0')===0)return 'Maximum amount must be greater than zero';
-  if(filters.amount_from && filters.amount_to && compareAmounts(filters.amount_from,filters.amount_to)>=0)return 'Maximum amount must exceed minimum';
-  for(const key of ['age_from','age_to'] as const)if(filters[key] && !Number.isFinite(Date.parse(filters[key])))return 'Invalid date';
-  if(filters.age_from && filters.age_to && Date.parse(filters.age_from)>Date.parse(filters.age_to))return 'Start date is after end date';
-  return '';
+  if(filters.amount_to && compareAmounts(filters.amount_to,'0')===0)return {field:'amount_to',message:'Maximum amount must be greater than zero'};
+  if(filters.amount_from && filters.amount_to && compareAmounts(filters.amount_from,filters.amount_to)>=0)return {field:'amount_to',message:'Maximum amount must exceed minimum'};
+  for(const key of ['age_from','age_to'] as const)if(filters[key] && !Number.isFinite(Date.parse(filters[key])))return {field:key,message:'Invalid date'};
+  if(filters.age_from && filters.age_to && Date.parse(filters.age_from)>Date.parse(filters.age_to))return {field:'age_to',message:'Start date is after end date'};
+  return null;
+}
+export function validateActivity(filters: ActivityFilters) {
+  return activityValidation(filters)?.message || '';
 }
 export function activityQuery(filters: ActivityFilters, cursor?: Record<string, unknown>) {
   const query = new URLSearchParams(filters as Record<string,string>);
@@ -58,5 +62,14 @@ export function downloadCsv(name: string, headers: string[], rows: unknown[][]) 
 }
 export function activityCsvRows(items: Record<string,any>[]) {
   return items.map(item=>[item.hash,item.type,item.status,item.block_number,item.timestamp,item.from?.hash,item.to?.hash || item.created_contract?.hash,item.method,item.total?.value ?? item.value,item.total?.decimals ?? item.token?.decimals ?? 18,item.token?.symbol || 'ETH',item.token?.address_hash,item.fee,item.transaction_index,item.internal_transaction_index,item.token_transfer_index,item.token_transfer_batch_index]);
+}
+export function transactionActivityCsvRows(items: Record<string,any>[]) {
+  return items.map(item=>[
+    item.hash, item.transaction_types?.join(','), item.status, item.block_number,
+    item.timestamp, item.from?.hash, item.to?.hash || item.created_contract?.hash,
+    item.method, item.value, 18, 'ETH', '',
+    typeof item.fee === 'object' && item.fee !== null ? item.fee.value : item.fee,
+    item.position ?? item.transaction_index, '', '', '',
+  ]);
 }
 export const activityCsvHeaders=['transaction_hash','type','status','block','timestamp','from','to','method','amount_base_units','decimals','asset','token_contract','fee_wei','transaction_index','internal_index','transfer_index','batch_index'];

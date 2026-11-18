@@ -1,4 +1,9 @@
-node_modules/
+node_modules
+.wrangler/
+.dev.vars
+.dev.vars.*
+*.pem
+*.key
 dist/
 .env
 .env.*
@@ -18,3 +23,9 @@ vite.config.d.ts
 # Local review notes can contain hostnames, private IPs and machine paths.
 docs/*_REVIEW_20*.md
 docs/FUNCTIONAL_COMPETITIVE_AUDIT_20*.md
+
+# Private origin and Tunnel credentials for local hosting.
+/runtime/
+
+# Python test and deployment bytecode is generated locally.
+__pycache__/

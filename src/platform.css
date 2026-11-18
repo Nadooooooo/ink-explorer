@@ -1,0 +1,26 @@
+.copyable.copyable-failed { flex-wrap: wrap; max-width: 100%; }
+.copyable > .copy-fallback {
+  display: grid;
+  flex: 1 1 100%;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+  white-space: normal;
+  overflow: visible;
+  font: inherit;
+}
+.copy-fallback > span { font-size: 12px; line-height: 1.6; }
+.copy-fallback > input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px;
+  font-family: var(--font-mono);
+  font-size: 16px;
+  direction: ltr;
+}
+
+@media (forced-colors: active) {
+  .site-footer .brand img { filter: none; }
+}

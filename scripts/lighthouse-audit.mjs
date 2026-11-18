@@ -23,10 +23,11 @@ for (const route of routes) {
       await writeFile(`${output}/${name}.html`, result.report[1]);
       const record = {
         route, profile, url: result.lhr.finalDisplayedUrl, version: result.lhr.lighthouseVersion,
-        scores: Object.fromEntries(Object.entries(result.lhr.categories).map(([key, value]) => [key, Math.round(value.score * 100)])),
+        scores: Object.fromEntries(Object.entries(result.lhr.categories).map(([key, value]) => [key, value.score == null ? null : Math.round(value.score * 100)])),
         metrics: Object.fromEntries(['first-contentful-paint', 'largest-contentful-paint', 'total-blocking-time', 'cumulative-layout-shift', 'speed-index'].map(key => [key, result.lhr.audits[key].numericValue])),
         failures: Object.values(result.lhr.audits).filter(a => a.score !== null && a.score < 1 && !['manual', 'informative', 'notApplicable'].includes(a.scoreDisplayMode)).map(a => ({ id: a.id, score: a.score, title: a.title, value: a.displayValue })),
         warnings: result.lhr.runWarnings,
+        auditErrors: Object.values(result.lhr.audits).filter(a=>a.scoreDisplayMode === "error").map(a=>({id:a.id,error:a.errorMessage})),
       };
       summary.push(record);
       await writeFile(`${output}/summary.json`, JSON.stringify(summary, null, 2));

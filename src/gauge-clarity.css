@@ -1,0 +1,22 @@
+/* The low-load segment stays small; the full scale should still be legible
+   against the tinted metric card. */
+.home-overview .utilization-gauge .gauge-track {
+  stroke: var(--purple);
+  opacity: .36;
+}
+
+@media (max-width: 760px) {
+  .home-overview .utilization-metric {
+    grid-template-columns: minmax(0, 1fr) 44px;
+  }
+  .home-overview .utilization-metric .utilization-gauge {
+    width: 44px;
+  }
+}
+
+@media (forced-colors: active) {
+  .home-overview .utilization-gauge .gauge-track {
+    stroke: CanvasText;
+    opacity: 1;
+  }
+}

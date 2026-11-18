@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {headerSearch} from './navigation-actions.mjs';
 import { chromium } from 'playwright';
 import { mkdir, writeFile } from 'node:fs/promises';
 
@@ -10,7 +11,7 @@ try {
   for (const prefix of ['', '/testnet']) for (const width of [320,390,1440]) {
     const context=await browser.newContext({viewport:{width,height:900}});
     await context.routeWebSocket(/\/api\/live$/,ws=>ws.close());
-    await context.route('**/api/live/snapshot',route=>route.fulfill({status:503,json:{error:'Live data disabled for deterministic fixtures'}}));
+    await context.route('**/api/live/snapshot',route=>route.fulfill({headers:{'x-ink-data-status':'fresh','x-ink-data-fetched-at':new Date().toISOString(),'date':new Date().toUTCString()},status:503,json:{error:'Live data disabled for deterministic fixtures'}}));
     const page=await context.newPage(), errors=[];
     page.on('pageerror',e=>errors.push(e.message));
     await page.clock.install();
@@ -18,22 +19,22 @@ try {
     await page.route('**/api/explorer/addresses/**',async route=>{
       const path=new URL(route.request().url()).pathname;
       if (path.endsWith('/transactions')) return mode==='section-error'
-        ? route.fulfill({status:503,json:{error:'Activity temporarily unavailable'}})
-        : route.fulfill({json:{items:[]}});
-      if (path.endsWith('/token-balances')) return route.fulfill({json:mode==='summary-error'?null:[]});
-      if (path.endsWith('/counters')) return route.fulfill({json:{transactions_count:path.includes(other)?22:11}});
+        ? route.fulfill({headers:{'x-ink-data-status':'fresh','x-ink-data-fetched-at':new Date().toISOString(),'date':new Date().toUTCString()},status:503,headers:{'retry-after':'1'},json:{error:'Activity temporarily unavailable'}})
+        : route.fulfill({headers:{'x-ink-data-status':'fresh','x-ink-data-fetched-at':new Date().toISOString(),'date':new Date().toUTCString()},json:{items:[]}});
+      if (path.endsWith('/token-balances')) return route.fulfill({headers:{'x-ink-data-status':'fresh','x-ink-data-fetched-at':new Date().toISOString(),'date':new Date().toUTCString()},json:mode==='summary-error'?null:[]});
+      if (path.endsWith('/counters')) return route.fulfill({headers:{'x-ink-data-status':'fresh','x-ink-data-fetched-at':new Date().toISOString(),'date':new Date().toUTCString()},json:{transactions_count:path.includes(other)?22:11}});
       requests++;
       if (mode==='hang') { held.push(route); return; }
-      if (mode==='html') return route.fulfill({contentType:'text/html',body:'<html>SPA fallback</html>'});
-      if (mode==='null') return route.fulfill({json:null});
-      if (mode==='wrong-address') return route.fulfill({json:{hash:other}});
+      if (mode==='html') return route.fulfill({headers:{'x-ink-data-status':'fresh','x-ink-data-fetched-at':new Date().toISOString(),'date':new Date().toUTCString()},contentType:'text/html',body:'<html>SPA fallback</html>'});
+      if (mode==='null') return route.fulfill({headers:{'x-ink-data-status':'fresh','x-ink-data-fetched-at':new Date().toISOString(),'date':new Date().toUTCString()},json:null});
+      if (mode==='wrong-address') return route.fulfill({headers:{'x-ink-data-status':'fresh','x-ink-data-fetched-at':new Date().toISOString(),'date':new Date().toUTCString()},json:{hash:other}});
       if (mode==='offline') return route.abort('internetdisconnected');
-      return route.fulfill({json:{hash:path.endsWith(other)?other:address,coin_balance:mode==='corrected'?'7000000000000000000':'1000000000000000000',is_contract:false,
+      return route.fulfill({headers:{'x-ink-data-status':'fresh','x-ink-data-fetched-at':new Date().toISOString(),'date':new Date().toUTCString()},json:{hash:path.endsWith(other)?other:address,coin_balance:mode==='corrected'?'7000000000000000000':'1000000000000000000',is_contract:false,
         ...(['matched','corrected','unavailable'].includes(mode)?{balance_check:{status:mode,...(mode!=='unavailable'?{source:'local',indexed_balance:'1000000000000000000'}:{})}}:{}),
       }});
     });
     await page.goto(base+prefix+'/',{waitUntil:'domcontentloaded'});
-    await page.locator('.global-search input').fill(address);
+    await (await headerSearch(page)).fill(address);
     await page.locator('.search-submit').click();
     await page.waitForURL('**/address/'+address);
     await page.locator('main .loading').waitFor();
@@ -48,7 +49,7 @@ try {
     await page.locator('.address-summary').waitFor();
     await page.locator('.address-activity .empty').waitFor({timeout:3000});
     assert.equal(new URL(page.url()).pathname,prefix+'/address/'+address);
-    assert.match(await page.locator('main').innerText(),/1 ETH/);
+    assert.equal(await page.locator('[data-address-balance]').getAttribute('data-address-balance'),'','Disconnected transport cannot verify an index balance');
     for (const failure of ['html','null','wrong-address','offline']) {
       mode=failure;
       await page.reload({waitUntil:'domcontentloaded'});
@@ -62,25 +63,15 @@ try {
     mode='summary-error';
     await page.reload({waitUntil:'domcontentloaded'});
     await page.locator('.address-summary').waitFor();
-    await page.locator('main .error-state').waitFor();
+    await page.locator('.address-refresh-error .resource-error').waitFor();
     assert.equal((await page.locator('.address-summary .metric').nth(2).innerText()).includes('0\n'),false,'Unavailable holdings must not claim zero');
     mode='ok';
-    await page.locator('main .error-state button').click();
+    await page.locator('.address-refresh-error .resource-error button').click();
     await page.locator('.address-summary').waitFor();
-    await page.waitForFunction(()=>document.querySelectorAll('main .error-state').length===0);
+    await page.waitForFunction(()=>document.querySelectorAll('.address-refresh-error .resource-error').length===0);
     await page.locator('.address-activity .empty').waitFor({timeout:3000});
-    for(const status of ['matched','corrected','unavailable']) {
-      mode=status;
-      await page.reload({waitUntil:'domcontentloaded'});
-      await page.locator('.address-summary').waitFor();
-      const balanceText=await page.locator('.address-summary .metric').first().innerText();
-      if(status==='unavailable') assert.match(balanceText,/Ink index.*node verification unavailable/s);
-      else assert.match(balanceText,/Source · local node/);
-      if(status==='corrected') {
-        assert.match(balanceText,/7 ETH/);
-        assert.match(balanceText,/Index balance differs/);
-      } else assert.doesNotMatch(balanceText,/Index balance differs/);
-    }
+    // Head/canonical balance provenance is exercised by address-live-browser;
+    // this recovery fixture deliberately has no verified live observation.
     mode='ok';
     await page.reload({waitUntil:'domcontentloaded'});
     await page.locator('.address-summary').waitFor();
@@ -99,6 +90,7 @@ try {
       assert(sizing.font>=12,'Retry must remain readable on mobile');
     }
     mode='ok';
+    await page.clock.fastForward(1100);
     await retry.click();
     await sectionError.waitFor({state:'detached'});
     assert.equal(new URL(page.url()).pathname,prefix+'/address/'+address);
@@ -111,18 +103,19 @@ try {
     mode='ok';
     await page.evaluate(id=>{history.pushState({},'',location.pathname.replace(/0x[\da-f]{40}$/,id));dispatchEvent(new PopStateEvent('popstate'));},address);
     await page.locator('.address-summary').waitFor();
-    for (const route of held) await route.fulfill({json:{hash:other,coin_balance:'9000000000000000000'}}).catch(()=>{});
-    assert.match(await page.locator('main').innerText(),/1 ETH/);
-    await page.route('**/api/network',route=>route.fulfill({json:{online:true,synced:true,head:800000,chainId:prefix?763373:57073,sampledAt:new Date().toISOString(),derivation:{online:true,synced:false,l1Head:70000,l1Block:1000,lag:69000},l1Rpc:{online:false,upstreams:[]}}}));
+    for (const route of held) await route.fulfill({headers:{'x-ink-data-status':'fresh','x-ink-data-fetched-at':new Date().toISOString(),'date':new Date().toUTCString()},json:{hash:other,coin_balance:'9000000000000000000'}}).catch(()=>{});
+    assert.equal(await page.locator('[data-address-balance]').getAttribute('data-address-balance'),'','Disconnected transport cannot verify an index balance');
+    await page.route('**/api/network',route=>route.fulfill({headers:{'x-ink-data-status':'fresh','x-ink-data-fetched-at':new Date().toISOString(),'date':new Date().toUTCString()},json:{online:true,synced:true,head:800000,chainId:prefix?763373:57073,sampledAt:new Date().toISOString(),derivation:{online:true,synced:false,l1Head:70000,l1Block:1000,lag:69000},l1Rpc:{online:false,upstreams:[]}}}));
     await page.goto(base+prefix+'/network',{waitUntil:'domcontentloaded'});
     await page.locator('.health-banner').waitFor();
-    assert.match(await page.locator('.health-banner').innerText(),/L1 validation behind/);
+    assert.match(await page.locator('.health-banner').innerText(),/Data source unavailable/);
     assert.doesNotMatch(await page.locator('.health-banner').innerText(),/Operational|Synced to/);
     assert.deepEqual(errors,[]);
     results.push({prefix,width,passed:true});
     await context.close();
   }
-  await mkdir('reports/address-loading',{recursive:true});
-  await writeFile('reports/address-loading/results.json',JSON.stringify({recordedAt:new Date().toISOString(),results},null,2));
-  console.log('Address loading passed: pasted address, deadline, retry, HTML/null/wrong-address/offline responses, missing holdings, balance provenance/disagreement, readable section retry and navigation races on both networks at 320/390/1440 px.');
+  const out=process.env.ADDRESS_LOADING_OUTPUT||'reports/address-loading';
+  await mkdir(out,{recursive:true});
+  await writeFile(out+'/results.json',JSON.stringify({recordedAt:new Date().toISOString(),results},null,2));
+  console.log('Address loading passed: pasted address, deadline, retry, HTML/null/wrong-address/offline responses, missing holdings, unverified balances hidden, readable section retry and navigation races on both networks at 320/390/1440 px.');
 } finally { await browser.close(); }

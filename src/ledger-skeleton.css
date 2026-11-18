@@ -1,0 +1,56 @@
+.ledger-skeleton { background:var(--surface-panel); }
+.ledger-skeleton-row { display:flex; flex-direction:column; gap:11px; min-height:126px; padding:17px 20px; border-bottom:1px solid var(--line); }
+.ledger-skeleton-row:last-child { border-bottom:0; }
+.ledger-skeleton-top,.ledger-skeleton-middle,.ledger-skeleton-bottom,.ledger-skeleton-totals { display:flex; align-items:center; gap:10px; min-width:0; }
+.ledger-skeleton-top { min-height:26px; }
+.ledger-skeleton-mark { display:block; flex:0 0 24px; width:24px; height:24px; border-radius:8px; background:var(--accent-wash); }
+.ledger-skeleton-line { display:block; flex:0 0 auto; height:10px; max-width:100%; border-radius:6px; background:var(--surface-muted); }
+.ledger-skeleton-line.hash { width:122px; }
+.ledger-skeleton-line.count { width:42px; margin-inline-start:auto; }
+.ledger-skeleton-line.age { width:66px; margin-inline-start:34px; height:8px; }
+.ledger-skeleton-line.identity { width:150px; }
+.ledger-skeleton-line.method { width:72px; margin-inline-start:auto; }
+.ledger-skeleton-line.address { width:136px; }
+.ledger-skeleton-line.address + .address { margin-inline-start:20px; }
+.ledger-skeleton-line.value { width:76px; }
+.ledger-skeleton-line.fee { width:94px; margin-inline-start:auto; }
+.ledger-skeleton-blocks .ledger-skeleton-bottom { display:none; }
+.ledger-skeleton-blocks .ledger-skeleton-totals { padding-top:8px; border-top:1px solid var(--line); }
+.ledger-skeleton-transactions .ledger-skeleton-row,.ledger-skeleton-records .ledger-skeleton-row { min-height:154px; }
+.ledger-skeleton-transactions .ledger-skeleton-totals,.ledger-skeleton-records .ledger-skeleton-totals { padding-top:8px; border-top:1px solid var(--line); }
+.ledger-skeleton-row:nth-child(2n) .hash { width:98px; }
+.ledger-skeleton-row:nth-child(3n) .identity { width:112px; }
+.ledger-skeleton-row:nth-child(3n) .address { width:105px; }
+@media (max-width:759px) {
+  .ledger-skeleton-row:nth-child(n+6) { display:none; }
+  .ledger-skeleton-row { padding:16px 14px; }
+  .ledger-skeleton-transactions .ledger-skeleton-middle,.ledger-skeleton-records .ledger-skeleton-middle { padding-top:4px; }
+  .ledger-skeleton-transactions .ledger-skeleton-bottom,.ledger-skeleton-records .ledger-skeleton-bottom { padding-top:10px; border-top:1px solid var(--line); }
+  .ledger-skeleton-line.address { width:min(38%,136px); }
+  .ledger-skeleton-line.address + .address { margin-inline-start:auto; }
+}
+@media (max-width:359px) {
+  .ledger-skeleton-line.identity { width:104px; }
+  .ledger-skeleton-line.method { width:62px; }
+}
+@media (min-width:760px) and (max-width:1339px) {
+  .ledger-skeleton-row:nth-child(n+9) { display:none; }
+  .ledger-skeleton { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 12px; background:transparent; }
+  .ledger-skeleton-row { min-width:0; background:var(--surface-panel); border-bottom:1px solid var(--line); }
+  .ledger-skeleton-line.address { width:min(36%,136px); }
+  .ledger-skeleton-line.address + .address { margin-inline-start:auto; }
+}
+@media (min-width:1340px) {
+  .ledger-skeleton-row { display:grid; align-items:center; gap:12px; min-height:80px!important; padding:0 16px; }
+  .ledger-skeleton-top { min-width:0; }
+  .ledger-skeleton-top .count { display:none; }
+  .ledger-skeleton-line.age { margin:0; }
+  .ledger-skeleton-middle,.ledger-skeleton-bottom,.ledger-skeleton-totals { display:contents; }
+  .ledger-skeleton-transactions .ledger-skeleton-row { grid-template-columns:minmax(180px,1.2fr) minmax(135px,.9fr) minmax(110px,.8fr) minmax(105px,.7fr) minmax(175px,1.1fr) minmax(175px,1.1fr) minmax(120px,.8fr) minmax(140px,.9fr); }
+  .ledger-skeleton-blocks .ledger-skeleton-row { grid-template-columns:minmax(174px,1.05fr) minmax(85px,.6fr) minmax(220px,1.5fr) minmax(105px,.65fr) minmax(145px,.9fr); }
+  .ledger-skeleton-blocks .ledger-skeleton-line.value { grid-column:5; }
+  .ledger-skeleton-blocks .ledger-skeleton-line.fee { display:none; }
+  .ledger-skeleton-records .ledger-skeleton-row { grid-template-columns:repeat(6,minmax(0,1fr)); }
+  .ledger-skeleton-records .ledger-skeleton-totals { display:none; }
+  .ledger-skeleton-line { max-width:100%; }
+}

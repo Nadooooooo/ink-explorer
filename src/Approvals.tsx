@@ -34,6 +34,23 @@ function Revoke({ owner, item, wallet, locale, receiptStatus, broadcast }: { own
   const generation = useRef(0), signing = useRef(false), mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; generation.current++; }; }, []);
   useEffect(() => { generation.current++; setPrepared(undefined); setBusy(signing.current); }, [wallet?.account, wallet?.chain, item.active, item.amount, item.spender]);
+  useEffect(() => {
+    const invalidateCachedPreparation = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      // Keep the wallet and any submitted hash, but require a new canonical
+      // state read and simulation after restoring a cached document.
+      generation.current++;
+      setPrepared(undefined);
+      setError("");
+      setBusy(signing.current);
+    };
+    window.addEventListener("pagehide", invalidateCachedPreparation);
+    window.addEventListener("pageshow", invalidateCachedPreparation);
+    return () => {
+      window.removeEventListener("pagehide", invalidateCachedPreparation);
+      window.removeEventListener("pageshow", invalidateCachedPreparation);
+    };
+  }, []);
   const eligible = wallet?.account.toLowerCase() === owner.toLowerCase() && wallet.chain === network.chainId && item.active === true && item.standard !== "unknown";
   const simulate = async () => {
     if (!eligible || signing.current) return;
@@ -44,6 +61,7 @@ function Revoke({ owner, item, wallet, locale, receiptStatus, broadcast }: { own
       if (request !== generation.current) return;
       const tx = { from: owner, to: item.token, data: revokeData(current), value: "0x0" };
       await rpc("eth_call", [tx, "latest"]);
+      if (request !== generation.current) return;
       const gas = await rpc("eth_estimateGas", [tx]);
       if (request === generation.current) setPrepared({ ...tx, gas: toQuantity(BigInt(gas) * 120n / 100n), chainId: toQuantity(network.chainId) });
     } catch (e: any) { if (request === generation.current) setError(e.message || "requestFailed"); }

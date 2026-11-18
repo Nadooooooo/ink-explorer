@@ -1,7 +1,15 @@
 import http from "node:http";
+import { timingSafeEqual } from "node:crypto";
 import { publicApiPath, allowedPublicMethod, proxyPublicApi } from "./public-proxy.mjs";
 const port = Number(process.env.INK_GATEWAY_PORT || 4186);
 const upstream = new URL(process.env.INK_GATEWAY_UPSTREAM || "http://127.0.0.1:4188");
+const originToken = process.env.INK_ORIGIN_TOKEN;
+const authorized = req => {
+  if (!originToken) return true;
+  const received = Buffer.from(String(req.headers["x-ink-origin-token"] || ""));
+  const expected = Buffer.from(originToken);
+  return received.length === expected.length && timingSafeEqual(received, expected);
+};
 if (upstream.protocol !== "http:" || !["127.0.0.1", "[::1]"].includes(upstream.hostname) || upstream.username || upstream.password || upstream.pathname !== "/" || upstream.search || upstream.hash) throw new Error("Gateway upstream must be loopback HTTP");
 const route = req => {
   const url = new URL(req.url, "http://gateway.invalid");
@@ -10,16 +18,19 @@ const route = req => {
   return publicApiPath(url.pathname.replace(/^\/ink(?=\/)/, "") + url.search);
 };
 const server = http.createServer((req, res) => {
+  if (!authorized(req)) { res.writeHead(403, { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" }); return res.end("Forbidden"); }
   let path;
   try { path = route(req); } catch { res.writeHead(404); return res.end(); }
   return proxyPublicApi(req, res, { origin: upstream.origin, path });
 });
 server.on("upgrade", (req, socket, head) => {
+  if (!authorized(req)) { socket.end("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n"); return; }
   let path;
   try { path = route(req); } catch { return socket.destroy(); }
   if (!/^\/(?:testnet\/)?api\/live$/.test(path) || !allowedPublicMethod(path, req.method)) return socket.destroy();
   const headers = { ...req.headers, host: upstream.host };
   delete headers.authorization; delete headers.cookie;
+  delete headers["x-ink-origin-token"];
   for (const key of Object.keys(headers)) if (key.startsWith("x-forwarded-") || key === "forwarded") delete headers[key];
   const request = http.request({ hostname: upstream.hostname, port: upstream.port, path, headers, method: "GET" });
   request.on("upgrade", (response, upstreamSocket, upstreamHead) => {

@@ -22,6 +22,8 @@ const port=probe.address().port;await new Promise(resolve=>probe.close(resolve))
 let child,log='';
 try {
  await cp('server',join(temp,'server'),{recursive:true});
+ await mkdir(join(temp,'src'),{recursive:true});
+ await cp('src',join(temp,'src'),{recursive:true});await cp('package.json',join(temp,'package.json'));
  await cp('dist',join(temp,'dist'),{recursive:true});
  await symlink(resolve('node_modules'),join(temp,'node_modules'));
  await mkdir(join(temp,'data/upstream-cache'),{recursive:true});
@@ -38,6 +40,6 @@ try {
  assert.equal((await fetch(base+'/api/explorer/advanced-filters',{method:'POST'})).status,405);
  console.log('Advanced-filter server boundary passed: real upstream outage, old disk cache, recovery, query preservation and read-only method.');
 }finally{
- if(child){child.kill('SIGTERM');await new Promise(resolve=>child.once('close',resolve));}
+ if(child&&child.exitCode===null&&child.signalCode===null){const closed=new Promise(resolve=>child.once('close',resolve));child.kill('SIGTERM');await closed;}
  await new Promise(resolve=>upstream.close(resolve));await rm(temp,{recursive:true,force:true});
 }

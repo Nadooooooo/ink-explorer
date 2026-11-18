@@ -21,7 +21,10 @@ export function publicApiPath(value) {
   const rawPath = decodeURIComponent(value.split(/[?#]/, 1)[0]);
   if (/\/\.{1,2}(?:\/|$)/.test(rawPath) || /[\\\x00-\x20]/.test(rawPath)) throw new Error("Invalid API path");
   const url = new URL(value, "http://gateway.invalid");
-  if (url.origin !== "http://gateway.invalid" || !/^\/(?:testnet\/)?api\/[a-zA-Z0-9_.%~/-]+$/i.test(url.pathname)) throw new Error("Invalid API path");
+  // BENS lookup methods use a literal colon. Permit these exact read routes
+  // without accepting arbitrary colon paths or changing the method policy.
+  const nameLookup = /^\/(?:testnet\/)?api\/names\/(?:addresses|domains):lookup$/.test(url.pathname);
+  if (url.origin !== "http://gateway.invalid" || (!nameLookup && !/^\/(?:testnet\/)?api\/[a-zA-Z0-9_.%~/-]+$/i.test(url.pathname))) throw new Error("Invalid API path");
   const decoded = decodeURIComponent(url.pathname);
   if (decoded.includes("..") || /%2f|%5c|%2e/i.test(url.pathname) || /[\\\x00-\x20]/.test(decoded)) throw new Error("Invalid API path");
   return url.pathname + url.search;
@@ -30,13 +33,44 @@ export function allowedPublicMethod(path, method) {
   if (method === "GET" || method === "HEAD") return true;
   return method === "POST" && /^\/(?:testnet\/)?api\/(?:contract-rpc|approvals\/0x[\da-f]{40}\/state|verification\/submit|public-tags\/submit)$/i.test(new URL(path, "http://gateway.invalid").pathname);
 }
+// Backpressure waits own both listeners: a drain must release the abort listener,
+// and a disconnect/timeout must release the drain listener.
+function responseDrained(res, signal) {
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      res.off("drain", drained);
+      signal.removeEventListener("abort", aborted);
+    };
+    const drained = () => { cleanup(); resolve(); };
+    const aborted = () => { cleanup(); reject(signal.reason); };
+    res.once("drain", drained);
+    signal.addEventListener("abort", aborted, { once: true });
+    if (signal.aborted) aborted();
+    else if (res.writableNeedDrain === false) drained();
+  });
+}
+
 export async function proxyPublicApi(req, res, { origin, path, fetcher = fetch }) {
-  const sendError = (status, error) => { res.writeHead(status, { "content-type": "application/json", "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" }); res.end(JSON.stringify({ error })); };
+  const sendError = (status, error) => {
+    if (res.destroyed || res.writableEnded) return;
+    res.writeHead(status, { "content-type": "application/json", "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" });
+    res.end(JSON.stringify({ error }));
+  };
   let target;
   try { path = publicApiPath(path); target = new URL(`${origin}${path}`); } catch { return sendError(400, "Invalid API path"); }
   if (!allowedPublicMethod(path, req.method)) return sendError(405, "Method not allowed");
   if (new URL(path, "http://gateway.invalid").pathname.endsWith("/api/live")) return sendError(426, "Use the public live WebSocket or snapshot endpoint");
+  const controller = new AbortController();
+  const disconnected = () => {
+    if (!res.writableFinished) controller.abort(new DOMException("Client disconnected", "AbortError"));
+  };
+  req.once?.("aborted", disconnected);
+  res.once?.("close", disconnected);
+  res.once?.("error", disconnected);
+  const timeout = setTimeout(() => controller.abort(new DOMException("Upstream timed out", "TimeoutError")), 55000);
+  timeout.unref?.();
   try {
+    if (req.aborted || res.destroyed) return;
     let body;
     if (req.method === "POST") {
       if (req.body !== undefined) body = Buffer.isBuffer(req.body) ? req.body : typeof req.body === "string" ? Buffer.from(req.body) : Buffer.from(JSON.stringify(req.body));
@@ -52,15 +86,34 @@ export async function proxyPublicApi(req, res, { origin, path, fetcher = fetch }
     // Preserve the browser's actual Origin; credentials and forwarded host/IP
     // headers are deliberately excluded. Upstream validates each write route.
     if (req.headers.origin) headers.origin = req.headers.origin;
-    const upstream = await fetcher(target, { method: req.method, headers, body, redirect: "error", signal: AbortSignal.timeout(55000) });
+    const upstream = await fetcher(target, { method: req.method, headers, body, redirect: "error", signal: controller.signal });
+    if (controller.signal.aborted || res.destroyed) {
+      await upstream.body?.cancel();
+      controller.signal.throwIfAborted();
+      return;
+    }
     const responseHeaders = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow", "x-content-type-options": "nosniff" };
-    for (const name of ["content-type", "cache-control", "etag", "x-media-cache", "content-security-policy", "retry-after"]) if (upstream.headers.has(name)) responseHeaders[name] = upstream.headers.get(name);
+    for (const name of ["content-type", "cache-control", "etag", "x-media-cache", "content-security-policy", "retry-after", "x-ink-data-status", "x-ink-data-fetched-at"]) if (upstream.headers.has(name)) responseHeaders[name] = upstream.headers.get(name);
     res.writeHead(upstream.status, responseHeaders);
     if (req.method === "HEAD") { await upstream.body?.cancel(); return res.end(); }
+    // Exiting the async iterator cancels its reader. Calling body.cancel()
+    // directly here would target a stream still locked by that reader.
     if (upstream.body) for await (const chunk of upstream.body) {
-      if (res.destroyed) { await upstream.body.cancel().catch(() => {}); return; }
-      if (!res.write(chunk)) await new Promise(resolve => { res.once("drain", resolve); res.once("close", resolve); });
+      if (res.destroyed) break;
+      controller.signal.throwIfAborted();
+      if (!res.write(chunk)) await responseDrained(res, controller.signal);
     }
-    res.end();
-  } catch { if (!res.headersSent) sendError(502, "apiConnectionFailed"); else res.destroy(); }
+    controller.signal.throwIfAborted();
+    if (!res.destroyed) res.end();
+  } catch {
+    if (!res.destroyed) {
+      if (!res.headersSent) sendError(502, "apiConnectionFailed");
+      else res.destroy();
+    }
+  } finally {
+    clearTimeout(timeout);
+    req.off?.("aborted", disconnected);
+    res.off?.("close", disconnected);
+    res.off?.("error", disconnected);
+  }
 }

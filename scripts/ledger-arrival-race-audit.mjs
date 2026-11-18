@@ -1,0 +1,15 @@
+import {chromium} from 'playwright';
+import {mkdir,writeFile}from'node:fs/promises';
+const base=process.env.BASE_URL||'https://inkexplorer.xyz',out=process.env.LEDGER_RACE_OUTPUT||'reports/network-arrival/ledger-race-audit';
+await mkdir(out,{recursive:true});const results=[];const browser=await chromium.launch({args:['--no-sandbox']});
+try{for(const[prefix,chainId]of[['',57073],['/testnet',763373]])for(const path of ['/blocks','/txs']){
+ const c=await browser.newContext({viewport:{width:390,height:844}}),p=await c.newPage();let socket,release;const gate=new Promise(r=>release=r);const now=new Date().toISOString(),hash=n=>'0x'+n.repeat(64),address='0x'+'a'.repeat(40);
+ const block=(height,id)=>({height,hash:hash(id),timestamp:now,gas_limit:'30000000',gas_used:'0',transactions_count:1,size:1234,miner:{hash:address}});
+ const tx=(height,id)=>({hash:hash(id),timestamp:now,block_number:height,block_hash:hash(id),position:0,status:'ok',value:'0',fee:{value:'0'},from:{hash:address},to:{hash:address},method:'transfer'});
+ const current=block(9000000,'b'),recent=tx(9000000,'b');const frame=seq=>({protocol:'ink-observer.live.v1',type:'snapshot',sequence:seq,sentAt:now,network:{chainId,expectedChainId:chainId,head:9000000,online:true,synced:true,stale:false,sampledAt:now},block:current,blocks:[current],transactions:[recent]});
+ await c.routeWebSocket(/\/api\/live$/,ws=>{socket=ws;ws.send(JSON.stringify(frame(1)));});
+ await c.route('**/api/**',async r=>{const name=new URL(r.request().url()).pathname.replace(/^\/testnet/,'');if(name==='/api/live/config')return r.fulfill({json:{url:base.replace(/^http/,'ws')+prefix+'/api/live'}});if(name==='/api/live/snapshot')return r.fulfill({json:frame(1)});if(name==='/api/explorer/'+(path==='/blocks'?'blocks':'transactions')){await gate;return r.fulfill({json:{items:[path==='/blocks'?block(8000000,'a'):tx(8000000,'a')],next_page_params:null}}).catch(()=>{});}return r.fulfill({json:{items:[],counters:[]}});});
+ const selector=path==='/blocks'?'.block-row .block-height a':'.tx-row .tx-primary a';const read=()=>p.locator(selector).evaluateAll(a=>a.map(e=>e.getAttribute('href')));
+ try{await p.goto(base+prefix+path,{waitUntil:'domcontentloaded'});await p.waitForFunction(()=>document.querySelector('[data-live-head]')?.dataset.liveHead==='9000000');release();await p.locator(selector).first().waitFor();await p.waitForTimeout(200);const afterRest=await read();socket.send(JSON.stringify(frame(2)));await p.waitForTimeout(200);const afterNextFrame=await read();results.push({prefix,path,afterRest,afterNextFrame,delayedFirstMerge:!afterRest.some(h=>h.includes(path==='/blocks'?'9000000':hash('b')))&&afterNextFrame.some(h=>h.includes(path==='/blocks'?'9000000':hash('b')))});}catch(e){results.push({prefix,path,error:e.stack});}finally{release();await c.close();}
+}}finally{await browser.close();}
+await writeFile(out+'/results.json',JSON.stringify({base,apiMocked:true,readOnlyDiagnostic:true,results},null,2));console.log(JSON.stringify(results,null,2));

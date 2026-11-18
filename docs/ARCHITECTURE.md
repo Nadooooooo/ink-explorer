@@ -1,56 +1,60 @@
 # Architecture
 
-Ink Explorer has two deployable layers:
+Ink Explorer serves a React interface with a Node HTTP and WebSocket API. The same release can run as a single Node application or use a separate document renderer and API gateway. Mainnet and Sepolia use separate chain workers.
 
-1. `src/` is a React/Vite single-page interface. It renders explorer routes and maintains the WebSocket connection. Indexed and read RPC requests use the same origin by default; a static frontend can point to a private HTTPS API with `VITE_API_ORIGIN`. Transactions are explicitly requested from the user's browser wallet.
-2. `server/server.mjs` serves the built files, injects route-specific SEO metadata, provides a read-only API facade, maintains bounded upstream and NFT media caches, and samples the local execution and rollup nodes.
+## Find your way through the source
 
-Cache entries are capped in memory. The server prunes upstream disk snapshots older than 24 hours or above 256 MB and media older than 30 days or above 512 MB. Pruning runs in the background, so concurrent writes may briefly exceed a disk target. Cache files are disposable and are excluded from Git.
-
-## Find your way through the UI
-
-`src/App.tsx` contains several page families. Search by component name rather than line number:
-
-| Area | Components |
+| Area | Source |
 | --- | --- |
-| Navigation and shared states | `Header`, `SearchBox`, `SectionTabs`, `Loading`, `ErrorState`, `Empty` |
-| Overview and indexed lists | `Home`, `HomeData`, `LedgerList`, `Pagination` |
-| Blocks, transactions and accounts | `BlockDetail`, `TxDetail`, `AddressDetail` |
-| Tokens, NFTs and pools | `Tokens`, `TokenDetail`, `NftDetail`, `Pools`, `PoolDetail` |
-| Analytics and node status | `Analytics`, `NetworkPage` |
-| Route selection and locale | `route`, `pageMetadata`, `App` |
+| Browser entry and route dispatch | [main.tsx](../src/main.tsx), [App.tsx](../src/App.tsx), [page-seo.ts](../src/page-seo.ts) |
+| Menus, anchors and internal navigation | [Navigation.tsx](../src/Navigation.tsx), [ExplorerLink.tsx](../src/ExplorerLink.tsx), [network.ts](../src/network.ts) |
+| Ledger pages and less common routes | [LedgerPages.tsx](../src/LedgerPages.tsx), [ExplorerPages.tsx](../src/ExplorerPages.tsx) |
+| Application catalogue and charts | [InkEcosystem.tsx](../src/InkEcosystem.tsx), [Apps.tsx](../src/Apps.tsx), [Statistics.tsx](../src/Statistics.tsx) |
+| Filters, precise amounts and CSV | [FilteredActivity.tsx](../src/FilteredActivity.tsx), [activity-data.ts](../src/activity-data.ts) |
+| HTTP requests, cancellation and cache notices | [api-request.ts](../src/api-request.ts), [server.mjs](../server/server.mjs) |
+| Node readiness and canonically observed blocks | [node-readiness.mjs](../server/node-readiness.mjs), [canonical-feed.mjs](../server/canonical-feed.mjs) |
+| Wallet operations and approved RPC methods | [ContractInteraction.tsx](../src/ContractInteraction.tsx), [contract-abi.ts](../src/contract-abi.ts), [contract-rpc.mjs](../server/contract-rpc.mjs) |
 
-Advanced transaction filtering lives in `src/FilteredActivity.tsx`, with shared query/decimal/CSV handling in `src/activity-data.ts` and ten-language copy in `src/activity-copy.ts`. It loads lazily from the transaction list.
+Start a small change in the module that owns the behavior. Put a substantial new page family in a focused module and wire it into route dispatch. For tests, find the nearest suite by its command in [package.json](../package.json).
 
-Contract write UI lives separately in `src/ContractInteraction.tsx`; network constants live in `src/network.ts`; translations live in `src/i18n.ts`, `src/page-copy.ts` and `src/dynamic-copy.ts`. `src/styles.css` starts with shared tokens and component rules, then contains later responsive and visual refinements. `src/mobile.css` holds shared touch typography, section selection and mobile ergonomics, and is imported last. Put new rules near the relevant component and check whether a later media query overrides them. Extract a component when a page family grows substantially rather than extending the main file indefinitely.
+## Data and network flow
 
-## Data sources
+The browser derives its chain from the path. Mainnet uses unprefixed URLs and Sepolia uses `/testnet/`. Internal links, HTTP requests and WebSockets carry the same network prefix. A network change reloads the page so in-memory state from the previous chain cannot carry across. In a local installation the main server forwards the Sepolia prefix to a loopback worker. [Browser network selection](../src/network.ts) · [Sepolia proxy](../server/testnet-proxy.mjs)
 
-| Source | Purpose | Failure behaviour |
-| --- | --- | --- |
-| Ink Blockscout API v2 | Blocks, transactions, addresses, contracts, tokens and NFTs | Retry, then use a disk snapshot up to 24 hours old; advanced filtered queries reject expired snapshots on failure |
-| Blockscout Stats Service | Time-series analytics and counters | Cached for 15 seconds; errors remain visible |
-| Blockscout Contract Info | DEX pool pairs, DEX, fees, liquidity and volume | Cached for 15 seconds; values carry a market-data caveat |
-| Local OP-Reth | Head, sync, peers, gas and live blocks | Never replaced by public index data |
-| Local OP Node | Safe/finalized heads and rollup peers | Rendered as degraded when unavailable |
+1. The browser fetches indexed data from `/api/` on the page's origin. For separated hosting, the frontend can use the public build option `VITE_PUBLIC_API_ORIGIN`.
+2. The chain worker reads the configured upstream, validates responses and returns data plus freshness headers. Eligible outages can reuse a verified disk response for up to 24 hours, with its original timestamp. Advanced filtered queries preserve their own bounded retry and cache rules.
+3. The browser discovers the live WebSocket from `/api/live/config`. It uses HTTP snapshots when the socket is unavailable. Pending indexing and degraded local node observations remain explicit. [Endpoint and transport contracts](API.md)
 
-## Routes
+| Source | Responsibility |
+| --- | --- |
+| Blockscout v2 | Indexed blocks, transactions, addresses, tokens and activity |
+| Blockscout Stats Service | Counters and time series |
+| Blockscout Contract Info | DEX pools and market figures |
+| OP-Reth and OP Node | Independent local head, safe/finalized progress and local health |
+| Ink public RPC | Supported read and simulation fallback, identified as public in responses |
 
-The browser router supports overview, blocks, transactions, addresses/contracts, tokens, NFT instances, liquidity pools, analytics, OP Stack activity, developer access and local network health. The server returns per-route title, description, canonical URL, Open Graph data, structured data, `robots.txt` and a multilingual sitemap before JavaScript runs.
+Each worker has independent memory and live state. Upstream disk cache keys hash the complete upstream URL, including the network-specific origin or chain ID. Media blobs are keyed by the exact media URL. The cache budget is enforced by background pruning. Cached data and generated media are disposable. [Worker implementation](../server/server.mjs) · [Media cache](../server/media-cache.mjs)
+
+## Application catalogue
+
+`/apps` lists the applications in the [official Ink directory](https://inkonchain.com/apps) and `/testnet/apps` shows the entries available on Ink Sepolia. [Catalogue data](../src/ink-ecosystem.json) contains original summaries and the published categories, tags and links from the [official source snapshot](https://github.com/inkfoundation/ink-web-app/blob/fe4972f1c71176df76b44a480e46724df64790a5/src/app/%5Blocale%5D/apps/_components/apps-data.json). [French summaries](../src/ink-ecosystem-fr.json) are keyed by application ID. Logos load from their published URLs with an initial as fallback. The catalogue is available even when Blockscout is offline. Existing marketplace detail URLs and `/api/dapps` continue to use Blockscout.
+
+After reviewing and updating the catalogue, run `node scripts/generate-ecosystem-index.mjs` to refresh the compact route index and `npm run build` to update the directory and application pages. The build captures each detail from the open React directory and stores its navigation once per language and network. Node, Vercel and Cloudflare compose each document from that navigation and the requested application. The name, summary, website and catalogue link work before JavaScript loads. [Browser journeys](../scripts/apps-direct-browser-test.mjs) · [Document tests](../scripts/page-prerender-test.mjs)
+
+## Documents and SEO
+
+The build captures localized page shells and record templates in `dist/snapshots/`. These templates have no captured chain observations. The browser renders indexed and live state after startup. Document adapters can fill record shells using bounded observations for the requested network. [Snapshot selection](../server/page-snapshots.mjs) · [Record arrival](../server/record-arrival.mjs)
+
+The route parser and metadata definitions are shared between the browser and document renderers. The server returns the title, canonical, language alternatives, social metadata and structured data before JavaScript runs. It handles unknown routes with HTTP 404 and emits network-specific sitemaps. Update the shared definition and verify both a direct request and browser navigation when changing a route. [Route parser](../src/page-seo.ts) · [Metadata](../src/page-metadata.ts) · [Document renderer](../server/page-document.mjs)
+
+The local Node server serves pages and the API in one process per chain. A split installation can render public pages through the Node site server, a Vercel function or the Cloudflare Worker. The hosting adapter forwards public API and WebSocket traffic to the chain servers. [Node site](../server/public-site.mjs) · [Vercel page function](../api/page.mjs) · [Cloudflare Worker](../cloudflare/worker.mjs)
+
+## Translations and styles
+
+The entry catalogue combines English source labels, locale dictionaries and feature copy. The locale generator resolves them into JSON under `src/locales/`. The browser starts with English and loads the selected locale on demand. Edit the source dictionaries and run the generator when changing translations. [Catalogue](../src/i18n.ts) · [Generator](../scripts/generate-locales.mjs) · [Browser loader](../src/i18n-browser.ts)
+
+The entry file imports shared tokens, component styles and later responsive corrections in cascade order. Keep rules near the relevant component, and check the current imports before reorganizing CSS. [Stylesheet imports](../src/main.tsx) · [Design system](DESIGN_SYSTEM.md)
 
 ## Security decisions
 
-- Explorer and statistics proxy paths accept a conservative character set and reject traversal.
-- Contract Info accepts only pool list, detail and check routes with a validated address.
-- NFT media accepts public HTTPS origins only. DNS results are checked for private, loopback, link-local, multicast and reserved ranges on every redirect.
-- HTML responses set a restrictive Content Security Policy plus MIME sniffing, framing, permissions and referrer protections. Operators should still terminate TLS at the deployment edge.
-- Compressible static responses negotiate Brotli or Gzip; only content-hashed Vite assets receive immutable one-year caching.
-- Indexed APIs are GET-only. `POST /api/contract-rpc` accepts a fixed list of read/simulation methods, validates bounded payloads, checks chain identity and applies per-client limits. It never accepts signing or broadcast methods. The browser asks its wallet to simulate/review/sign a transaction only after explicit interaction.
-
-## Network isolation
-
-The main worker serves Mainnet on 4188. A separate loopback worker on 4190 serves Sepolia via `/testnet/`; HTTP and WebSocket forwarding preserve the same browser origin. Each worker has independent in-memory caches and live state. Disk upstream cache keys hash the full upstream URL, which includes the chain-specific origin or chain ID. NFT media blobs can be shared because their keys represent exact media URLs rather than chain entities.
-
-The browser derives its network from the path prefix. Every internal navigation, API query, media URL and WebSocket follows that prefix; a network change triggers a complete navigation. Wallet chain ID is checked on connection and again immediately before submission. Account/network changes invalidate prepared transactions. ABI encoding is loaded lazily with the interaction panel so browsing pages do not download the contract tooling.
-
-Local node health is never substituted with public health. A missing or syncing local node can use the corresponding Ink public RPC for contract reads/simulation, with `source: public` shown to the user. A successful simulation does not guarantee eventual transaction success: onchain state may change before inclusion. Receipts distinguish success, revert and pending status.
+Remote data, RPC responses and media metadata cross trust boundaries. Path allowlists, request limits and chain checks stay with the API handlers. A local node remains distinct from a public indexer. Transaction review, signing and broadcast stay in the browser wallet. Index reads, publishing verified source and submitting a public-label proposal use separate endpoints and flows. [API reference](API.md) · [Security policy](../SECURITY.md)

@@ -1,9 +1,14 @@
 import http from "node:http";
+import {createRollingReader} from "./rolling-reader.mjs";
+import { createLiveIdentities } from "./live-identities.mjs";
+import { queryTransactions } from "./transaction-query.mjs";
+import {createParentRequestGate,ParentSourceBusyError} from './parent-request-gate.mjs';
+import { createCanonicalFeed, subscribeHeads } from "./canonical-feed.mjs";
 import { mkdir, readFile, readdir, stat, statfs, unlink, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
-import { lookup } from "node:dns/promises";
-import ipaddr from "ipaddr.js";
-import { Agent, fetch as safeFetch } from "undici";
+import { AsyncLocalStorage } from "node:async_hooks";
+import {createMediaCache} from "./media-cache.mjs";
+import {createNftMetadataReader} from "./nft-metadata.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -16,9 +21,17 @@ import { proxyTestnet, proxyTestnetSocket } from "./testnet-proxy.mjs";
 import { createContractRpc } from "./contract-rpc.mjs";
 import { createApprovals } from "./approvals.mjs";
 import { nodeReadiness, rollupReadiness } from "./node-readiness.mjs";
+import { documentHeaders, renderPage, robotsText, sitemapXml } from "./page-document.mjs";
+import { readEcosystemDocument } from "./ecosystem-document.mjs";
 import { verifyAddressBalance } from "./address-balance.mjs";
+import {createCurrentAddressBalance} from './current-address-balance.mjs';
 import { createSourceVerification } from "./source-verification.mjs";
 import { communityTagStore, createTagSubmission, tagTypes } from "./community-tags.mjs";
+import { searchQuery } from "./search-query.mjs";
+import { validPoolPath } from "./pool-path.mjs";
+import { acceptsBlockIndexing, proveBlockIndexing, acceptsTransactionIndexing, proveTransactionIndexing, UpstreamHttpError } from "./block-indexing.mjs";
+import {createTransactionCore,firstTransactionResponse} from './transaction-core.mjs';
+import {dappsResponse} from './dapps-response.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..");
@@ -27,6 +40,7 @@ const testnet = process.env.INK_NETWORK === "sepolia";
 const port = Number(process.env.PORT || (testnet ? 4190 : 4188));
 const chainId = testnet ? 763373 : 57073;
 const networkName = testnet ? "Ink Sepolia" : "Ink Mainnet";
+const rollingReader=createRollingReader({chainId,file:process.env.INK_ROLLING_DATA_DIR ? path.join(process.env.INK_ROLLING_DATA_DIR,`${chainId}.json`) : undefined});
 const basePath = testnet ? "/testnet" : "";
 const explorerOrigin = testnet ? "https://explorer-sepolia.inkonchain.com" : "https://explorer.inkonchain.com";
 const explorerApi = (
@@ -43,6 +57,8 @@ const contractInfoApi = (
 const configuredPublicUrl = process.env.PUBLIC_URL?.replace(/\/$/, "");
 const browserOrigin = process.env.EXPLORER_BROWSER_ORIGIN?.trim().replace(/\/$/, "");
 const rpcUrl = process.env.INK_RPC || `http://127.0.0.1:${testnet ? 8645 : 8545}`;
+const currentTransaction=createTransactionCore({chainId,localUrl:rpcUrl});
+const currentAddressBalance=createCurrentAddressBalance({chainId,rpc:(method,params,signal)=>rpc(rpcUrl,method,params,signal)});
 const opNodeRpc = process.env.INK_OP_NODE_RPC || `http://127.0.0.1:${testnet ? 9645 : 9545}`;
 const metricsUrl = process.env.INK_METRICS_URL || `http://127.0.0.1:${testnet ? 9101 : 9001}/metrics`;
 const nodeDataDir = process.env.INK_NODE_DATA_DIR?.trim();
@@ -62,8 +78,23 @@ const startedAt = Date.now();
 const cache = new Map();
 const upstreamCache = new Map();
 const upstreamInflight = new Map();
+const parentRequestGate = createParentRequestGate();
+const responseFreshness = new AsyncLocalStorage();
 const cacheDir = path.join(root, "data", "upstream-cache");
 const mediaCacheDir = path.join(root, "data", "media-cache");
+const logoStoreDir = path.join(root,"data","logos");
+await mkdir(logoStoreDir,{recursive:true});
+let logoStoreBytes=0;
+for(const name of await readdir(logoStoreDir))if(name.endsWith(".bin"))logoStoreBytes+=(await stat(path.join(logoStoreDir,name))).size;
+const logoWrites=new Map();
+async function retainLogo(key,body,meta) {
+  if(logoWrites.has(key))return logoWrites.get(key);
+  if(body.length>2*1024*1024 || logoStoreBytes+body.length>2*1024*1024*1024)return;
+  logoStoreBytes+=body.length;
+  const job=Promise.all([writeFile(path.join(logoStoreDir,`${key}.bin`),body),writeFile(path.join(logoStoreDir,`${key}.json`),JSON.stringify(meta))]);
+  logoWrites.set(key,job);
+  try {await job;} catch {logoStoreBytes-=body.length;} finally {logoWrites.delete(key);}
+}
 await mkdir(cacheDir, { recursive: true });
 await mkdir(mediaCacheDir, { recursive: true });
 const MiB = 1024 * 1024;
@@ -113,222 +144,53 @@ function setBounded(map, key, value, limit) {
 const diskCachePath = (url) =>
   path.join(cacheDir, `${createHash("sha256").update(url).digest("hex")}.json`);
 
-const MAX_MEDIA_BYTES = 8 * 1024 * 1024;
-const allowedMediaTypes = new Set([
-  "image/avif",
-  "image/gif",
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/svg+xml",
-]);
-const mediaKey = (url) => createHash("sha256").update(url).digest("hex");
-
-function safeSvg(body) {
-  const source = body.toString("utf8");
-  // SVG is active XML, so accept only self-contained artwork. Event handlers,
-  // scripts, embedded HTML, entities and external resource references are not
-  // needed for token marks and are rejected before the file reaches a browser.
-  const activeMarkup =
-    /<(?:script|style|foreignObject|iframe|object|embed)\b|<!DOCTYPE|<!ENTITY|\bon[a-z]+\s*=|\bstyle\s*=|javascript\s*:/i;
-  const externalReference =
-    /\b(?:href|src)\s*=\s*["'](?!#|data:image\/)[^"']+/i;
-  const externalCssUrl = /url\(\s*["']?(?!#|data:image\/)[^)]+\)/i;
-  if (
-    !/^\s*(?:<\?xml[^>]*>\s*)?<svg\b/i.test(source) ||
-    activeMarkup.test(source) ||
-    externalReference.test(source) ||
-    externalCssUrl.test(source)
-  ) {
-    throw new Error("Unsafe SVG image");
-  }
-}
-
-async function readMediaBody(response) {
-  const reader = response.body.getReader();
-  const chunks = [];
-  let size = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      size += value.byteLength;
-      if (size > MAX_MEDIA_BYTES) throw new Error("Image is larger than 8 MB");
-      chunks.push(value);
-    }
-  } finally {
-    await reader.cancel().catch(() => {});
-  }
-  if (!size) throw new Error("Invalid image size");
-  return Buffer.concat(chunks, size);
-}
-
-function privateAddress(address) {
-  try {
-    let parsed = ipaddr.parse(address);
-    if (parsed.kind() === "ipv6" && parsed.isIPv4MappedAddress())
-      parsed = parsed.toIPv4Address();
-    return parsed.range() !== "unicast";
-  } catch {
-    return true;
-  }
-}
-
-async function safeMediaUrl(value) {
-  if (!value || value.length > 3000) throw new Error("Invalid media URL");
-  const target = new URL(value);
-  if (
-    target.protocol !== "https:" ||
-    target.username ||
-    target.password ||
-    target.port
-  )
-    throw new Error("Only public HTTPS media is supported");
-  const addresses = await lookup(target.hostname, {
-    all: true,
-    verbatim: true,
-  });
-  if (
-    !addresses.length ||
-    addresses.some((item) => privateAddress(item.address))
-  )
-    throw new Error("Private media hosts are blocked");
-  // Keep the checked DNS answer for the connection itself. Resolving again
-  // inside fetch would leave a gap for DNS rebinding.
-  const chosen = addresses.find((item) => item.family === 4) || addresses[0];
-  return { url: target, address: chosen.address, family: chosen.family };
-}
-
-async function fetchMedia(value) {
-  const initial = await safeMediaUrl(value);
-  const key = mediaKey(initial.url.href);
-  const bodyPath = path.join(mediaCacheDir, `${key}.bin`);
-  const metaPath = path.join(mediaCacheDir, `${key}.json`);
-  try {
-    const [body, meta] = await Promise.all([
-      readFile(bodyPath),
-      readFile(metaPath, "utf8").then(JSON.parse),
-    ]);
-    if (meta.url === initial.url.href && allowedMediaTypes.has(meta.type))
-      return { body, type: meta.type, key, cached: true };
-  } catch {
-    /* cache miss */
-  }
-
-  const ipfsPath = initial.url.pathname.match(/^\/ipfs\/(.+)$/)?.[1];
-  const candidates = ipfsPath
-    ? [
-        await safeMediaUrl(`https://gateway.pinata.cloud/ipfs/${ipfsPath}`),
-        initial,
-      ]
-    : [initial];
-  let lastError = new Error("Media unavailable");
-  for (const candidate of candidates) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 12000);
-    let target = candidate;
-    try {
-      for (let redirect = 0; redirect <= 3; redirect++) {
-        const dispatcher = new Agent({
-          connect: {
-            lookup: (_host, options, callback) =>
-              options.all
-                ? callback(null, [{ address: target.address, family: target.family }])
-                : callback(null, target.address, target.family),
-          },
-        });
-        let response;
-        try {
-          response = await safeFetch(target.url, {
-            dispatcher,
-            signal: controller.signal,
-            redirect: "manual",
-            headers: {
-              accept: "image/avif,image/webp,image/png,image/jpeg,image/gif",
-              "user-agent": "InkExplorer/0.1",
-            },
-          });
-          if (
-            response.status >= 300 &&
-            response.status < 400 &&
-            response.headers.get("location")
-          ) {
-            target = await safeMediaUrl(
-              new URL(response.headers.get("location"), target.url).href,
-            );
-            continue;
-          }
-          if (!response.ok)
-            throw new Error(`Media origin returned ${response.status}`);
-          const type = (response.headers.get("content-type") || "")
-            .split(";")[0]
-            .toLowerCase();
-          const declaredSize = Number(
-            response.headers.get("content-length") || 0,
-          );
-          if (!allowedMediaTypes.has(type))
-            throw new Error("Unsupported image format");
-          if (declaredSize > MAX_MEDIA_BYTES)
-            throw new Error("Image is larger than 8 MB");
-          const body = await readMediaBody(response);
-          if (type === "image/svg+xml") safeSvg(body);
-          await Promise.all([
-            writeFile(bodyPath, body),
-            writeFile(
-              metaPath,
-              JSON.stringify({
-                url: initial.url.href,
-                origin: target.url.href,
-                type,
-                bytes: body.length,
-                cachedAt: new Date().toISOString(),
-              }),
-            ),
-          ]);
-          scheduleCachePrune();
-          return { body, type, key, cached: false };
-        } finally {
-          if (response?.body && !response.bodyUsed)
-            await response.body.cancel().catch(() => {});
-          await dispatcher.close();
-        }
-      }
-      throw new Error("Too many media redirects");
-    } catch (error) {
-      lastError = error instanceof Error ? error : lastError;
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-  throw lastError;
-}
+const mediaCache=createMediaCache({cacheDir:mediaCacheDir,logoStoreDir,retainLogo,scheduleCachePrune});
+const readNftMetadata=createNftMetadataReader({rpc:(method,params,signal)=>rpc(rpcUrl,method,params,signal)});
 
 function json(res, status, body, extra = {}) {
+  const freshness = responseFreshness.getStore();
   res.writeHead(status, {
     "content-type": "application/json; charset=utf-8",
     "cache-control": "no-store",
     "x-content-type-options": "nosniff",
     "x-robots-tag": "noindex, nofollow",
+    ...(Number.isFinite(freshness?.at) ? {
+      "x-ink-data-status": freshness.stale ? "stale" : "fresh",
+      "x-ink-data-fetched-at": new Date(freshness.at).toISOString(),
+    } : {}),
     ...extra,
   });
   res.end(JSON.stringify(body));
 }
 
+function recordFreshness(entry) {
+  const current = responseFreshness.getStore();
+  if (!current || !Number.isFinite(entry?.at)) return;
+  // A composed response inherits its oldest observation and any stale source.
+  current.at = Math.min(current.at, entry.at);
+  current.stale ||= Boolean(entry.stale);
+}
+
 async function cached(key, ttl, loader) {
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < ttl) return hit.value;
-  const value = await loader();
-  setBounded(cache, key, { at: Date.now(), value }, 1000);
+  if (hit && Date.now() - hit.at < ttl) {
+    recordFreshness(hit.freshness);
+    return hit.value;
+  }
+  const freshness = { at: Infinity, stale: false };
+  const value = await responseFreshness.run(freshness, loader);
+  recordFreshness(freshness);
+  setBounded(cache, key, { at: Date.now(), value, freshness }, 1000);
   return value;
 }
 
-async function fetchJson(url, timeout = 12000, allowStale = true, updatedGasOracle = false) {
+async function fetchJson(url, timeout = 12000, allowStale = true, updatedGasOracle = false, bulkParent = false) {
   const key = updatedGasOracle ? `${url}#updated-gas-oracle` : url;
   let previous = upstreamCache.get(key);
   if (!previous) {
     try {
       const stored = JSON.parse(await readFile(diskCachePath(key), "utf8"));
-      if (stored.url === key) {
+      if (stored.url === key && Number.isFinite(stored.at) && stored.at <= Date.now() && Date.now() - stored.at < 24 * 60 * 60 * 1000) {
         previous = { at: stored.at, value: stored.value };
         setBounded(upstreamCache, key, previous, 2000);
       }
@@ -336,17 +198,25 @@ async function fetchJson(url, timeout = 12000, allowStale = true, updatedGasOrac
       /* cold cache */
     }
   }
-  if (previous && Date.now() - previous.at < 15000) return previous.value;
-  if (upstreamInflight.has(key)) return (await upstreamInflight.get(key)).value;
+  if (previous && Date.now() - previous.at < 15000) {
+    recordFreshness(previous);
+    return previous.value;
+  }
+  if (upstreamInflight.has(key)) {
+    const entry = await upstreamInflight.get(key);
+    recordFreshness(entry);
+    return entry.value;
+  }
   if (upstreamInflight.size >= 200) throw new Error("Too many upstream requests");
-  const request = fetchJsonUncached(url, timeout, allowStale ? previous : undefined, updatedGasOracle);
+  const request = fetchJsonUncached(url, timeout, allowStale ? previous : undefined, updatedGasOracle, bulkParent);
   upstreamInflight.set(key, request);
   try {
     const entry = await request;
+    recordFreshness(entry);
     setBounded(upstreamCache, key, entry, 2000);
     // A fallback is the same snapshot, not a new upstream observation. Preserve
     // its original timestamp so repeated outages cannot renew its 24h lifetime.
-    if (entry !== previous)
+    if (!entry.stale)
       writeFile(diskCachePath(key), JSON.stringify({ url: key, ...entry })).catch(
         () => {},
       );
@@ -357,11 +227,13 @@ async function fetchJson(url, timeout = 12000, allowStale = true, updatedGasOrac
   }
 }
 
-async function fetchJsonUncached(url, timeout, previous, updatedGasOracle = false) {
+async function fetchJsonUncached(url, timeout, previous, updatedGasOracle = false, bulkParent = false) {
   const controller = new AbortController();
+  const deadline=Date.now()+timeout;
   const timer = setTimeout(() => controller.abort(), timeout);
   try {
     for (let attempt = 0; attempt < 3; attempt++) {
+      if(bulkParent)await parentRequestGate.acquire(controller.signal,deadline);
       let response;
       try {
         response = await fetch(url, {
@@ -380,9 +252,10 @@ async function fetchJsonUncached(url, timeout, previous, updatedGasOracle = fals
           continue;
         }
         if (previous && Date.now() - previous.at < 24 * 60 * 60 * 1000)
-          return previous;
+          return { ...previous, stale: true };
         throw error;
       }
+      if(bulkParent)parentRequestGate.observe(response.headers,response.status);
       if (response.ok) {
         const value = await response.json();
         return { at: Date.now(), value };
@@ -393,6 +266,7 @@ async function fetchJsonUncached(url, timeout, previous, updatedGasOracle = fals
       // one exists.
       const transient = response.status === 429 || response.status >= 500;
       if (transient && attempt < 2) {
+        await response.body?.cancel();
         const retryAfter = Number(response.headers.get("retry-after"));
         const delay =
           Number.isFinite(retryAfter) && retryAfter > 0
@@ -402,8 +276,8 @@ async function fetchJsonUncached(url, timeout, previous, updatedGasOracle = fals
         continue;
       }
       if (transient && previous && Date.now() - previous.at < 24 * 60 * 60 * 1000)
-        return previous;
-      throw new Error(`Upstream returned ${response.status}`);
+        return { ...previous, stale: true };
+      throw new UpstreamHttpError(response.status);
     }
     throw new Error("Upstream retry limit reached");
   } finally {
@@ -491,7 +365,7 @@ async function networkSnapshot() {
   }
 
   const sync = value(1);
-  const p2p = value(5, {});
+  const p2p = value(5) ?? {};
   const rollup = value(6, {});
   const readiness = nodeReadiness({ chain: value(4), expectedChainId: chainId, sync, block: value(0) });
   const head = readiness.head;
@@ -524,7 +398,7 @@ async function networkSnapshot() {
 
 async function overview() {
   const [stats, blocks, transactions, chart, network] = await Promise.all([
-    fetchJson(`${explorerApi}/stats`),
+    fetchJson(`${explorerApi}/stats`, 12000, true, true),
     fetchJson(`${explorerApi}/blocks`),
     fetchJson(`${explorerApi}/transactions`),
     fetchJson(`${explorerApi}/stats/charts/transactions`),
@@ -560,14 +434,16 @@ const liveState = {
   network: null,
   block: null,
   transactions: [],
+  blocks: [],
+  utilization: null,
 };
-const liveWss = new WebSocketServer({ noServer: true });
+const liveWss = new WebSocketServer({ noServer: true, handleProtocols: protocols => protocols.has("ink-explorer.delta.v1") ? "ink-explorer.delta.v1" : false });
+const transactionQueryBudget = { active:0, requests:0, reset:Date.now()+60000 };
 
 function rpcBlock(block) {
   if (!block) return null;
   const gasUsed = hexNumber(block.gasUsed) || 0;
   const gasLimit = hexNumber(block.gasLimit) || 0;
-  const baseFee = block.baseFeePerGas ? BigInt(block.baseFeePerGas) : 0n;
   return {
     hash: block.hash,
     height: hexNumber(block.number),
@@ -577,7 +453,8 @@ function rpcBlock(block) {
     gas_limit: String(gasLimit),
     gas_used_percentage: gasLimit ? (gasUsed / gasLimit) * 100 : 0,
     size: hexNumber(block.size),
-    transaction_fees: String(baseFee * BigInt(gasUsed)),
+    transaction_fees: null,
+    _live: true,
     miner: block.miner,
   };
 }
@@ -590,11 +467,11 @@ function rpcTransactions(block) {
     .slice(0, 50)
     .filter((transaction) => transaction && typeof transaction === "object")
     .map((transaction) => {
-      let value = "0";
+      let value = null;
       try {
-        value = BigInt(transaction.value || 0).toString();
+        if (transaction.value != null) value = BigInt(transaction.value).toString();
       } catch {
-        /* malformed values remain zero */
+        /* malformed values remain unavailable */
       }
       return {
         hash: transaction.hash,
@@ -617,47 +494,86 @@ function rpcTransactions(block) {
 
 function sendLive(socket, type = "snapshot") {
   if (socket.readyState !== WebSocket.OPEN || !liveState.network) return;
-  socket.send(
-    JSON.stringify({
-      type,
-      protocol: "ink-observer.live.v1",
-      sequence: liveState.sequence,
-      sentAt: new Date().toISOString(),
-      network: liveState.network,
-      block: liveState.block,
-      transactions: liveState.transactions,
-    }),
-  );
+  if (socket.bufferedAmount > 1024 * 1024) { socket.close(1013,"Slow connection; reconnect for a snapshot"); return; }
+  const frame={ type,protocol:"ink-observer.live.v1",sequence:liveState.sequence,sentAt:new Date().toISOString(),network:liveState.network,
+    block:liveState.block,transactions:liveState.transactions.slice(0,50),blocks:liveState.blocks,utilization:liveState.utilization,rolling24h:rollingReader.current(liveState) };
+  if (socket.protocol === "ink-explorer.delta.v1") {
+    const previous=socket.feedState || {blocks:new Map(),transactions:new Map()};
+    const blocks=new Map(frame.blocks.map(item=>[item.height,JSON.stringify(item)]));
+    const transactions=new Map(frame.transactions.map(item=>[item.hash,JSON.stringify(item)]));
+    frame.delta=true;frame.reset=!socket.feedState;
+    frame.window={fromBlock:liveState.blocks.at(-1)?.height,toBlock:liveState.block?.height};
+    frame.blocks=frame.blocks.filter(item=>previous.blocks.get(item.height)!==blocks.get(item.height));
+    frame.transactions=frame.transactions.filter(item=>previous.transactions.get(item.hash)!==transactions.get(item.hash));
+    socket.feedState={blocks,transactions};
+  }
+  socket.send(JSON.stringify(frame));
 }
 
 function broadcastLive(type) {
   for (const socket of liveWss.clients) sendLive(socket, type);
 }
 
+let liveTransport = "polling";
+let snapshotRequestedAt=0;
+const liveIdentities=createLiveIdentities({enabled:()=>liveWss.clients.size>0 || Date.now()-snapshotRequestedAt<30000,get:hash=>fetchJson(`${explorerApi}/addresses/${hash}`,8000),onChange:()=>{
+  if(!liveState.network?.synced)return;
+  const snapshot=liveIdentities.apply(canonicalFeed.snapshot());
+  liveState.transactions=snapshot.transactions;liveState.sequence++;broadcastLive("network");
+}});
+const canonicalFeed = createCanonicalFeed({
+  rpc:(method, params) => rpc(rpcUrl, method, params),
+  onUpdate: (snapshot, event) => {
+    if (!liveState.network?.online || !liveState.network?.synced) return;
+    Object.assign(liveState, liveIdentities.apply(snapshot));
+    liveState.sequence++;
+    liveState.head = snapshot.block?.height ?? null;
+    liveState.sampledAt = new Date().toISOString();
+    liveState.network = { ...liveState.network, head:liveState.head, liveTransport,
+      sampledAt:liveState.sampledAt, blockAgeSeconds:snapshot.block ? Math.max(0,(Date.now()-Date.parse(snapshot.block.timestamp))/1000) : null };
+    broadcastLive(event === "block" ? "block" : "network");
+  },
+});
 let liveSampling = false;
+let pendingHeader=null, loadingHead=false;
+async function receiveHead(header) {
+  if (!pendingHeader || BigInt(header.number) >= BigInt(pendingHeader.number)) pendingHeader=header;
+  if (loadingHead) return;
+  loadingHead=true;
+  try {
+    while(pendingHeader) {
+      const current=pendingHeader;pendingHeader=null;
+      try { await canonicalFeed.accept(await rpc(rpcUrl,"eth_getBlockByHash",[current.hash,true])); } catch { /* A later tip or readiness poll repairs the gap. */ }
+    }
+  } finally { loadingHead=false; }
+}
+const nodeSubscription = subscribeHeads({ url:process.env.INK_RPC_WS || `ws://127.0.0.1:${testnet ? 8646 : 8546}`,
+  rpc:(method,params)=>rpc(rpcUrl,method,params), chainId,
+  onTransport: value => { liveTransport=value; },
+  onHead: header => { void receiveHead(header).catch(()=>{}); },
+});
 async function sampleLive() {
   if (liveSampling) return;
   liveSampling = true;
   try {
-    const [network, rawBlock] = await Promise.all([
-      networkSnapshot(),
-      rpc(rpcUrl, "eth_getBlockByNumber", ["latest", true]).catch(() => null),
-    ]);
-    const block = network.online && network.synced ? rpcBlock(rawBlock) : null;
-    const changed = Boolean(block && block.height !== liveState.head);
-    liveState.sequence += 1;
-    liveState.head = block?.height ?? null;
-    liveState.sampledAt = network.sampledAt;
-    liveState.network = network;
-    liveState.block = block;
-    if (changed) liveState.transactions = rpcTransactions(rawBlock);
-    if (!block) liveState.transactions = [];
-    broadcastLive(changed ? "block" : "network");
-  } catch {
-    /* HTTP health endpoints remain available if one live sample fails. */
-  } finally {
-    liveSampling = false;
-  }
+    const network = await cached("live-network-readiness", 10000, networkSnapshot);
+    const transport = nodeSubscription.healthy() ? "subscription" : "polling";
+    liveTransport=transport;
+    liveState.network = { ...network, liveTransport:transport };
+    if (!network.online || !network.synced) {
+      liveState.block=null; liveState.blocks=[]; liveState.transactions=[]; liveState.utilization=null;
+    } else if (!nodeSubscription.healthy() || !liveState.block) {
+      const block = await rpc(rpcUrl,"eth_getBlockByNumber",["latest",true]);
+      await canonicalFeed.accept(block);
+      Object.assign(liveState,liveIdentities.apply(canonicalFeed.snapshot()));
+    }
+    liveState.head = liveState.block?.height ?? null;
+    liveState.sequence++;
+    liveState.sampledAt = new Date().toISOString();
+    if (liveState.block) liveState.network = { ...liveState.network, head:liveState.head, blockAgeSeconds:Math.max(0,(Date.now()-Date.parse(liveState.block.timestamp))/1000) };
+    broadcastLive("network");
+  } catch { /* Readiness failures never become successful transaction statuses. */ }
+  finally { liveSampling = false; }
 }
 
 liveWss.on("connection", (socket) => {
@@ -674,44 +590,6 @@ liveWss.on("connection", (socket) => {
   });
   sendLive(socket, "welcome");
 });
-
-const supportedLanguages = [
-  "en",
-  "zh",
-  "hi",
-  "es",
-  "fr",
-  "ar",
-  "bn",
-  "pt",
-  "ru",
-  "ja",
-];
-const sitemapPaths = [
-  "/",
-  "/blocks",
-  "/txs",
-  "/tokens",
-  "/pools",
-  "/contracts",
-  "/analytics",
-  "/advanced",
-  "/developers",
-  "/network",
-  "/accounts", "/internal-txs", "/token-transfers", "/deposits", "/withdrawals",
-  "/batches", "/dispute-games", "/ops", "/name-services", "/gas-tracker", "/apps",
-  "/contract-verification", "/public-tags/submit",
-];
-
-function escapeHtml(value) {
-  return String(value).replace(
-    /[&<>"']/g,
-    (character) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
-        character
-      ],
-  );
-}
 
 function publicOrigin(req) {
   if (configuredPublicUrl) return configuredPublicUrl;
@@ -754,115 +632,6 @@ function allowedExplorerPath(suffix) {
   ].some((pattern) => pattern.test(suffix));
 }
 
-function seoFor(pathname) {
-  if (/^\/approvals\/0x[\da-f]{40}$/i.test(pathname)) return ["Ink token approvals — Ink Explorer", "Inspect and revoke ERC-20 and NFT approvals on Ink."];
-  const explorerTitles = {
-    "/approvals": "Ink token approvals",
-    "/accounts": "Top Ink accounts", "/internal-txs": "Ink internal transactions",
-    "/token-transfers": "Ink token transfers", "/deposits": "Ethereum to Ink deposits",
-    "/withdrawals": "Ink to Ethereum withdrawals", "/batches": "Ink transaction batches",
-    "/dispute-games": "Ink dispute games", "/ops": "Ink user operations",
-    "/name-services": "Name services lookup", "/gas-tracker": "Ink gas tracker",
-    "/apps": "Ink Dapps", "/contract-verification": "Verify Ink contract source",
-    "/public-tags/submit": "Submit an Ink public tag", "/verified-contracts": "Verified Ink contracts",
-    "/stats": "Ink network analytics",
-  };
-  if (explorerTitles[pathname]) return [`${explorerTitles[pathname]} — Ink Explorer`, "Browse Ink Mainnet chain data and tools inside Ink Explorer."];
-  if (/^\/batches\/\d+$/.test(pathname)) return [`Ink transaction batch ${pathname.slice(9)} — Ink Explorer`, "L1 publication, L2 blocks and transactions in an Ink batch."];
-  if (/^\/op\/0x[\da-f]{64}$/i.test(pathname)) return ["Ink user operation — Ink Explorer", "ERC-4337 sender, gas, fees, inclusion and decoded operation data."];
-  if (/^\/name-services\/domains\/[a-zA-Z0-9_.%~-]{1,750}$/.test(pathname)) return ["Domain details — Ink Explorer", "Domain registration, expiry, owner and resolved address."];
-  if (/^\/apps\/[a-zA-Z0-9_.-]{1,160}$/.test(pathname)) return ["Ink Dapp — Ink Explorer", "Application description, categories and website."];
-  if (/^\/stats\/[a-zA-Z0-9_-]{1,120}$/.test(pathname)) return ["Ink statistic — Ink Explorer", "Interactive network history, exact chart values and CSV export."];
-  const routes = {
-    "/": [
-      "Ink Explorer — Ink Mainnet",
-      "An open source explorer for the Ink community. Browse Ink Mainnet blocks, transactions, addresses, tokens and contracts.",
-    ],
-    "/search": [
-      "Search Ink Mainnet — Ink Explorer",
-      "Search addresses, verified contracts, tokens, blocks and transactions on Ink Mainnet.",
-    ],
-    "/blocks": [
-      "Ink blocks — Ink Explorer",
-      "Latest Ink Mainnet blocks with transaction counts, gas use, size and fees.",
-    ],
-    "/txs": [
-      "Ink transactions — Ink Explorer",
-      "Search confirmed Ink transactions, token transfers and internal contract calls.",
-    ],
-    "/tokens": [
-      "Ink tokens and NFTs — Ink Explorer",
-      "Fungible tokens, NFT collections, holders, supply and transfers on Ink Mainnet.",
-    ],
-    "/pools": [
-      "Ink liquidity pools — Ink Explorer",
-      "Live liquidity, trading volume, paired assets, DEXs and fee tiers across Ink Mainnet.",
-    ],
-    "/contracts": [
-      "Verified Ink contracts — Ink Explorer",
-      "Verified contract source code, compiler details, proxy implementations and deployment data on Ink.",
-    ],
-    "/analytics": [
-      "Ink network analytics — Ink Explorer",
-      "Ink throughput, active accounts, fees, reliability, block production and downloadable historical data.",
-    ],
-    "/advanced": [
-      "Ink bridge and account abstraction activity",
-      "Optimism deposits, withdrawals and ERC-4337 user operations on Ink Mainnet.",
-    ],
-    "/developers": [
-      "Ink Explorer developer API",
-      "Read-only Ink explorer endpoints, WebSocket events and local OP-Reth status.",
-    ],
-    "/network": [
-      "Ink network health — Ink Explorer",
-      "OP-Reth and OP Node head, finality, peer, sync and storage status from this machine.",
-    ],
-  };
-  if (/^\/tx\/0x[\da-f]{64}$/i.test(pathname))
-    return [
-      `Ink transaction ${pathname.slice(4, 18)}…`,
-      `Fees, transfers, logs, state changes and execution trace for transaction ${pathname.slice(4)} on Ink.`,
-    ];
-  if (/^\/block\/(\d+|0x[\da-f]{64})$/i.test(pathname))
-    return [
-      `Ink block ${pathname.slice(7)} — Ink Explorer`,
-      `Transactions, gas, fees, size and hashes for Ink block ${pathname.slice(7)}.`,
-    ];
-  if (/^\/address\/0x[\da-f]{40}$/i.test(pathname))
-    return [
-      `Ink address ${pathname.slice(9, 23)}…`,
-      `Balance, assets, NFTs, activity, contract source and deployment details for address ${pathname.slice(9)} on Ink.`,
-    ];
-  if (/^\/token\/0x[\da-f]{40}\/instance\//i.test(pathname))
-    return [
-      `Ink NFT instance — Ink Explorer`,
-      "NFT owner, metadata, attributes, media and transfer history on Ink Mainnet.",
-    ];
-  if (/^\/token\/0x[\da-f]{40}$/i.test(pathname))
-    return [
-      `Ink token ${pathname.slice(7, 21)}…`,
-      `Supply, holders, transfers and NFT instances for token ${pathname.slice(7)} on Ink.`,
-    ];
-  if (/^\/pools\/0x[\da-f]{40}$/i.test(pathname))
-    return [
-      `Ink pool ${pathname.slice(7, 21)}…`,
-      `Liquidity, volume, fee tier, paired assets, DEX and contract activity for pool ${pathname.slice(7)} on Ink.`,
-    ];
-  return (
-    routes[pathname] || [
-      "Page not found — Ink Explorer",
-      "The requested Ink explorer page could not be found.",
-    ]
-  );
-}
-
-function localizedCanonical(origin, url, language) {
-  const canonical = new URL(`${basePath}${url.pathname}`, origin);
-  if (language !== "en") canonical.searchParams.set("lang", language);
-  return canonical.href;
-}
-
 async function staticFile(reqPath, req, res, requestUrl) {
   const candidate = path.normalize(
     path.join(dist, reqPath === "/" ? "index.html" : reqPath),
@@ -877,59 +646,14 @@ async function staticFile(reqPath, req, res, requestUrl) {
   try {
     let body = await readFile(file);
     let responseStatus = 200;
+    let pageRobots;
     if (file.endsWith("index.html")) {
-      const language = supportedLanguages.includes(
-        requestUrl.searchParams.get("lang"),
-      )
-        ? requestUrl.searchParams.get("lang")
-        : "en";
-      const origin = publicOrigin(req);
-      const [title, description] = seoFor(requestUrl.pathname).map(value => value.replaceAll("Ink Mainnet", networkName));
-      // Start the home data request alongside the JS/CSS instead of after React mounts.
-      const preload = requestUrl.pathname === "/"
-        ? `<link rel="preload" href="${basePath}/api/overview" as="fetch" crossorigin="anonymous" />`
-        : "";
-      const robots =
-        title.startsWith("Page not found") || requestUrl.pathname === "/search"
-          ? "noindex,follow"
-          : "index,follow,max-image-preview:large";
-      if (title.startsWith("Page not found")) responseStatus = 404;
-      const canonical = localizedCanonical(origin, requestUrl, language);
-      const alternates = supportedLanguages
-        .map(
-          (code) =>
-            `<link rel="alternate" hreflang="${code}" href="${escapeHtml(localizedCanonical(origin, requestUrl, code))}" />`,
-        )
-        .join("");
-      const structured = JSON.stringify({
-        "@context": "https://schema.org",
-        "@type": "WebSite",
-        name: "Ink Explorer",
-        url: `${origin}${basePath}/`,
-        description,
-        potentialAction: {
-          "@type": "SearchAction",
-          target: `${origin}${basePath}/search?q={search_term_string}`,
-          "query-input": "required name=search_term_string",
-        },
-      }).replaceAll("<", "\\u003c");
-      let html = body
-        .toString("utf8")
-        .replace(
-          /<html lang="[^"]+"(?: dir="[^"]+")?>/,
-          `<html lang="${language}" dir="${language === "ar" ? "rtl" : "ltr"}">`,
-        )
-        .replace(/<title>[^<]*<\/title>/, `<title>${escapeHtml(title)}</title>`)
-        .replace(
-          /<meta name="description" content="[^"]*"\s*\/>/,
-          `<meta name="description" content="${escapeHtml(description)}" />`,
-        );
-      html = html.replace(
-        "</head>",
-        `<link rel="canonical" href="${escapeHtml(canonical)}" />${alternates}<meta name="robots" content="${robots}" /><meta property="og:type" content="website" /><meta property="og:site_name" content="Ink Explorer" /><meta property="og:title" content="${escapeHtml(title)}" /><meta property="og:description" content="${escapeHtml(description)}" /><meta property="og:url" content="${escapeHtml(canonical)}" /><meta property="og:image" content="${escapeHtml(origin)}/brand/ink-symbol.png" /><meta name="twitter:card" content="summary" /><meta name="twitter:title" content="${escapeHtml(title)}" /><meta name="twitter:description" content="${escapeHtml(description)}" /><script type="application/ld+json">${structured}</script></head>`,
-      );
-      html = html.replace("</head>", `${preload}</head>`);
-      body = Buffer.from(html);
+      const ecosystem = await readEcosystemDocument(requestUrl, basePath, async asset =>
+        JSON.parse(await readFile(path.join(dist, asset), "utf8")));
+      const page = renderPage(body, requestUrl, { origin: publicOrigin(req), basePath, ...ecosystem });
+      body = page.body;
+      responseStatus = page.status;
+      pageRobots = page.robots;
     }
     const contentType = mime[path.extname(file)] || "application/octet-stream";
     const accepts = String(req.headers["accept-encoding"] || "");
@@ -967,10 +691,11 @@ async function staticFile(reqPath, req, res, requestUrl) {
       "referrer-policy": "strict-origin-when-cross-origin",
       "permissions-policy":
         "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
-      ...(file.endsWith("index.html")
+      ...(pageRobots
         ? {
             "content-security-policy":
-              "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; frame-src https://verify.walletconnect.org https://secure.walletconnect.org https://verify.walletconnect.com https://secure.walletconnect.com; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' ws: wss: https://*.walletconnect.com https://*.walletconnect.org https://*.reown.com https://rpc-gel.inkonchain.com https://rpc-gel-sepolia.inkonchain.com; form-action 'self'",
+              documentHeaders["content-security-policy"],
+            "x-robots-tag": pageRobots,
           }
         : {}),
     });
@@ -981,7 +706,7 @@ async function staticFile(reqPath, req, res, requestUrl) {
   }
 }
 
-const server = http.createServer(async (req, res) => {
+const server = http.createServer((req, res) => responseFreshness.run({ at: Infinity, stale: false }, async () => {
   let url;
   try {
     url = new URL(req.url || "/", "http://localhost");
@@ -994,6 +719,7 @@ const server = http.createServer(async (req, res) => {
     req.headers.origin === browserOrigin;
   if (allowedBrowserRequest) {
     res.setHeader("access-control-allow-origin", browserOrigin);
+    res.setHeader("access-control-expose-headers", "x-ink-data-status, x-ink-data-fetched-at");
     res.setHeader("vary", "Origin");
   }
   if (req.method === "OPTIONS" && url.pathname.startsWith("/api/")) {
@@ -1023,6 +749,17 @@ const server = http.createServer(async (req, res) => {
     return json(res, 405, { error: "Method not allowed" });
 
   try {
+    if (url.pathname.startsWith('/api/address-balance/')) {
+      const address=url.pathname.slice('/api/address-balance/'.length);
+      if(!/^0x[\da-f]{40}$/i.test(address)||url.search)return json(res,400,{error:'Invalid address'});
+      try {
+        const observation=await currentAddressBalance(address);
+        if(!res.destroyed)return json(res,200,observation,{'x-ink-data-status':'fresh','x-ink-data-fetched-at':observation.observedAt});
+      } catch {
+        if(!res.destroyed)return json(res,503,{error:'Data source unavailable'},{'retry-after':'1'});
+      }
+      return;
+    }
     if (url.pathname === "/api/health") {
       return json(res, 200, {
         ok: true,
@@ -1047,9 +784,10 @@ const server = http.createServer(async (req, res) => {
       return json(res,200,{url:socketUrl.href});
     }
     if (url.pathname === "/api/live/snapshot") {
+      snapshotRequestedAt=Date.now();
       if (!liveState.network) return json(res,503,{error:"Live data not yet available"});
       return json(res,200,{type:"snapshot",protocol:"ink-observer.live.v1",sequence:liveState.sequence,
-        sentAt:new Date().toISOString(),network:liveState.network,block:liveState.block,transactions:liveState.transactions});
+        sentAt:new Date().toISOString(),network:liveState.network,block:liveState.block,transactions:liveState.transactions,blocks:liveState.blocks,utilization:liveState.utilization,rolling24h:rollingReader.current(liveState)});
     }
     if (url.pathname === "/api/live/status") {
       return json(res, 200, {
@@ -1069,7 +807,9 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, await cached("network", 5000, networkSnapshot));
     }
     if (url.pathname === "/api/media") {
-      const media = await fetchMedia(url.searchParams.get("url") || "");
+      const kind=url.searchParams.get("kind")||"original";
+      const media = await mediaCache(url.searchParams.get("url") || "",kind);
+      if(kind==="info")return json(res,200,{type:media.type});
       res.writeHead(200, {
         "content-type": media.type,
         "content-length": media.body.length,
@@ -1082,6 +822,24 @@ const server = http.createServer(async (req, res) => {
       });
       return res.end(media.body);
     }
+    if (url.pathname === "/api/v1/transactions") {
+      if (req.method !== "GET") return json(res,405,{error:"Read-only endpoint"},{allow:"GET"});
+      if(Date.now()>=transactionQueryBudget.reset){transactionQueryBudget.reset=Date.now()+60000;transactionQueryBudget.requests=0;}
+      if(transactionQueryBudget.active>=4 || transactionQueryBudget.requests>=60)return json(res,429,{error:"Transaction search is busy; retry shortly"},{"retry-after":String(transactionQueryBudget.requests>=60 ? Math.max(1,Math.ceil((transactionQueryBudget.reset-Date.now())/1000)) : 5)});
+      transactionQueryBudget.active++;transactionQueryBudget.requests++;
+      const deadline=Date.now()+45000;
+      try {
+        const result=await queryTransactions(url.searchParams,{get:path=>{
+          if(res.destroyed || Date.now()>=deadline)throw new Error("Transaction search timed out");
+          return fetchJson(`${explorerApi}${path}`,Math.min(45000,deadline-Date.now()),false,false,path.startsWith('/transactions/'));
+        }});
+        return json(res,200,{...result,meta:{chainId,source:"indexed",scope:"parent-transactions",sampledAt:new Date().toISOString()}},{"cache-control":"no-store"});
+      } catch(error) {
+        if(error instanceof ParentSourceBusyError)return json(res,429,{error:error.message},{'retry-after':String(error.retryAfter)});
+        if(/Invalid cursor|Invalid status|Unsupported transaction|Use token|Invalid activity|selector|address|date|amount|relation/.test(error.message))return json(res,400,{error:error.message});
+        throw error;
+      } finally {transactionQueryBudget.active--;}
+    }
     if (url.pathname.startsWith("/api/explorer/")) {
       const suffix = url.pathname.slice("/api/explorer/".length);
       if (!allowedExplorerPath(suffix)) {
@@ -1093,21 +851,54 @@ const server = http.createServer(async (req, res) => {
       const search = suffix === "stats" ? (params.size ? `?${params}` : "") : url.search;
       const upstream = `${explorerApi}/${suffix}${search}`;
       const profilePath = /^addresses\/0x[\da-f]{40}$/i.test(suffix);
-      return json(
-        res,
-        200,
+      let result;
+      try {
         // Advanced queries may legitimately run for up to 60 seconds upstream.
         // Never disguise an old filtered page as a successful current query.
-        await cached(detailedStats ? `${upstream}#updated-gas-oracle` : upstream, 5000, async () => {
+        const loadIndexed = () => cached(detailedStats ? `${upstream}#updated-gas-oracle` : upstream, 5000, async () => {
           const value = await fetchJson(upstream, suffix === "advanced-filters" ? 65000 : 12000, suffix !== "advanced-filters", detailedStats);
           if (!profilePath || !value || typeof value !== 'object') return value;
-          const verified = await verifyAddressBalance(value, {chainId,
+          const verified = await verifyAddressBalance(value, {chainId,currentBalance:currentAddressBalance,
             rpc:(method, params, signal) => rpc(rpcUrl, method, params, signal),
             signal:AbortSignal.timeout(5000),
           });
           return communityTags.enrich(verified);
-        }),
-      );
+        });
+        const transaction=/^transactions\/(0x[\da-f]{64})$/i.exec(suffix);
+        if(transaction && !url.search && acceptsTransactionIndexing(req.headers.accept)) {
+          const freshness={at:Infinity,stale:false};
+          const response=await firstTransactionResponse({
+            indexed:()=>responseFreshness.run(freshness,loadIndexed),
+            core:()=>currentTransaction(transaction[1]),
+            preferIndex:value=>!freshness.stale && Number.isFinite(freshness.at) && Date.now()-freshness.at<15000 &&
+              typeof value?.hash==='string' && value.hash.toLowerCase()===transaction[1].toLowerCase() && !('code' in value),
+          });
+          if(response.kind==='core')return json(res,200,response.value,{
+            'x-ink-data-status':'fresh','x-ink-data-fetched-at':response.value._ink_node_observation.observedAt,
+            'cache-control':'no-store',
+          });
+          recordFreshness(freshness);result=response.value;
+        } else result=await loadIndexed();
+      } catch (error) {
+        if (error instanceof UpstreamHttpError && error.status === 404 && acceptsTransactionIndexing(req.headers.accept)) {
+          const pending = await proveTransactionIndexing({ suffix, chainId, localUrl: rpcUrl });
+          if (pending) return json(res, 202, pending, { "retry-after": "1", "cache-control": "no-store" });
+        }
+        if (error instanceof UpstreamHttpError && error.status === 404 && acceptsBlockIndexing(req.headers.accept)) {
+          const pending = await proveBlockIndexing({ suffix, chainId, localUrl: rpcUrl });
+          // Outside both caches: every retry must consult the index again.
+          if (pending) return json(res, 202, pending, { "retry-after": "3" });
+        }
+        throw error;
+      }
+      const instance=suffix.match(/^tokens\/(0x[\da-f]{40})\/instances\/(\d+)$/i);
+      if(instance&&result&&!result.image_url&&!result.media_url&&!result.metadata?.image&&!result.metadata?.image_url) {
+        // Artwork may be absent from the index. Recover it independently; ownership
+        // and quantities remain exactly as returned by the indexed instance.
+        try {result={...result,...await readNftMetadata(instance[1],instance[2],result.token?.type)};}catch{/* Keep the instance available when its metadata host fails. */}
+      }
+      if (suffix === "transactions") liveIdentities.seed(result.items);
+      return json(res, 200, result);
     }
     if (url.pathname.startsWith("/api/stats/")) {
       const suffix = url.pathname.slice("/api/stats/".length);
@@ -1137,11 +928,11 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.pathname === "/api/dapps") {
       const upstream = `https://admin-rs.services.blockscout.com/api/v1/chains/${chainId}/marketplace/dapps`;
-      return json(res, 200, await cached(upstream, 60000, () => fetchJson(upstream)));
+      return json(res, 200, dappsResponse(await cached(upstream, 60000, () => fetchJson(upstream)), url.searchParams.get("view")));
     }
     if (url.pathname.startsWith("/api/contract-info/")) {
       const suffix = url.pathname.slice("/api/contract-info/".length);
-      if (!/^pools(?:\/0x[a-fA-F0-9]{40}(?:\/check)?)?$/.test(suffix)) {
+      if (!validPoolPath(suffix)) {
         return json(res, 400, { error: "Invalid contract-info path" });
       }
       const upstream = `${contractInfoApi}/${suffix}${url.search}`;
@@ -1163,12 +954,13 @@ const server = http.createServer(async (req, res) => {
       }
     }
     if (url.pathname === "/api/search") {
-      const q = (url.searchParams.get("q") || "").trim().slice(0, 140);
-      if (!q) return json(res, 200, { items: [] });
+      const query = searchQuery(url.searchParams);
+      if (!query) return json(res, 400, { error: "Invalid search parameters" });
+      if (!query.get("q")) return json(res, 200, { items: [] });
       return json(
         res,
         200,
-        await fetchJson(`${explorerApi}/search?q=${encodeURIComponent(q)}`),
+        await fetchJson(`${explorerApi}/search?${query}`),
       );
     }
     if (url.pathname.startsWith("/api/"))
@@ -1180,25 +972,17 @@ const server = http.createServer(async (req, res) => {
         "cache-control": "public, max-age=3600",
       });
       return res.end(
-        `User-agent: *\nAllow: /\nDisallow: ${basePath}/api/\nSitemap: ${origin}${basePath}/sitemap.xml\n`,
+        robotsText(origin, basePath),
       );
     }
     if (url.pathname === "/sitemap.xml") {
       const origin = publicOrigin(req);
-      const entries = sitemapPaths
-        .flatMap((route) =>
-          supportedLanguages.map(
-            (language) =>
-              `<url><loc>${escapeHtml(localizedCanonical(origin, new URL(route, origin), language))}</loc><changefreq>${route === "/" ? "hourly" : "daily"}</changefreq><priority>${route === "/" ? "1.0" : "0.8"}</priority></url>`,
-          ),
-        )
-        .join("");
       res.writeHead(200, {
         "content-type": "application/xml; charset=utf-8",
         "cache-control": "public, max-age=3600",
       });
       return res.end(
-        `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${entries}</urlset>`,
+        sitemapXml(origin, basePath),
       );
     }
     if (!(await staticFile(url.pathname, req, res, url)))
@@ -1208,7 +992,7 @@ const server = http.createServer(async (req, res) => {
       error: error instanceof Error ? error.message : "Upstream unavailable",
     });
   }
-});
+}));
 
 server.on("upgrade", (req, socket, head) => {
   if (!testnet && req.url === "/testnet/api/live") return proxyTestnetSocket(req, socket, head);

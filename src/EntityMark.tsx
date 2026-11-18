@@ -1,6 +1,7 @@
-import { memo, useEffect, useState } from "react";
+import { memo, useState } from "react";
 import { blo } from "blo";
-import { mediaUrl } from "./media";
+import { logoUrl } from "./media";
+import { BadgeCheck, FileCode2, Layers3 } from "lucide-react";
 
 const ADDRESS = /^0x[a-fA-F0-9]{40}$/;
 const identicons = new Map<string, string>();
@@ -17,14 +18,23 @@ export const EntityMark = memo(function EntityMark({
   address,
   src,
   label,
+  entity,
 }: {
   address?: string;
   src?: string;
   label?: string;
+  entity?: { is_contract?: boolean; is_verified?: boolean; proxy_type?: string | null; implementations?: unknown[]; [key: string]: unknown } | null;
 }) {
-  const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [src]);
+  const [failedSource, setFailedSource] = useState<string>();
+  const failed = failedSource === src;
   if (!address && !src) return null;
+
+  if (entity?.is_contract === true && !src) {
+    const proxy = Boolean(entity.proxy_type || entity.implementations?.length);
+    const verified = entity.is_verified === true;
+    const Icon = proxy ? Layers3 : FileCode2;
+    return <span className={`entity-mark contract-mark ${proxy ? "proxy" : "contract"}${verified ? " verified" : ""}`} data-contract-kind={`${verified ? "verified-" : ""}${proxy ? "proxy" : "contract"}`} aria-hidden="true"><Icon size={23} strokeWidth={1.8} />{verified && <BadgeCheck className="verification-mark" size={12} />}</span>;
+  }
 
   const walletAddress = address && ADDRESS.test(address)
     ? address.toLowerCase() as `0x${string}`
@@ -47,7 +57,7 @@ export const EntityMark = memo(function EntityMark({
       aria-hidden="true"
     >
       {src && !failed ? (
-        <img src={mediaUrl(src)} alt="" onError={() => setFailed(true)} />
+        <img src={logoUrl(src)} alt="" loading="lazy" decoding="async" onError={() => setFailedSource(src)} />
       ) : walletAddress ? (
         <img src={identicon(walletAddress)} alt="" />
       ) : (

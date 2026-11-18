@@ -1,53 +1,38 @@
 # Contributing to Ink Explorer
 
-Thanks for helping make Ink chain data easier to inspect. Documentation, bug reports, translations, accessibility fixes and code changes are all welcome. You do not need to run an Ink node to make a useful contribution.
+Documentation, translations, accessibility improvements, bug reports and code changes are welcome. You can run the explorer against public indexers with a local browser. [Quick start](README.md#quick-start)
 
-## Find a place to start
+## Pick a change
 
-- Check existing issues before opening a new one. Issues labelled `good first issue` or `help wanted` are intended as starting points when available.
-- Small documentation corrections, reproducible UI bugs and test improvements are good first changes. If you have an idea without an issue, open a feature request before investing in a large implementation.
-- Use GitHub Discussions for setup questions and ideas that are not yet actionable issues.
-- For security problems, follow [the security policy](SECURITY.md). Do not include exploit details, private keys or personal data in a public issue.
-- Comment on an issue before starting substantial work so maintainers and other contributors can coordinate.
+Look for an existing issue, including issues labelled `good first issue` or `help wanted`. Use Discussions for setup questions and early ideas when it is available. For a substantial change, agree on the scope in the issue before implementation. For vulnerabilities, use the private reporting procedure. [Security policy](SECURITY.md)
 
-## Run the project locally
-
-Use Node.js 22.12 or newer and npm. Chrome is needed only for browser suites.
-
-```bash
-git clone https://github.com/Nadooooooo/ink-explorer.git
-cd ink-explorer
-npm ci --include=dev
-cp .env.example .env
-npm run build
-npm start
-```
-
-Open `http://127.0.0.1:4188`. The default public Blockscout services provide indexed history. Local OP-Reth and OP Node endpoints are optional; the network-health panel shows them as unavailable when they are absent. Set local paths and RPC URLs only in `.env`, never in committed examples. For Sepolia, see [the running and fork guide](docs/FORKING.md).
-
-## Choose the right file
+## Find the source
 
 | Change | Start here |
 | --- | --- |
-| Routes, page state and tables | `src/App.tsx` |
-| Labels and translations | `src/i18n.ts`, `src/page-copy.ts`, `src/dynamic-copy.ts` |
-| Layout and responsive styles | `src/styles.css`, `src/contracts.css` |
-| API proxy, cache and node checks | `server/server.mjs` |
-| Contract calls and wallet interaction | `src/ContractInteraction.tsx`, `server/contract-rpc.mjs` |
-| HTTP and WebSocket behavior | `docs/API.md` |
+| Routes, navigation and page families | [App](src/App.tsx), [navigation](src/Navigation.tsx), [explorer link](src/ExplorerLink.tsx) |
+| Indexed history, fetch and retry | [API requests](src/api-request.ts), [network selection](src/network.ts), [Node server](server/server.mjs) |
+| Route metadata and crawlable documents | [Route parser](src/page-seo.ts), [page metadata](src/page-metadata.ts), [document renderer](server/page-document.mjs) |
+| Layout and design tokens | [Stylesheet import order](src/main.tsx), [design system](docs/DESIGN_SYSTEM.md) |
+| Translations | [Translation catalogue](src/i18n.ts), [catalogue generator](scripts/generate-locales.mjs) |
+| Contract writes and RPC boundaries | [Contract interaction](src/ContractInteraction.tsx), [RPC proxy](server/contract-rpc.mjs) |
 
-Read [the architecture notes](docs/ARCHITECTURE.md) before changing a data source or security boundary. Keep a change focused; when adding a substantial UI feature, prefer a small component over another large section in `src/App.tsx`.
+Read the architecture notes before changing a data source, network boundary or startup behavior. Keep components and tests focused. Use comments to explain why an invariant matters when the code alone cannot express it, such as the chain identity, cache lifetime, timer cleanup or the distinction between locally observed and indexed data. Let names explain routine operations. [Architecture](docs/ARCHITECTURE.md)
 
-## Check your change
+Write project guidance in English. Add user-facing copy to the relevant catalogue source and use named placeholders for values that move in translation. Regenerate the browser catalogues with `node scripts/generate-locales.mjs`. Run the layout and localization suites when the copy affects a control. [Translation flow](docs/ARCHITECTURE.md#translations-and-styles)
 
-For code changes, run `npm run check` and `npm run build`. Run `npm run test:node-readiness` when changing node status. Start the built server before `npm run test:security` or browser suites. Run the checks relevant to the area you changed: `test:ui`, `test:a11y`, `test:i18n`, `test:responsive` and `test:contracts` are available. Browser suites need Chrome; some use live upstream data or local nodes. Explain in the pull request which checks you ran and which you could not run.
+## Verify a change
 
-For a new route or control, cover its main interaction and keyboard behavior. Check a narrow phone viewport and a desktop viewport for overflow. Write project documentation in English. Add user-facing copy to `src/i18n.ts`, `src/page-copy.ts` or `src/dynamic-copy.ts` with English as the source and translations for every language offered in the interface. Keep variable values in named placeholders so translated word order can differ. Label external data and preserve the distinction between indexed history and local node health.
+Run `npm test` for the default checks. The README lists the browsers required to build and to run browser tests. For a UI change, test a narrow phone and a desktop viewport and exercise the main controls with a keyboard. For contract and data changes, use the relevant deterministic tests before a live verification. [Quick start](README.md#quick-start) · [Release test protocol](docs/TEST_PROTOCOL.md)
 
-Browser scripts use a public Ink NFT contract and select a holder from live indexed data at runtime. The selected address can change; keep captured pages under the ignored `screenshots/` folder and do not commit account-specific fixtures.
+Keep reports and screenshots in the ignored directories. Share only the evidence the reviewer needs and remove wallet activity, private URLs and personal information. Browser suites can discover sample records from the live index; the same record may change across runs.
 
 ## Open a pull request
 
-Fork the repository, make a branch for one change, and open a pull request against `main`. Describe the user-visible result, link the related issue, and include screenshots only when they help explain a visual change. Remove account names, wallet activity, hostnames, local paths and other private details from screenshots and logs. Update documentation when changing behavior, API routes or environment variables.
+Base a short-lived branch on the latest upstream `main`. Use a name such as `fix/nft-preview`, `feat/token-filter` or `docs/local-setup`. Keep one purpose per branch. Fork the repository for outside contributions and open the pull request against upstream `main`.
 
-Maintainers may ask for a smaller scope or additional checks. By participating, you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md). Contributions to the repository are licensed under [MIT](LICENSE).
+Describe the user-visible result, link the issue and list the checks you actually ran. For a visual change, include the tested browser and viewport sizes. CI runs the dependency audit after the build and test steps so each result is visible. The job fails on a high or critical advisory. [CI workflow](.github/workflows/ci.yml) · [Release test protocol](docs/TEST_PROTOCOL.md)
+
+Keep changes to the canonical `main` branch in reviewed pull requests. A push to `main` in the canonical repository triggers the deployment mirror workflow. Maintainers coordinate publication and choose which build to release. [Mirror workflow](.github/workflows/private-mirror.yml) · [Release checklist](docs/OPEN_SOURCE_RELEASE.md)
+
+By participating, you agree to the code of conduct. Contributions are licensed under MIT. [Code of conduct](CODE_OF_CONDUCT.md) · [MIT License](LICENSE)

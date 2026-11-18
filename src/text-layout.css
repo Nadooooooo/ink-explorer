@@ -1,0 +1,86 @@
+/* Intrinsic text sizes also apply when the browser enforces a minimum font.
+   Keep the compact layout until its labels actually need another row. */
+.brand > span { line-height:normal; }
+.app-header .brand { width:auto; flex:0 0 auto; }
+.stats-counters { display:flex; flex-wrap:wrap; }
+.stats-counters article { flex:1 1 calc(25% - 14px); min-width:auto; max-width:100%; }
+.stats-counters article > div,
+.stats-counters article > strong { line-height:normal; }
+.stats-counters article > div > span:not(.info-disclosure) { overflow-wrap:normal; }
+.token-summary.address-summary { display:flex; flex-wrap:wrap; gap:12px; }
+.token-summary.address-summary > .metric { flex:1 1 calc(25% - 12px); min-width:auto; max-width:100%; }
+.token-summary .metric-top,
+.token-summary .metric > strong { line-height:normal; }
+.token-summary .metric-top > span:not(.info-disclosure),
+.token-summary .info-visible-label { overflow-wrap:normal; word-break:normal; }
+.token-summary .metric > strong { overflow-wrap:anywhere; }
+.address-page > .address-summary { display:flex; flex-wrap:wrap; }
+.address-page > .address-summary > .metric { flex:1 1 calc(25% - 14px); min-width:auto; max-width:100%; }
+.address-page > .address-summary > .metric:first-child { flex-basis:calc(50% - 14px); }
+.address-page .metric-top,
+.address-page .metric > strong { line-height:normal; }
+.address-page .metric-top > span:not(.info-disclosure),
+.address-page .info-visible-label { overflow-wrap:normal; word-break:normal; }
+.address-page .metric > strong { overflow-wrap:anywhere; }
+.address-page > .section-navigation > .tabs { flex-wrap:wrap; }
+.home-overview .utilization-metric .info-with-label > .info-button { height:auto; min-height:44px; line-height:normal; }
+.home-overview .signal-main .section-title { flex-wrap:wrap; }
+.home-overview .signal-main .section-title h2 { flex:1 1 min-content; }
+.home-overview .chart-heading-actions { margin-inline-start:auto; }
+.home-overview .signal-main .chart-axis { flex-wrap:wrap; gap:4px 12px; }
+.home-overview .signal-main .chart-axis > span:last-child { margin-inline-start:auto; }
+.chart-data > .text-link { max-width:100%; white-space:normal; text-align:start; line-height:normal; color:var(--purple-deep); }
+.chart-data > .text-link > svg { flex-shrink:0; }
+.chart-data > .text-link:disabled { color:var(--muted); cursor:default; text-decoration:none; opacity:.65; }
+.pool-filter-top { grid-template-columns:minmax(0,1fr) minmax(0,auto); }
+.pool-filter-status { flex-wrap:wrap; justify-content:flex-start; white-space:normal; }
+.pool-filter-status > svg { flex-shrink:0; }
+.pool-filter-status > span { min-width:0; }
+.pool-filter-status > button { min-height:44px; max-width:100%; margin-inline-start:auto; }
+.pool-search { width:100%; max-width:100%; }
+.pool-search > svg { flex-shrink:0; }
+.pool-workbench .pool-search > input { background:transparent; padding-inline-end:12px; }
+.pool-filter-grid label > span { overflow-wrap:anywhere; }
+@media(min-width:1800px) {
+  .stats-counters article { flex-basis:calc(16.6667% - 14px); }
+}
+@media(max-width:1179px) {
+  .stats-counters article { flex-basis:calc(33.3333% - 14px); }
+  .token-summary.address-summary > .metric { flex-basis:calc(50% - 6px); }
+}
+@media(max-width:760px) {
+  .address-page > .address-summary > .metric { flex-basis:calc(50% - 10px); }
+  .address-page > .address-summary > .metric:first-child { flex-basis:100%; }
+  .utility-bar { flex-wrap:wrap; gap:0 12px; }
+  .utility-settings { max-width:100%; }
+  .utility-settings .network-picker { width:auto; max-width:100%; }
+  .utility-bar .network-picker select { width:auto; max-width:100%; }
+  .stats-counters article { flex-basis:calc(50% - 8px); }
+  .stats-counters article > div > span:not(.info-disclosure) { overflow-wrap:normal; }
+  /* Keep normal-size totals paired on narrow phones. Intrinsic minimum widths
+     still move a card to its own row when the user enlarges the text. */
+  .stats-totals .stats-counters article { padding-inline:8px; }
+  .stats-totals .stats-counters article > div { gap:4px; }
+  .home-overview > .metric-grid { display:flex; flex-wrap:wrap; }
+  .home-overview > .metric-grid > .metric { flex:1 1 calc(50% - 8px); min-width:auto; max-width:100%; }
+  .home-overview .metric-top > span,
+  .home-overview .info-visible-label { overflow-wrap:normal; }
+  .home-overview .signal-main .section-title h2 { line-height:normal; }
+  .pool-filter-top { grid-template-columns:minmax(0,1fr); }
+  .pool-filter-grid { display:flex; flex-wrap:wrap; }
+  .pool-filter-grid > label { flex:1 1 calc(50% - 8px); min-width:auto; max-width:100%; }
+  .pool-filter-grid select { width:auto; max-width:100%; }
+}
+@media(forced-colors:active) {
+  .chart-data > .text-link:disabled { color:GrayText; opacity:1; }
+}
+@media(max-width:760px), (pointer:coarse) {
+  .token-directory-filters { display:flex; flex-wrap:wrap; }
+  .token-directory-filters > .token-search-field { flex:1 1 100%; }
+  .token-directory-filters > label { flex:1 1 calc(50% - 8px); min-width:auto; max-width:100%; }
+  .token-directory-filters select { width:auto; max-width:100%; }
+  .token-directory .token-row { display:flex; flex-wrap:wrap; }
+  .token-directory .token-row > .token-name { flex:1 1 100%; }
+  .token-directory .token-row > span:not(.token-name) { flex:1 1 calc(33.3333% - 10px); min-width:auto; max-width:100%; }
+  .token-directory .token-row .mobile-label { overflow-wrap:normal; word-break:normal; line-height:normal; }
+}

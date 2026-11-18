@@ -1,0 +1,118 @@
+/* Dense ledgers keep the same column order on touch screens and desktops. */
+.ledger-viewport { max-width:100%; overflow:auto; overscroll-behavior-x:contain; scrollbar-width:thin; scrollbar-color:var(--accent-border) transparent; scroll-padding-inline:208px 16px; }
+.ledger-viewport:focus-visible { outline:2px solid var(--focus-color); outline-offset:-2px; }
+.ledger-top-pagination { display:flex; align-items:center; gap:4px; flex:0 0 auto; }
+.ledger-top-pagination:focus-visible,.cursor-pagination:focus-visible { outline:2px solid var(--focus-color); outline-offset:3px; border-radius:12px; }
+.ledger-top-pagination > button { display:grid; place-items:center; width:44px; height:44px; padding:0; border:1px solid var(--line); border-radius:10px; background:var(--surface-panel); color:var(--purple-deep); cursor:pointer; }
+.ledger-top-pagination > button:disabled { opacity:.4; cursor:default; }
+[dir="rtl"] .ledger-top-pagination svg { transform:rotate(180deg); }
+.activity-ledger-page .table-toolbar { padding-inline:16px; }
+.activity-ledger-page .table-toolbar > span:first-child { margin-inline-end:auto; }
+.activity-ledger-page .table-toolbar > .indexed-update-slot { margin:0; }
+.activity-ledger-page .table-toolbar > button { flex:0 0 auto; min-height:44px; }
+.ledger-main-toolbar .ledger-toolbar-count-compact { display:none; }
+.activity-ledger-page .table-shell { border-radius:16px; }
+.activity-ledger-page .pagination { height:auto; min-height:60px; padding:8px 12px; flex-wrap:wrap; }
+.activity-ledger-page .pagination > button { flex:0 0 auto; max-width:100%; min-height:44px; }
+[dir="rtl"] .activity-ledger-page .pagination svg { transform:rotate(180deg); }
+.activity-ledger-page .ledger-pagination-footer { justify-content:space-between; }
+.ledger-pagination-footer > span { color:var(--muted); font-size:12px; }
+.activity-ledger-page .ledger-viewport :is(.tx-row.full-tx-row,.ledger-columns.tx-columns) { display:grid; grid-template-columns:minmax(180px,1.2fr) minmax(135px,.9fr) minmax(110px,.8fr) minmax(105px,.7fr) minmax(175px,1.1fr) minmax(175px,1.1fr) minmax(120px,.8fr) minmax(140px,.9fr); grid-template-areas:none; column-gap:12px; row-gap:0; padding:0 16px; min-width:1256px; }
+.activity-ledger-page .ledger-viewport .ledger-columns { min-height:40px; align-items:center; }
+.activity-ledger-page .ledger-viewport .tx-row.full-tx-row { min-height:80px; align-items:center; font-size:12px; background:var(--surface-panel); }
+.activity-ledger-page .ledger-viewport .full-tx-row > :is(.tx-primary,.method,.tx-block,.flow,.tx-value) { grid-area:auto; }
+.activity-ledger-page .ledger-viewport .full-tx-row .tx-primary { gap:6px; align-self:stretch; align-items:center; padding-block:8px; }
+.activity-ledger-page .ledger-viewport .tx-primary > div { display:block; min-width:0; }
+.activity-ledger-page .ledger-viewport .full-tx-row .tx-type-icon { width:22px; height:28px; flex:0 0 22px; background:transparent; }
+.activity-ledger-page .ledger-viewport .full-tx-row .copyable { gap:2px; }
+.activity-ledger-page .ledger-viewport .full-tx-row .copyable > .text-link { display:flex; align-items:center; min-height:44px; line-height:1.4; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.activity-ledger-page .ledger-viewport .full-tx-row .copyable > .copy-button { display:grid; place-items:center; width:44px; height:44px; flex:0 0 44px; min-width:44px; min-height:44px; }
+.activity-ledger-page .ledger-viewport .tx-primary small { margin-top:-4px; font-size:12px; }
+.activity-ledger-page .ledger-viewport .full-tx-row .tx-labels { display:flex; flex-wrap:wrap; gap:4px 8px; font-size:12px; line-height:1.4; }
+.activity-ledger-page .ledger-viewport .tx-kind .tx-labels > span:first-child { overflow:visible; white-space:normal; }
+.activity-ledger-page .ledger-viewport .tx-kind .failure-label { color:var(--red); }
+.activity-ledger-page .ledger-viewport .full-tx-row > .method { justify-self:start; align-self:center; max-width:100%; font-size:12px; }
+.activity-ledger-page .ledger-viewport .full-tx-row > .tx-block { justify-self:start; justify-content:flex-start; font-size:12px; min-height:44px; align-items:center; display:flex; }
+.activity-ledger-page .ledger-viewport .full-tx-row :is(.flow,.tx-value) { display:contents; }
+.activity-ledger-page .ledger-viewport .full-tx-row .flow-party { display:flex; width:100%; gap:6px; padding:0; border:0; }
+.activity-ledger-page .ledger-viewport .full-tx-row :is(.flow-arrow,.mobile-label,.fee-caption) { display:none; }
+.activity-ledger-page .ledger-viewport .full-tx-row .flow-party .entity-mark { flex:0 0 20px; width:20px; height:20px; }
+.activity-ledger-page .ledger-viewport .full-tx-row .flow-party .text-link { max-width:none; white-space:nowrap; }
+.activity-ledger-page .ledger-viewport .full-tx-row .tx-value > :is(strong,small) { font-size:12px; line-height:1.5; margin:0; text-align:end; overflow-wrap:anywhere; }
+.activity-ledger-page .ledger-viewport .tx-columns > span:nth-last-child(-n+2) { text-align:end; }
+/* The frozen cell has its own opaque surface; adjacent values never show through. */
+.activity-ledger-page .ledger-viewport :is(.tx-primary,.block-height,.ledger-columns > span:first-child) { position:sticky; inset-inline-start:16px; z-index:2; background:var(--surface-panel); }
+.activity-ledger-page .ledger-viewport .ledger-columns > span:first-child { background:var(--surface-header); align-self:stretch; display:block; align-content:center; }
+.activity-ledger-page .ledger-viewport :is(.tx-primary,.block-height,.ledger-columns > span:first-child)::before { content:""; position:absolute; inset-block:0; inset-inline-start:-16px; width:16px; background:inherit; }
+.activity-ledger-page .ledger-viewport :is(.tx-primary,.block-height,.ledger-columns > span:first-child)::after { content:""; position:absolute; inset-block:0; inset-inline-end:-6px; width:6px; background:inherit; border-inline-end:1px solid var(--line); pointer-events:none; }
+.activity-ledger-page .ledger-viewport .tx-row:hover,.activity-ledger-page .ledger-viewport .block-row:hover { background:var(--surface-hover); }
+.activity-ledger-page .ledger-viewport .tx-row:hover .tx-primary,.activity-ledger-page .ledger-viewport .block-row:hover .block-height { background:var(--surface-hover); }
+.activity-ledger-page .ledger-viewport :is(.block-row,.ledger-columns.block-columns) { display:grid; grid-template-columns:minmax(174px,1.05fr) minmax(85px,.6fr) minmax(220px,1.5fr) minmax(105px,.65fr) minmax(145px,.9fr); grid-template-areas:none; min-width:809px; padding:0 16px; gap:0 12px; }
+.activity-ledger-page .ledger-viewport .block-row { min-height:80px; background:var(--surface-panel); }
+.activity-ledger-page .ledger-viewport .block-row > div { grid-column:auto; grid-row:auto; }
+.activity-ledger-page .ledger-viewport .block-height { gap:8px; padding-block:8px; align-self:stretch; }
+.activity-ledger-page .ledger-viewport .block-height a { min-height:44px; display:flex; align-items:center; font-size:13px; }
+.activity-ledger-page .ledger-viewport .block-height small { font-size:12px; margin-top:-4px; }
+.activity-ledger-page .ledger-viewport .block-icon { width:22px; height:28px; flex:0 0 22px; background:transparent; }
+.activity-ledger-page .ledger-viewport .block-row > :is(.block-size,.block-tx-count,.block-gas) { display:block; text-align:end; }
+.activity-ledger-page .ledger-viewport .block-row > :is(.block-size,.block-tx-count,.block-gas) > small { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+.activity-ledger-page .ledger-viewport .block-beneficiary { display:flex; align-items:center; gap:8px; }
+.activity-ledger-page .ledger-viewport .block-beneficiary .copy-button { display:grid; width:44px; min-width:44px; height:44px; min-height:44px; }
+.activity-ledger-page .ledger-viewport .block-beneficiary .text-link { display:flex; align-items:center; min-height:44px; font-size:12px; }
+.activity-ledger-page .ledger-viewport .gas-meter { margin-top:6px; }
+.activity-ledger-page .ledger-viewport .forked-block-hash { margin-top:0; }
+.activity-ledger-page .ledger-viewport .forked-block-hash .copyable { flex-wrap:nowrap; }
+@media(max-width:760px) {
+  .activity-ledger-page .table-toolbar .ledger-top-pagination { margin-inline-start:auto; }
+  .activity-ledger-page .page-intro { margin-bottom:16px; }
+  .activity-ledger-page .table-toolbar { padding-inline:12px; gap:4px; }
+  .activity-ledger-page .ledger-viewport :is(.tx-row.full-tx-row,.ledger-columns.tx-columns) { grid-template-columns:180px 135px 110px 105px 175px 175px 120px 140px; }
+  .activity-ledger-page .ledger-viewport :is(.block-row,.ledger-columns.block-columns) { grid-template-columns:158px 85px 220px 105px 145px; min-width:793px; }
+  .activity-ledger-page .transaction-summary { gap:8px; }
+  .activity-ledger-page .transaction-summary .metric { border-radius:12px; }
+  .activity-ledger-page .transaction-summary .metric > strong { font-size:16px; }
+}
+@media(max-width:600px) {
+  .activity-ledger-page > .table-shell > .ledger-main-toolbar { flex-wrap:nowrap; gap:4px; padding-inline:10px; }
+  .activity-ledger-page .ledger-main-toolbar > .ledger-toolbar-count { display:inline-flex; align-items:center; min-width:0; flex:1 1 auto; margin-inline-end:0; }
+  .ledger-main-toolbar .ledger-toolbar-count-full { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0; }
+  .ledger-main-toolbar .ledger-toolbar-count-compact { display:inline-flex; align-items:center; justify-content:center; min-width:32px; min-height:32px; padding-inline:6px; border:1px solid var(--accent-border); border-radius:10px; background:var(--surface-panel); color:var(--purple-deep); font-size:.8125rem; font-weight:700; letter-spacing:0; }
+  .ledger-main-toolbar.has-update .ledger-toolbar-count-compact,.ledger-main-toolbar.has-unavailable .ledger-toolbar-count-compact { display:none; }
+  .activity-ledger-page .ledger-main-toolbar > .indexed-update-slot:empty { display:none; }
+  .activity-ledger-page .ledger-main-toolbar > .ledger-toolbar-export { display:inline-flex; align-items:center; justify-content:center; flex:0 0 44px; width:44px; min-width:44px; height:44px; padding:0; }
+  .ledger-main-toolbar .ledger-toolbar-export > span { display:none; }
+  .activity-ledger-page .ledger-main-toolbar .ledger-top-pagination { margin-inline-start:0; }
+  .ledger-main-toolbar > .data-unavailable { flex:0 0 auto; }
+}
+/* A shorter overview gets to the activity sooner, without hiding any metric. */
+.home-overview .metric { border-radius:14px; }
+.home-overview .signal-main { border-radius:16px; }
+@media(max-width:760px) {
+  .home-overview .metric { min-height:72px; padding:8px 10px; }
+  .home-overview .metric > strong,.home-overview .utilization-metric strong { font-size:20px; }
+  .home-overview .metric-top { min-height:24px; }
+  .home-overview .metric-top svg { width:20px; height:20px; }
+  .home-overview .utilization-metric { min-height:72px; padding:4px 10px; }
+  .home-overview .utilization-metric .info-button { min-height:44px; }
+  .home-overview .utilization-metric .utilization-gauge { width:36px; }
+  .home-overview .signal-main .interactive-chart { height:100px!important; }
+  .home-overview .signal-main .sparkline { height:100%; }
+  .home-overview .home-chart-slot { min-height:128px; }
+  .home-overview .chart-head { display:flex; align-items:baseline; gap:8px; }
+  .home-overview .chart-head > div:first-child strong { font-size:23px; }
+  .home-overview .chart-head > div:last-child { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:4px; }
+  .home-feed-tabs { border:0; padding:0; background:transparent; gap:8px; border-radius:0; margin-bottom:8px; }
+  .home-feed-tabs > button { background:var(--surface-panel); border:1px solid var(--line); }
+  .statistics-page .stats-essential article > strong { font-size:17px; display:flex; flex-wrap:wrap; align-items:baseline; gap:4px; margin-top:4px; }
+  .statistics-page .stats-essential article > strong > small { margin:0; }
+  .statistics-page .stats-essential article { border-radius:12px; }
+}
+@media(forced-colors:active) { .ledger-top-pagination > button { border-color:ButtonText; }.ledger-top-pagination > button:disabled { color:GrayText; } }
+
+/* A frozen column would conceal long values on a narrow phone. Let the whole
+   table move there; retain the reading anchor on tablets and desktops. */
+@media(max-width:599px) {
+  .ledger-viewport { scroll-padding-inline:16px; }
+  .activity-ledger-page .ledger-viewport :is(.tx-primary,.block-height,.ledger-columns > span:first-child) { position:relative; inset-inline-start:auto; }
+  .activity-ledger-page .ledger-viewport :is(.tx-primary,.block-height,.ledger-columns > span:first-child)::after { display:none; }
+}

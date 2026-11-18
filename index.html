@@ -6,15 +6,18 @@
     <link rel="icon" type="image/svg+xml" href="/brand/ink-symbol.svg" />
     <link rel="apple-touch-icon" href="/brand/ink-symbol.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#6f32ff" />
-    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#fafafa" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="preload" href="/brand/ink-wordmark.svg" as="image" type="image/svg+xml" fetchpriority="high" />
+    <script src="/theme.js"></script>
     <link rel="preload" href="/node_modules/@fontsource-variable/plus-jakarta-sans/files/plus-jakarta-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/node_modules/@fontsource/dm-mono/files/dm-mono-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/node_modules/@fontsource/dm-mono/files/dm-mono-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin />
-    <meta name="description" content="An open source explorer for the Ink community. Browse Ink Mainnet blocks, transactions, addresses, tokens and contracts." />
-    <title>Ink Explorer — Ink Mainnet</title>
+    <meta name="description" content="Ink Explorer is your dedicated explorer for Ink Mainnet. Track transactions, wallets, tokens, NFTs and smart contracts, all in one place." />
+    <title>Ink Explorer — Ink Mainnet Block Explorer, Tokens &amp; NFTs</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><!-- ink-startup:start --><!-- ink-startup:end --></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

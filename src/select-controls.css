@@ -1,0 +1,55 @@
+/* Preserve native selection and keyboard behavior while making the closed
+   control consistent in WebKit, Chromium and Firefox. The arrow is local. */
+html :is(.ledger-filters, .stats-filter-bar, .pool-filter-grid, .explorer-select, .explorer-search, .explorer-form) select:not([multiple]):not([size]) {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--surface-field);
+  background-image: url('/brand/select-chevron.svg');
+  background-repeat: no-repeat;
+  background-size: 18px 18px;
+  background-position: right 12px center;
+  padding-inline-end: 40px;
+  min-height: 44px;
+  cursor: pointer;
+}
+html[dir="rtl"] :is(.ledger-filters, .stats-filter-bar, .pool-filter-grid, .explorer-select, .explorer-search, .explorer-form) select:not([multiple]):not([size]) {
+  background-position: left 12px center;
+}
+html :is(.ledger-filters, .stats-filter-bar, .pool-filter-grid, .explorer-select, .explorer-search, .explorer-form) select:focus-visible {
+  outline: 2px solid var(--purple);
+  outline-offset: 2px;
+}
+html :is(.ledger-filters, .stats-filter-bar, .pool-filter-grid, .explorer-select, .explorer-search, .explorer-form) select:disabled {
+  cursor: not-allowed;
+}
+@media (forced-colors: active) {
+  html :is(.ledger-filters, .stats-filter-bar, .pool-filter-grid, .explorer-select, .explorer-search, .explorer-form) select:not([multiple]):not([size]) {
+    appearance: auto;
+    -webkit-appearance: auto;
+    background-image: none;
+    background-color: Canvas;
+    color: CanvasText;
+    border: 1px solid ButtonText;
+    padding-inline-end: 12px;
+  }
+}
+/* Pool labels already provide the field surface and focus boundary. */
+html .pool-filter-grid select:not([multiple]):not([size]) {
+  width: 100%;
+  background-color: transparent;
+  background-position: right 0 center;
+  padding-inline: 0 28px;
+  border: 0;
+  border-radius: 0;
+}
+html[dir="rtl"] .pool-filter-grid select:not([multiple]):not([size]) {
+  background-position: left 0 center;
+}
+html .pool-filter-grid select:focus-visible { outline: none; }
+html .pool-filter-grid label:focus-within { outline: 2px solid var(--purple); outline-offset: 2px; }
+@media (max-width: 760px) {
+  .stats-filter-bar { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+}
+@media (max-width: 760px) {
+  .pool-filter-grid > label { flex-basis: 220px; }
+}

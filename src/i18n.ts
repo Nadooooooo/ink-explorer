@@ -6,11 +6,16 @@
  * never render an empty label. Numbers and dates are formatted by Intl in the
  * selected locale in App.tsx.
  */
+import { developerCopy } from "./developer-copy";
+import { homeGuideCopy } from "./home-guide-copy";
 import { walletCopy } from "./wallet-copy";
 import { pageCopy } from "./page-copy";
 import { dynamicCopy } from "./dynamic-copy";
 import { activityCopy } from "./activity-copy";
 import { explorerCopy } from "./explorer-copy";
+import { redesignExtraCopy } from "./redesign-extra-copy";
+import { redesignCopy } from "./redesign-copy";
+import { statisticsCopy, statisticsAliases } from "./statistics-copy";
 export const locales = [
   "en",
   "zh",
@@ -83,6 +88,8 @@ const en: Messages = {
   noRecords: "No records found",
   copy: "Copy",
   copied: "Copied",
+  copyFailed: "Copy unavailable. Select the value to copy it manually.",
+  copyValue: "Value to copy",
   success: "Success",
   failed: "Failed",
   confirmed: "Confirmed",
@@ -122,7 +129,7 @@ const en: Messages = {
   poolDirectory: "Liquidity pools",
   poolIntro: "Liquidity, 24-hour volume and fee tiers for pools found on Ink.",
   tokenDirectory:
-    "Tokens and NFT collections on Ink Mainnet, with supply, holders and transfers.",
+    "Tokens and NFT collections on {network}, with supply, holders and transfers.",
   contractDirectory:
     "Verified contracts with source code, compiler details and deployment data.",
   nftInstance: "NFT instance",
@@ -172,7 +179,7 @@ const translations: Record<Exclude<Locale, "en">, Messages> = {
     medianGas: "中位 Gas",
     blocksIntro: "最新 Ink 区块，包括交易数、Gas 使用量、大小和费用。",
     txIntro: "最新确认交易、代币转账和内部调用。",
-    tokenDirectory: "Ink Mainnet 上的代币和 NFT 合集。",
+    tokenDirectory: "{network} 上的代币和 NFT 合集。",
     contractDirectory: "已验证合约的源代码、编译器信息和部署数据。",
     blocks: "区块",
     transactions: "交易",
@@ -201,6 +208,8 @@ const translations: Record<Exclude<Locale, "en">, Messages> = {
     noRecords: "未找到记录",
     copy: "复制",
     copied: "已复制",
+    copyFailed: "无法复制。请选择完整数值并手动复制。",
+    copyValue: "要复制的值",
     success: "成功",
     failed: "失败",
     confirmed: "已确认",
@@ -273,7 +282,7 @@ const translations: Record<Exclude<Locale, "en">, Messages> = {
     medianGas: "मध्य गैस",
     blocksIntro: "नवीनतम Ink ब्लॉक: लेनदेन, गैस उपयोग, आकार और शुल्क।",
     txIntro: "नवीनतम पुष्टि किए गए लेनदेन, टोकन ट्रांसफर और आंतरिक कॉल।",
-    tokenDirectory: "Ink Mainnet पर मिले टोकन और NFT संग्रह।",
+    tokenDirectory: "{network} पर मिले टोकन और NFT संग्रह।",
     contractDirectory:
       "स्रोत कोड, कंपाइलर विवरण और डिप्लॉयमेंट डेटा वाले सत्यापित कॉन्ट्रैक्ट।",
     blocks: "ब्लॉक",
@@ -303,6 +312,8 @@ const translations: Record<Exclude<Locale, "en">, Messages> = {
     noRecords: "कोई रिकॉर्ड नहीं मिला",
     copy: "कॉपी",
     copied: "कॉपी हो गया",
+    copyFailed: "कॉपी उपलब्ध नहीं है। मान चुनकर मैन्युअल रूप से कॉपी करें।",
+    copyValue: "कॉपी करने का मान",
     success: "सफल",
     failed: "विफल",
     confirmed: "पुष्ट",
@@ -378,7 +389,7 @@ const translations: Record<Exclude<Locale, "en">, Messages> = {
       "Últimos bloques de Ink, con transacciones, gas, tamaño y comisiones.",
     txIntro:
       "Últimas transacciones confirmadas, transferencias de tokens y llamadas internas.",
-    tokenDirectory: "Tokens y colecciones NFT encontrados en Ink Mainnet.",
+    tokenDirectory: "Tokens y colecciones NFT encontrados en {network}.",
     contractDirectory:
       "Contratos verificados con código fuente, compilador y datos de despliegue.",
     blocks: "Bloques",
@@ -408,6 +419,8 @@ const translations: Record<Exclude<Locale, "en">, Messages> = {
     noRecords: "No se encontraron registros",
     copy: "Copiar",
     copied: "Copiado",
+    copyFailed: "No se puede copiar. Selecciona el valor para copiarlo manualmente.",
+    copyValue: "Valor para copiar",
     success: "Correcto",
     failed: "Fallido",
     confirmed: "Confirmada",
@@ -483,7 +496,7 @@ const translations: Record<Exclude<Locale, "en">, Messages> = {
     blocksIntro: "Derniers blocs Ink, avec transactions, gas, taille et frais.",
     txIntro:
       "Dernières transactions confirmées, transferts de jetons et appels internes.",
-    tokenDirectory: "Jetons et collections NFT trouvés sur Ink Mainnet.",
+    tokenDirectory: "Jetons et collections NFT trouvés sur {network}.",
     contractDirectory:
       "Contrats vérifiés avec code source, compilateur et données de déploiement.",
     blocks: "Blocs",
@@ -513,6 +526,8 @@ const translations: Record<Exclude<Locale, "en">, Messages> = {
     noRecords: "Aucun résultat",
     copy: "Copier",
     copied: "Copié",
+    copyFailed: "Copie indisponible. Sélectionnez la valeur pour la copier manuellement.",
+    copyValue: "Valeur à copier",
     success: "Réussie",
     failed: "Échouée",
     confirmed: "Confirmée",
@@ -587,7 +602,7 @@ const translations: Record<Exclude<Locale, "en">, Messages> = {
     medianGas: "متوسط الغاز",
     blocksIntro: "أحدث كتل Ink مع عدد المعاملات والغاز والحجم والرسوم.",
     txIntro: "أحدث المعاملات المؤكدة وتحويلات الرموز والاستدعاءات الداخلية.",
-    tokenDirectory: "الرموز ومجموعات NFT الموجودة على Ink Mainnet.",
+    tokenDirectory: "الرموز ومجموعات NFT الموجودة على {network}.",
     contractDirectory:
       "عقود موثقة مع الشفرة المصدرية وتفاصيل المترجم وبيانات النشر.",
     blocks: "الكتل",
@@ -617,6 +632,8 @@ const translations: Record<Exclude<Locale, "en">, Messages> = {
     noRecords: "لا توجد سجلات",
     copy: "نسخ",
     copied: "تم النسخ",
+    copyFailed: "تعذر النسخ. حدد القيمة لنسخها يدويًا.",
+    copyValue: "القيمة المراد نسخها",
     success: "ناجحة",
     failed: "فشلت",
     confirmed: "مؤكدة",
@@ -689,7 +706,7 @@ const translations: Record<Exclude<Locale, "en">, Messages> = {
     medianGas: "মধ্যম গ্যাস",
     blocksIntro: "সর্বশেষ Ink ব্লক—লেনদেন, গ্যাস ব্যবহার, আকার ও ফি সহ।",
     txIntro: "সর্বশেষ নিশ্চিত লেনদেন, টোকেন ট্রান্সফার ও অভ্যন্তরীণ কল।",
-    tokenDirectory: "Ink Mainnet-এ পাওয়া টোকেন ও NFT সংগ্রহ।",
+    tokenDirectory: "{network}-এ পাওয়া টোকেন ও NFT সংগ্রহ।",
     contractDirectory:
       "সোর্স কোড, কম্পাইলার তথ্য ও ডিপ্লয়মেন্ট ডেটাসহ যাচাইকৃত কনট্র্যাক্ট।",
     blocks: "ব্লক",
@@ -719,6 +736,8 @@ const translations: Record<Exclude<Locale, "en">, Messages> = {
     noRecords: "কোনো রেকর্ড পাওয়া যায়নি",
     copy: "কপি",
     copied: "কপি হয়েছে",
+    copyFailed: "কপি করা যাচ্ছে না। মানটি নির্বাচন করে নিজে কপি করুন।",
+    copyValue: "কপি করার মান",
     success: "সফল",
     failed: "ব্যর্থ",
     confirmed: "নিশ্চিত",
@@ -795,7 +814,7 @@ const translations: Record<Exclude<Locale, "en">, Messages> = {
       "Blocos mais recentes da Ink, com transações, gas, tamanho e taxas.",
     txIntro:
       "Transações confirmadas mais recentes, transferências de tokens e chamadas internas.",
-    tokenDirectory: "Tokens e coleções NFT encontrados na Ink Mainnet.",
+    tokenDirectory: "Tokens e coleções NFT encontrados na {network}.",
     contractDirectory:
       "Contratos verificados com código-fonte, compilador e dados de implantação.",
     blocks: "Blocos",
@@ -825,6 +844,8 @@ const translations: Record<Exclude<Locale, "en">, Messages> = {
     noRecords: "Nenhum registro encontrado",
     copy: "Copiar",
     copied: "Copiado",
+    copyFailed: "Não foi possível copiar. Selecione o valor para copiá-lo manualmente.",
+    copyValue: "Valor a copiar",
     success: "Sucesso",
     failed: "Falhou",
     confirmed: "Confirmada",
@@ -900,7 +921,7 @@ const translations: Record<Exclude<Locale, "en">, Messages> = {
     blocksIntro: "Последние блоки Ink: транзакции, gas, размер и комиссии.",
     txIntro:
       "Последние подтверждённые транзакции, переводы токенов и внутренние вызовы.",
-    tokenDirectory: "Токены и NFT-коллекции в Ink Mainnet.",
+    tokenDirectory: "Токены и NFT-коллекции в {network}.",
     contractDirectory:
       "Проверенные контракты с исходным кодом, данными компилятора и развёртывания.",
     blocks: "Блоки",
@@ -930,6 +951,8 @@ const translations: Record<Exclude<Locale, "en">, Messages> = {
     noRecords: "Записи не найдены",
     copy: "Копировать",
     copied: "Скопировано",
+    copyFailed: "Копирование недоступно. Выделите значение и скопируйте его вручную.",
+    copyValue: "Значение для копирования",
     success: "Успешно",
     failed: "Ошибка",
     confirmed: "Подтверждена",
@@ -1005,7 +1028,7 @@ const translations: Record<Exclude<Locale, "en">, Messages> = {
     blocksIntro:
       "取引数、Gas 使用量、サイズ、手数料を含む最新の Ink ブロック。",
     txIntro: "最新の承認済み取引、トークン転送、内部呼び出し。",
-    tokenDirectory: "Ink Mainnet 上のトークンと NFT コレクション。",
+    tokenDirectory: "{network} 上のトークンと NFT コレクション。",
     contractDirectory:
       "ソースコード、コンパイラ情報、デプロイデータを確認できる検証済みコントラクト。",
     blocks: "ブロック",
@@ -1035,6 +1058,8 @@ const translations: Record<Exclude<Locale, "en">, Messages> = {
     noRecords: "記録が見つかりません",
     copy: "コピー",
     copied: "コピー済み",
+    copyFailed: "コピーできません。値を選択して手動でコピーしてください。",
+    copyValue: "コピーする値",
     success: "成功",
     failed: "失敗",
     confirmed: "承認済み",
@@ -1402,19 +1427,18 @@ const progressCopy: Record<
   },
 };
 
-// Short footer copy is kept in one place so every locale states the same
-// concrete fact instead of drifting into promotional language.
+// One brand message for every footer and resolved locale catalogue.
 const footerCopy: Record<Locale, string> = {
-  en: "An open source explorer for the Ink community. Live data is checked against a local node.",
-  zh: "面向 Ink 社区的开源浏览器。实时数据由本地节点核对。",
-  hi: "Ink समुदाय के लिए ओपन सोर्स एक्सप्लोरर। लाइव डेटा स्थानीय नोड से मिलाया जाता है।",
-  es: "Explorador de código abierto para la comunidad Ink. Los datos en vivo se contrastan con un nodo local.",
-  fr: "Explorateur open source pour la communauté Ink. Les données en direct sont comparées à un nœud local.",
-  ar: "مستكشف مفتوح المصدر لمجتمع Ink. تُقارن البيانات المباشرة بعقدة محلية.",
-  bn: "Ink কমিউনিটির জন্য ওপেন সোর্স এক্সপ্লোরার। লাইভ ডেটা স্থানীয় নোডের সঙ্গে মিলিয়ে দেখা হয়।",
-  pt: "Explorador de código aberto para a comunidade Ink. Os dados ao vivo são conferidos por um nó local.",
-  ru: "Открытый обозреватель для сообщества Ink. Данные в реальном времени сверяются с локальным узлом.",
-  ja: "Ink コミュニティ向けのオープンソースエクスプローラー。ライブデータはローカルノードと照合しています。",
+  "en": "Your explorer dedicated to the Ink blockchain.",
+  "fr": "Votre explorateur dédié à la blockchain Ink.",
+  "es": "Tu explorador dedicado a la blockchain Ink.",
+  "pt": "O seu explorador dedicado à blockchain Ink.",
+  "zh": "专为 Ink 区块链打造的浏览器。",
+  "ja": "Ink ブロックチェーン専用のエクスプローラー。",
+  "ru": "Ваш обозреватель блокчейна Ink.",
+  "ar": "مستكشفك المخصص لبلوكتشين Ink.",
+  "hi": "Ink ब्लॉकचेन के लिए आपका समर्पित एक्सप्लोरर।",
+  "bn": "Ink ব্লকচেইনের জন্য আপনার নিবেদিত এক্সপ্লোরার।"
 };
 
 const gasEstimateLabel: Record<Locale, string> = {
@@ -1588,7 +1612,7 @@ const listCopy: Record<Locale, Messages> = {
     searchDescription: "Recherchez des adresses, contrats, jetons, blocs et transactions sur Ink.", resultsFor: "Résultats pour « {query} »",
     searchResult: "Résultat de recherche", noSearchResults: "Aucun résultat pour cette recherche.", inkBlocks: "BLOCS INK", inkTransactions: "TRANSACTIONS INK",
     allTransactions: "Toutes les transactions", shown: "{count} affichés", loadingRecords: "Chargement des données", liveHead: "En direct · tête #{number}",
-    blockKind: "BLOC", transactionKind: "TRANSACTION", produced: "Produit il y a {age} · {date}", blockHash: "Hash du bloc",
+    blockKind: "BLOC", transactionKind: "TRANSACTION", produced: "Produit {age} · {date}", blockHash: "Hash du bloc",
     gasLimit: "Limite de gas", baseFee: "Frais de base", totalFees: "Total des frais", parentBlock: "Bloc parent",
     transactionsInBlock: "Transactions de ce bloc", total: "{count} au total", blockEmpty: "Ce bloc ne contient aucune transaction.",
     transactionHash: "Hash de la transaction", timestamp: "Date et heure", from: "De", to: "Vers", value: "Valeur",
@@ -1953,6 +1977,62 @@ const mobileCopy: Record<Locale, Messages> = {
   ja: { pageSection: "セクション", tableScrollHint: "横にスクロールすると他の列が表示されます。日付は常に表示されます。" },
 };
 
+const reconnectingCopy: Record<Locale, string> = {
+  en: "Reconnecting", fr: "Reconnexion", es: "Reconectando", pt: "A reconectar", zh: "重新连接中",
+  hi: "फिर से जुड़ रहा है", ar: "إعادة الاتصال", bn: "আবার সংযোগ হচ্ছে", ru: "Переподключение", ja: "再接続中",
+};
+const blockFeeNotes: Record<Locale, string> = {
+  en: "Execution fees only. L1 data fees are shown on each transaction.",
+  fr: "Frais d’exécution uniquement. Les frais de données L1 figurent dans chaque transaction.",
+  es: "Solo comisiones de ejecución. Las comisiones de datos L1 se muestran en cada transacción.",
+  pt: "Apenas taxas de execução. As taxas de dados L1 aparecem em cada transação.",
+  zh: "仅执行费用。L1 数据费在每笔交易中显示。",
+  hi: "केवल निष्पादन शुल्क। L1 डेटा शुल्क हर लेनदेन में दिखाया जाता है।",
+  ar: "رسوم التنفيذ فقط. تُعرض رسوم بيانات L1 في كل معاملة.",
+  bn: "শুধু নির্বাহের ফি। L1 ডেটা ফি প্রতিটি লেনদেনে দেখানো হয়।",
+  ru: "Только комиссии за исполнение. Плата за данные L1 указана в каждой транзакции.",
+  ja: "実行手数料のみ。L1 データ手数料は各取引に表示されます。",
+};
+
+const blockIndexingCopy: Record<Locale, Messages> = {
+  en: { blockIndexingTitle: "Block details are being indexed", blockTransactionsIndexingTitle: "Block transactions are being indexed", blockIndexingDescription: "The local node has this block. Its indexed details are not ready yet. We check again automatically for up to 90 seconds.", blockTransactionsIndexingDescription: "The transaction list for this block is not ready yet. We check again automatically for up to 90 seconds.", blockIndexingPaused: "Indexing is taking longer than expected. Automatic checks have paused. You can try again without leaving this page." },
+  fr: { blockIndexingTitle: "Détails du bloc en cours d’indexation", blockTransactionsIndexingTitle: "Transactions du bloc en cours d’indexation", blockIndexingDescription: "Le nœud local possède ce bloc. Ses détails indexés ne sont pas encore disponibles. Nous réessayons automatiquement pendant 90 secondes maximum.", blockTransactionsIndexingDescription: "La liste des transactions de ce bloc n’est pas encore disponible. Nous réessayons automatiquement pendant 90 secondes maximum.", blockIndexingPaused: "L’indexation prend plus de temps que prévu. Les vérifications automatiques sont suspendues. Vous pouvez réessayer sans quitter cette page." },
+  es: { blockIndexingTitle: "Se están indexando los detalles del bloque", blockTransactionsIndexingTitle: "Se están indexando las transacciones del bloque", blockIndexingDescription: "El nodo local tiene este bloque. Sus detalles indexados aún no están disponibles. Volvemos a comprobarlo automáticamente durante un máximo de 90 segundos.", blockTransactionsIndexingDescription: "La lista de transacciones de este bloque aún no está disponible. Volvemos a comprobarlo automáticamente durante un máximo de 90 segundos.", blockIndexingPaused: "La indexación tarda más de lo esperado. Las comprobaciones automáticas están en pausa. Puedes reintentarlo sin salir de esta página." },
+  pt: { blockIndexingTitle: "Os detalhes do bloco estão a ser indexados", blockTransactionsIndexingTitle: "As transações do bloco estão a ser indexadas", blockIndexingDescription: "O nó local tem este bloco. Os detalhes indexados ainda não estão disponíveis. Verificamos novamente de forma automática durante até 90 segundos.", blockTransactionsIndexingDescription: "A lista de transações deste bloco ainda não está disponível. Verificamos novamente de forma automática durante até 90 segundos.", blockIndexingPaused: "A indexação está a demorar mais do que o esperado. As verificações automáticas foram suspensas. Pode tentar novamente sem sair desta página." },
+  zh: { blockIndexingTitle: "正在索引区块详情", blockTransactionsIndexingTitle: "正在索引区块交易", blockIndexingDescription: "本地节点已有此区块。索引详情尚未就绪。我们将自动重试，最长持续 90 秒。", blockTransactionsIndexingDescription: "此区块的交易列表尚未就绪。我们将自动重试，最长持续 90 秒。", blockIndexingPaused: "索引耗时超出预期。自动检查已暂停。您可以留在此页面重试。" },
+  hi: { blockIndexingTitle: "ब्लॉक का विवरण इंडेक्स किया जा रहा है", blockTransactionsIndexingTitle: "ब्लॉक के लेनदेन इंडेक्स किए जा रहे हैं", blockIndexingDescription: "स्थानीय नोड के पास यह ब्लॉक है। इसका इंडेक्स किया गया विवरण अभी तैयार नहीं है। हम अधिकतम 90 सेकंड तक अपने आप फिर से जाँच करते हैं।", blockTransactionsIndexingDescription: "इस ब्लॉक के लेनदेन की सूची अभी तैयार नहीं है। हम अधिकतम 90 सेकंड तक अपने आप फिर से जाँच करते हैं।", blockIndexingPaused: "इंडेक्स करने में अपेक्षा से अधिक समय लग रहा है। स्वचालित जाँच रोक दी गई है। आप इस पेज को छोड़े बिना फिर कोशिश कर सकते हैं।" },
+  ar: { blockIndexingTitle: "جارٍ فهرسة تفاصيل الكتلة", blockTransactionsIndexingTitle: "جارٍ فهرسة معاملات الكتلة", blockIndexingDescription: "تحتوي العقدة المحلية على هذه الكتلة. تفاصيلها المفهرسة ليست جاهزة بعد. نعيد التحقق تلقائياً لمدة تصل إلى 90 ثانية.", blockTransactionsIndexingDescription: "قائمة معاملات هذه الكتلة ليست جاهزة بعد. نعيد التحقق تلقائياً لمدة تصل إلى 90 ثانية.", blockIndexingPaused: "تستغرق الفهرسة وقتاً أطول من المتوقع. توقفت عمليات التحقق التلقائية مؤقتاً. يمكنك المحاولة مجدداً دون مغادرة هذه الصفحة." },
+  bn: { blockIndexingTitle: "ব্লকের বিবরণ ইনডেক্স করা হচ্ছে", blockTransactionsIndexingTitle: "ব্লকের লেনদেন ইনডেক্স করা হচ্ছে", blockIndexingDescription: "স্থানীয় নোডে এই ব্লকটি আছে। এর ইনডেক্স করা বিবরণ এখনো প্রস্তুত নয়। আমরা সর্বোচ্চ ৯০ সেকেন্ড পর্যন্ত স্বয়ংক্রিয়ভাবে আবার যাচাই করি।", blockTransactionsIndexingDescription: "এই ব্লকের লেনদেনের তালিকা এখনো প্রস্তুত নয়। আমরা সর্বোচ্চ ৯০ সেকেন্ড পর্যন্ত স্বয়ংক্রিয়ভাবে আবার যাচাই করি।", blockIndexingPaused: "ইনডেক্স করতে প্রত্যাশার চেয়ে বেশি সময় লাগছে। স্বয়ংক্রিয় যাচাই থামানো হয়েছে। এই পৃষ্ঠা না ছেড়েই আবার চেষ্টা করতে পারেন।" },
+  ru: { blockIndexingTitle: "Данные блока индексируются", blockTransactionsIndexingTitle: "Транзакции блока индексируются", blockIndexingDescription: "Этот блок есть на локальном узле. Его индексированные данные ещё не готовы. Мы повторяем проверку автоматически в течение не более 90 секунд.", blockTransactionsIndexingDescription: "Список транзакций этого блока ещё не готов. Мы повторяем проверку автоматически в течение не более 90 секунд.", blockIndexingPaused: "Индексация занимает больше времени, чем ожидалось. Автоматические проверки приостановлены. Можно повторить попытку, не покидая страницу." },
+  ja: { blockIndexingTitle: "ブロックの詳細をインデックス中です", blockTransactionsIndexingTitle: "ブロックの取引をインデックス中です", blockIndexingDescription: "ローカルノードにはこのブロックが存在します。インデックスの詳細はまだ準備できていません。最大90秒間、自動的に再確認します。", blockTransactionsIndexingDescription: "このブロックの取引一覧はまだ準備できていません。最大90秒間、自動的に再確認します。", blockIndexingPaused: "インデックスに予想以上の時間がかかっています。自動確認を一時停止しました。このページを離れずに再試行できます。" },
+};
+
+const restoredPageCopy: Record<Locale, Messages> = {
+  en: { restoredPageRefresh: "Refresh page" },
+  fr: { restoredPageRefresh: "Actualiser la page" },
+  es: { restoredPageRefresh: "Actualizar página" },
+  pt: { restoredPageRefresh: "Atualizar página" },
+  zh: { restoredPageRefresh: "刷新页面" },
+  hi: { restoredPageRefresh: "पेज रीफ़्रेश करें" },
+  ar: { restoredPageRefresh: "تحديث الصفحة" },
+  bn: { restoredPageRefresh: "পৃষ্ঠা রিফ্রেশ করুন" },
+  ru: { restoredPageRefresh: "Обновить страницу" },
+  ja: { restoredPageRefresh: "ページを更新" },
+};
+
+const freshnessCopy: Record<Locale, Messages> = {
+  en: { cachedDataTitle: "Cached data", cachedDataDate: "Oldest snapshot:", nodeOperational: "Local node operational" },
+  fr: { cachedDataTitle: "Données en cache", cachedDataDate: "Sauvegarde la plus ancienne :", nodeOperational: "Nœud local opérationnel" },
+  es: { cachedDataTitle: "Datos en caché", cachedDataDate: "Copia más antigua:", nodeOperational: "Nodo local operativo" },
+  pt: { cachedDataTitle: "Dados em cache", cachedDataDate: "Cópia mais antiga:", nodeOperational: "Nó local operacional" },
+  zh: { cachedDataTitle: "缓存数据", cachedDataDate: "最早快照：", nodeOperational: "本地节点运行正常" },
+  hi: { cachedDataTitle: "कैश में रखा डेटा", cachedDataDate: "सबसे पुराना स्नैपशॉट:", nodeOperational: "स्थानीय नोड चालू है" },
+  ar: { cachedDataTitle: "بيانات مخزنة مؤقتاً", cachedDataDate: "أقدم نسخة محفوظة:", nodeOperational: "العقدة المحلية تعمل" },
+  bn: { cachedDataTitle: "ক্যাশে রাখা ডেটা", cachedDataDate: "সবচেয়ে পুরোনো স্ন্যাপশট:", nodeOperational: "স্থানীয় নোড সচল" },
+  ru: { cachedDataTitle: "Данные из кеша", cachedDataDate: "Самый старый снимок:", nodeOperational: "Локальный узел работает" },
+  ja: { cachedDataTitle: "キャッシュデータ", cachedDataDate: "最も古いスナップショット：", nodeOperational: "ローカルノード稼働中" },
+};
+
 const chartCopy: Record<Locale, Messages> = {
   en: { chartTimeframe: "Timeframe", chartBlocks: "{count} blocks", chartReadingNote: "Choose a period on each chart. Tap a point for its exact value. Data and CSV follow the transaction chart’s period." },
   fr: { chartTimeframe: "Période", chartBlocks: "{count} blocs", chartReadingNote: "Choisissez une période par graphique. Touchez un point pour sa valeur exacte. Les données et le CSV suivent la période des transactions." },
@@ -1966,11 +2046,133 @@ const chartCopy: Record<Locale, Messages> = {
   ja: { chartTimeframe: "期間", chartBlocks: "{count} ブロック", chartReadingNote: "各グラフの期間を選択できます。点をタップすると正確な値が表示されます。データ表と CSV は取引グラフの期間に従います。" },
 };
 
+const poolRefreshCopy: Record<Locale, Messages> = {
+  en: { poolIdentifier: "Pool ID", poolContractUnavailable: "No separate pool contract address is available for this pool. Contract-wide totals and activity are not shown as pool-specific data.", poolRefreshUnavailable: "Refresh unavailable", poolRefreshRetained: "The market index could not refresh. The table retains its previous values.", poolLastUpdate: "Last successful update:" },
+  fr: { poolIdentifier: "Identifiant du pool", poolContractUnavailable: "Aucune adresse de contrat propre à ce pool n’est disponible. Les totaux et l’activité d’un contrat partagé ne sont pas présentés comme ceux du pool.", poolRefreshUnavailable: "Actualisation indisponible", poolRefreshRetained: "L’index de marché ne répond pas. Le tableau conserve les valeurs précédentes.", poolLastUpdate: "Dernière actualisation réussie :" },
+  es: { poolIdentifier: "ID del pool", poolContractUnavailable: "No hay una dirección de contrato exclusiva para este pool. Los totales y la actividad de un contrato compartido no se muestran como datos del pool.", poolRefreshUnavailable: "Actualización no disponible", poolRefreshRetained: "El índice de mercado no se pudo actualizar. La tabla conserva los valores anteriores.", poolLastUpdate: "Última actualización correcta:" },
+  pt: { poolIdentifier: "ID do pool", poolContractUnavailable: "Não existe um endereço de contrato exclusivo disponível para este pool. Os totais e a atividade de um contrato partilhado não são apresentados como dados do pool.", poolRefreshUnavailable: "Atualização indisponível", poolRefreshRetained: "O índice de mercado não foi atualizado. A tabela mantém os valores anteriores.", poolLastUpdate: "Última atualização bem-sucedida:" },
+  zh: { poolIdentifier: "流动性池 ID", poolContractUnavailable: "此流动性池没有可用的独立合约地址。共享合约的总量和活动不会被当作此池的数据。", poolRefreshUnavailable: "暂时无法更新", poolRefreshRetained: "市场索引更新失败。表格保留上次的数据。", poolLastUpdate: "上次成功更新时间：" },
+  hi: { poolIdentifier: "पूल ID", poolContractUnavailable: "इस पूल का अलग कॉन्ट्रैक्ट पता उपलब्ध नहीं है। साझा कॉन्ट्रैक्ट के कुल आँकड़े और गतिविधि को इस पूल का डेटा नहीं दिखाया जाता।", poolRefreshUnavailable: "अपडेट उपलब्ध नहीं", poolRefreshRetained: "बाज़ार इंडेक्स अपडेट नहीं हो सका। तालिका में पिछले मान दिखाए गए हैं।", poolLastUpdate: "अंतिम सफल अपडेट:" },
+  ar: { poolIdentifier: "معرّف المجمع", poolContractUnavailable: "لا يتوفر عنوان عقد مستقل لهذا المجمع. لا تُعرض إجماليات العقد المشترك ونشاطه على أنها بيانات خاصة بالمجمع.", poolRefreshUnavailable: "التحديث غير متاح", poolRefreshRetained: "تعذّر تحديث مؤشر السوق. يحتفظ الجدول بالقيم السابقة.", poolLastUpdate: "آخر تحديث ناجح:" },
+  bn: { poolIdentifier: "পুল ID", poolContractUnavailable: "এই পুলের আলাদা কন্ট্র্যাক্ট ঠিকানা পাওয়া যায়নি। শেয়ার করা কন্ট্র্যাক্টের মোট হিসাব ও কার্যকলাপকে এই পুলের তথ্য হিসেবে দেখানো হয় না।", poolRefreshUnavailable: "আপডেট পাওয়া যাচ্ছে না", poolRefreshRetained: "বাজার সূচক আপডেট করা যায়নি। সারণিতে আগের মানগুলো দেখানো হচ্ছে।", poolLastUpdate: "সর্বশেষ সফল আপডেট:" },
+  ru: { poolIdentifier: "ID пула", poolContractUnavailable: "Отдельный адрес контракта этого пула недоступен. Общие показатели и активность совместного контракта не выдаются за данные отдельного пула.", poolRefreshUnavailable: "Обновление недоступно", poolRefreshRetained: "Не удалось обновить рыночный индекс. В таблице сохранены предыдущие значения.", poolLastUpdate: "Последнее успешное обновление:" },
+  ja: { poolIdentifier: "プール ID", poolContractUnavailable: "このプール専用のコントラクトアドレスは利用できません。共有コントラクト全体の合計やアクティビティを、このプールのデータとして表示することはありません。", poolRefreshUnavailable: "更新できません", poolRefreshRetained: "市場インデックスを更新できませんでした。表には前回の値が表示されています。", poolLastUpdate: "最終更新成功日時：" },
+};
+
+const ledgerHistoryCopy: Record<Locale, Messages> = {
+  "en": {
+    "ledgerHistoryUnavailable": "Older results unavailable",
+    "ledgerHistoryHelp": "Recent activity can still update. Older pages and additional details will return when the data source recovers."
+  },
+  "fr": {
+    "ledgerHistoryUnavailable": "Historique indisponible",
+    "ledgerHistoryHelp": "L’activité récente peut continuer à s’actualiser. Les pages anciennes et les détails supplémentaires reviendront au rétablissement de la source de données."
+  },
+  "es": {
+    "ledgerHistoryUnavailable": "Historial no disponible",
+    "ledgerHistoryHelp": "La actividad reciente puede seguir actualizándose. Las páginas anteriores y los detalles adicionales volverán cuando se restablezca la fuente de datos."
+  },
+  "pt": {
+    "ledgerHistoryUnavailable": "Histórico indisponível",
+    "ledgerHistoryHelp": "A atividade recente pode continuar a atualizar. As páginas anteriores e os detalhes adicionais regressarão quando a fonte de dados recuperar."
+  },
+  "zh": {
+    "ledgerHistoryUnavailable": "历史记录暂不可用",
+    "ledgerHistoryHelp": "近期活动仍可更新。数据源恢复后，将重新提供历史页面和更多详情。"
+  },
+  "hi": {
+    "ledgerHistoryUnavailable": "पुराने परिणाम उपलब्ध नहीं",
+    "ledgerHistoryHelp": "हाल की गतिविधि अपडेट होती रह सकती है। डेटा स्रोत बहाल होने पर पुराने पेज और अतिरिक्त विवरण फिर उपलब्ध होंगे।"
+  },
+  "ar": {
+    "ledgerHistoryUnavailable": "السجل غير متاح",
+    "ledgerHistoryHelp": "قد يستمر تحديث النشاط الأخير. ستعود الصفحات القديمة والتفاصيل الإضافية عند استعادة مصدر البيانات."
+  },
+  "bn": {
+    "ledgerHistoryUnavailable": "পুরনো ফলাফল পাওয়া যাচ্ছে না",
+    "ledgerHistoryHelp": "সাম্প্রতিক কার্যকলাপ আপডেট হতে পারে। ডেটা উৎস আবার চালু হলে পুরনো পৃষ্ঠা ও অতিরিক্ত বিবরণ ফিরে আসবে।"
+  },
+  "ru": {
+    "ledgerHistoryUnavailable": "История недоступна",
+    "ledgerHistoryHelp": "Последние события могут продолжать обновляться. Старые страницы и дополнительные сведения вернутся после восстановления источника данных."
+  },
+  "ja": {
+    "ledgerHistoryUnavailable": "過去の結果を取得できません",
+    "ledgerHistoryHelp": "最近のアクティビティは引き続き更新される場合があります。データソースが復旧すると、過去のページと追加情報が再び表示されます。"
+  }
+};
+
+const transactionFollowCopy: Record<Locale, Messages> = {
+  "en": {
+    "transactionInclusionChecking": "Checking the transaction’s current block.",
+    "transactionReorganized": "The previous block was replaced. Waiting for a new inclusion.",
+    "transactionRefreshUnavailable": "Additional details could not refresh. Retrying automatically."
+  },
+  "fr": {
+    "transactionInclusionChecking": "Vérification du bloc actuel de la transaction.",
+    "transactionReorganized": "Le bloc précédent a été remplacé. En attente d’une nouvelle inclusion.",
+    "transactionRefreshUnavailable": "Les détails supplémentaires ne s’actualisent pas. Nouvelle tentative automatique."
+  },
+  "es": {
+    "transactionInclusionChecking": "Comprobando el bloque actual de la transacción.",
+    "transactionReorganized": "El bloque anterior fue reemplazado. Esperando una nueva inclusión.",
+    "transactionRefreshUnavailable": "No se pudieron actualizar los detalles adicionales. Se reintentará automáticamente."
+  },
+  "pt": {
+    "transactionInclusionChecking": "A verificar o bloco atual da transação.",
+    "transactionReorganized": "O bloco anterior foi substituído. A aguardar uma nova inclusão.",
+    "transactionRefreshUnavailable": "Não foi possível atualizar os detalhes adicionais. Nova tentativa automática."
+  },
+  "zh": {
+    "transactionInclusionChecking": "正在核实交易当前所在的区块。",
+    "transactionReorganized": "先前的区块已被替换，正在等待重新纳入。",
+    "transactionRefreshUnavailable": "无法更新更多详情，系统将自动重试。"
+  },
+  "hi": {
+    "transactionInclusionChecking": "लेनदेन के वर्तमान ब्लॉक की जाँच हो रही है।",
+    "transactionReorganized": "पिछला ब्लॉक बदल दिया गया है। फिर से शामिल होने की प्रतीक्षा है।",
+    "transactionRefreshUnavailable": "अतिरिक्त विवरण अपडेट नहीं हो सके। अपने आप फिर से प्रयास होगा।"
+  },
+  "ar": {
+    "transactionInclusionChecking": "جارٍ التحقق من الكتلة الحالية للمعاملة.",
+    "transactionReorganized": "تم استبدال الكتلة السابقة. بانتظار إدراج جديد.",
+    "transactionRefreshUnavailable": "تعذّر تحديث التفاصيل الإضافية. ستتم إعادة المحاولة تلقائيًا."
+  },
+  "bn": {
+    "transactionInclusionChecking": "লেনদেনের বর্তমান ব্লক যাচাই করা হচ্ছে।",
+    "transactionReorganized": "আগের ব্লকটি প্রতিস্থাপিত হয়েছে। আবার অন্তর্ভুক্ত হওয়ার অপেক্ষায়।",
+    "transactionRefreshUnavailable": "অতিরিক্ত বিবরণ আপডেট করা যায়নি। স্বয়ংক্রিয়ভাবে আবার চেষ্টা করা হবে।"
+  },
+  "ru": {
+    "transactionInclusionChecking": "Проверяется текущий блок транзакции.",
+    "transactionReorganized": "Предыдущий блок заменён. Ожидается повторное включение.",
+    "transactionRefreshUnavailable": "Не удалось обновить дополнительные сведения. Повторная попытка выполняется автоматически."
+  },
+  "ja": {
+    "transactionInclusionChecking": "トランザクションの現在のブロックを確認しています。",
+    "transactionReorganized": "以前のブロックが置き換えられました。再度取り込まれるのを待っています。",
+    "transactionRefreshUnavailable": "追加情報を更新できませんでした。自動的に再試行します。"
+  }
+};
+
 export function isLocale(value: string | null | undefined): value is Locale {
   return Boolean(value && (locales as readonly string[]).includes(value));
 }
 
 export function message(locale: Locale, key: string): string {
+  if (key in developerCopy[locale]) return developerCopy[locale][key];
+  if (key in transactionFollowCopy[locale]) return transactionFollowCopy[locale][key];
+  if (key in ledgerHistoryCopy[locale]) return ledgerHistoryCopy[locale][key];
+  if (key in redesignExtraCopy[locale]) return redesignExtraCopy[locale][key];
+  if (key in redesignCopy[locale]) return redesignCopy[locale][key];
+  if (key in statisticsCopy[locale]) return statisticsCopy[locale][key];
+  if (key in statisticsAliases) return message(locale,statisticsAliases[key]);
+  if (key in blockIndexingCopy[locale]) return blockIndexingCopy[locale][key];
+  if (key in restoredPageCopy[locale]) return restoredPageCopy[locale][key];
+  if (key in poolRefreshCopy[locale]) return poolRefreshCopy[locale][key];
+  if (key === "reconnecting") return reconnectingCopy[locale];
+  if (key === "blockFeesNote") return blockFeeNotes[locale];
+  if (key in freshnessCopy[locale]) return freshnessCopy[locale][key];
   if (key in walletCopy[locale]) return walletCopy[locale][key];
   if (key in (explorerCopy[locale] || {})) return explorerCopy[locale][key];
   if (key in (explorerCopy.en || {})) return explorerCopy.en[key];
@@ -1987,6 +2189,7 @@ export function message(locale: Locale, key: string): string {
   if (key in poolFilterCopy[locale]) return poolFilterCopy[locale][key];
   if (key in progressCopy[locale])
     return progressCopy[locale][key as keyof (typeof progressCopy)[Locale]];
+  if (key === "homeDescription" || key === "defaultDescription") return homeGuideCopy[locale][1].replace("{network}", "Ink Mainnet");
   if (key === "independent") return footerCopy[locale];
   if (key === "medianGas") return gasEstimateLabel[locale];
   return (
@@ -2004,7 +2207,19 @@ export function seoMessages(locale: Locale) {
   return {
     ...en,
     ...(locale === "en" ? {} : translations[locale]),
+    homeDescription: message(locale, "homeDescription"),
+    defaultDescription: message(locale, "defaultDescription"),
     independent: footerCopy[locale],
     medianGas: gasEstimateLabel[locale],
   };
 }
+
+// The edge keeps the complete catalogue; the browser build serializes the same
+// resolved strings into one chunk per locale. Both consume identical wording.
+export function catalogueKeys(): string[] {
+  const tables=[en,pageAliases,contractEnglish,statisticsAliases,...Object.values(developerCopy)];
+  for(const locale of locales)tables.push(...[translations[locale as Exclude<Locale,"en">],transactionFollowCopy[locale],ledgerHistoryCopy[locale],redesignExtraCopy[locale],redesignCopy[locale],blockIndexingCopy[locale],restoredPageCopy[locale],poolRefreshCopy[locale],freshnessCopy[locale],walletCopy[locale],explorerCopy[locale],activityCopy[locale],mobileCopy[locale],chartCopy[locale],chromeCopy[locale],homeCopy[locale],listCopy[locale],contractCopy[locale],dynamicCopy[locale],pageCopy[locale],poolFilterCopy[locale],progressCopy[locale]].filter(Boolean));
+  tables.push(...Object.values(statisticsCopy));
+  return [...new Set([...tables.flatMap(table=>Object.keys(table)),"reconnecting","blockFeesNote","independent","medianGas"])];
+}
+export async function loadLocale(_locale:Locale):Promise<void> { /* Full server catalogue is already loaded. */ }

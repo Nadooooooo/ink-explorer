@@ -1,0 +1,60 @@
+/* Shared column geometry prevents a label from describing the adjacent cell. */
+.block-list > :is(.block-columns,.block-row) { padding-inline:20px; }
+.block-list .block-beneficiary { min-width:0; }
+.block-beneficiary > .copyable { min-width:0; max-width:100%; }
+.block-beneficiary .text-link { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.block-beneficiary .copy-button { flex-shrink:0; }
+.block-list .block-row > :is(.block-size,.block-tx-count,.block-gas) { text-align:end; }
+.block-columns > :is(:nth-child(2),:nth-child(4),:nth-child(5)) { text-align:end; }
+@media(min-width:761px) {
+  .block-list .block-row > :is(.block-size,.block-tx-count,.block-gas) > small {
+    display:block; position:absolute; width:1px; height:1px; margin:-1px; padding:0;
+    overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0;
+  }
+}
+@media(min-width:1101px) {
+  .tx-row.full-tx-row,.ledger-columns.tx-columns { padding-inline:20px; }
+}
+
+/* Keep summaries and controls close to the records they describe. */
+.activity-ledger-page > .transaction-summary { margin-bottom:16px; }
+.activity-ledger-page .transaction-summary .metric { padding:12px 18px; }
+.activity-ledger-page .transaction-summary .metric > strong { margin-top:4px; font-size:22px; }
+/* Reserve the final value line before counter responses arrive. */
+.activity-ledger-page .transaction-summary .metric:not(:first-child) > strong { min-block-size:1lh; align-content:start; }
+.activity-ledger-page > .transaction-filter-bar { margin-bottom:0; }
+.activity-ledger-page > .table-shell,.activity-ledger-page > .filtered-activity > .table-shell { margin-top:12px; }
+.activity-ledger-page .table-toolbar { min-height:56px; height:auto; padding-block:6px; gap:8px; }
+.activity-ledger-page .table-toolbar > .text-link { min-height:44px; padding-inline:8px; }
+.activity-ledger-page .ledger-filters { margin-block:0 12px; }
+.activity-ledger-page .ledger-filters + .table-shell { margin-top:0; }
+
+@media(max-width:760px) {
+  .activity-ledger-page .transaction-summary { gap:8px; }
+  .activity-ledger-page .transaction-summary .metric { padding:8px 12px; }
+  .activity-ledger-page .transaction-summary .metric:first-child { padding-block:4px; }
+  .activity-ledger-page .transaction-summary .metric:first-child > strong { font-size:22px; }
+  .activity-ledger-page .transaction-summary .metric > strong { font-size:17px; }
+  /* Compact fee cards may wrap their ETH unit onto a second line. */
+  .activity-ledger-page .transaction-summary .metric:not(:first-child) > strong { min-block-size:calc(2lh + 4px); }
+  .activity-ledger-page .transaction-summary .info-button { min-height:44px; }
+  .block-list > .block-row { grid-template-columns:minmax(0,1fr) minmax(100px,.55fr); gap:8px 12px; padding:12px; }
+  .block-list .block-height { gap:6px; }
+  .block-list .block-icon { width:30px; flex:0 0 30px; }
+  .block-list .block-height a { min-height:32px; }
+  .block-list .block-beneficiary { min-height:44px; }
+  .block-list .block-beneficiary .text-link { display:block; line-height:44px; min-height:44px; min-width:0; }
+  .block-list .block-row > .block-size { display:flex; align-items:center; gap:8px; justify-content:flex-start; text-align:start; }
+  .block-list .block-row > .block-size > small { margin:0; }
+  .block-list .block-row > .block-size > strong { white-space:nowrap; }
+  .block-list .block-row > div.block-gas { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 6px; min-width:0; text-align:start; align-items:baseline; }
+  .block-list .block-row > .block-gas > small { margin:0; min-width:0; }
+  .block-list .block-gas > strong { text-align:end; white-space:nowrap; }
+  .block-list .gas-meter { grid-column:1 / -1; margin-top:0; }
+}
+/* Keep labels as translated. A first-letter pseudo-element drops Arabic
+   words from WebKit's full-viewport paint inside this scrolling grid. */
+.block-list .block-beneficiary > .sr-only { display:block; }
+
+.block-list .block-height > div { min-width:0; }
+.forked-block-hash .copyable { gap:4px; flex-wrap:wrap; }

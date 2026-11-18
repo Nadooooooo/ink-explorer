@@ -32,6 +32,8 @@ async function review(path, chainId) {
           assert.notEqual(frame.type, "block");
         } else {
           assert.ok(frame.block?.height > 0 && frame.block?.hash);
+          assert.equal(frame.block._live, true);
+          assert.equal(frame.block.transaction_fees, null, 'Base fee times gas is not an actual total block fee');
           assert.ok(frame.network.blockAgeSeconds >= -30 && frame.network.blockAgeSeconds <= 120);
         }
         if (frames.length) assert.ok(frame.sequence > frames.at(-1).sequence);

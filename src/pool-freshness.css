@@ -1,0 +1,25 @@
+.pool-refresh-error,.pool-contract-error,.token-refresh-error,.address-refresh-error,.holder-refresh-error,.inventory-refresh-error { margin:16px 0; }
+.resource-error { display:flex; align-items:center; flex-wrap:wrap; gap:10px; padding:12px; border:1px solid var(--border-error); border-radius:14px; background:var(--surface-error); color:var(--red); font:13px var(--font-ui); line-height:normal; }
+.resource-error > svg { width:20px; height:20px; flex:0 0 20px; }
+.resource-error > div { flex:1 1 150px; min-width:0; overflow-wrap:anywhere; }
+.resource-error strong { font-weight:600; }
+.resource-error p { margin:4px 0 0; }
+.resource-error > button { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:44px; max-width:100%; margin-inline-start:auto; padding:8px 12px; border:1px solid currentColor; border-radius:10px; background:transparent; color:inherit; font:inherit; cursor:pointer; }
+.resource-error > button > svg { width:16px; height:16px; flex:0 0 16px; }
+.resource-error > button:disabled { opacity:.5; cursor:default; }
+.token-refresh-button { display:inline-flex; align-items:center; justify-content:center; flex:0 0 44px; width:44px; min-height:44px; margin-inline-start:auto; border:1px solid var(--line); border-radius:10px; background:var(--surface); color:var(--purple-deep); cursor:pointer; }
+.token-refresh-button.has-updates { background:var(--surface-selected); border-color:var(--purple-deep); }
+.token-refresh-button:disabled { color:var(--muted); opacity:.55; cursor:default; }
+@media(forced-colors:active) { .resource-error { border-color:CanvasText; }.resource-error > button:disabled { color:GrayText; opacity:1; } }
+
+:is(.account-inventory,.collection-instances) .nft-grid { display:flex; flex-wrap:wrap; align-items:stretch; padding:12px; gap:12px; }
+:is(.account-inventory,.collection-instances) .nft-item { flex:1 1 150px; min-width:min-content; max-width:min(100%,320px); text-align:start; }
+:is(.account-inventory,.collection-instances) .nft-item > span { display:block; min-height:0; overflow:visible; text-overflow:clip; -webkit-line-clamp:unset; white-space:normal; overflow-wrap:break-word; line-height:normal; }
+:is(.account-inventory,.collection-instances) .nft-item > .nft-holding-balance { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:4px 12px; }
+:is(.account-inventory,.collection-instances) .nft-holding-balance > bdi { overflow-wrap:anywhere; }
+:is(.account-inventory,.collection-instances) .nft-thumb { background:var(--surface-muted); }
+:is(.account-inventory,.collection-instances) .nft-thumb > .nft-placeholder { place-content:normal; align-content:center; justify-items:center; box-sizing:border-box; padding:10px; }
+:is(.account-inventory,.collection-instances) .nft-placeholder > svg { width:32px; height:32px; opacity:.7; }
+:is(.account-inventory,.collection-instances) .nft-placeholder small { max-width:100%; white-space:normal; overflow-wrap:break-word; line-height:normal; text-align:center; }
+@media(min-width:761px) { :is(.account-inventory,.collection-instances) .nft-item { flex-basis:200px; } }
+@media(min-width:1180px) { :is(.account-inventory,.collection-instances) .nft-item { flex-basis:220px; } }

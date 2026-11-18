@@ -1,7 +1,7 @@
 /* Semantic tokens shared by every route and component family. */
 :root {
-  --font-ui: "Plus Jakarta Sans Variable", Arial, sans-serif;
-  --font-mono: "DM Mono", monospace;
+  --font-ui: "Plus Jakarta Sans Variable", "Noto Sans Devanagari Variable", "Noto Sans Bengali Variable", Arial, sans-serif;
+  --font-mono: "DM Mono", "Noto Sans Devanagari Variable", "Noto Sans Bengali Variable", monospace;
   --surface-field: #fff;
   --field-border: #8d5be8;
   --shadow-field: inset 0 0 0 3px #f0e9ff;
@@ -14,6 +14,9 @@
   --surface-success: #edf9f2;
   --surface-error: #fff8f8;
   --border-error: #e0b4ba;
+  --surface-warning: #fff9e9;
+  --border-warning: #ddc77e;
+  --text-warning: #725014;
   --surface-header: linear-gradient(90deg, #f1ebfc, #f8f5fd);
   --surface-code: #171020;
   --text-on-dark: #f4edff;
@@ -55,17 +58,26 @@ html {
 }
 body {
   margin: 0;
-  min-width: 320px;
+  min-width: 280px;
   background: #f7f4fd;
 }
-button,
+:is(button, a:where(.explorer-link)),
 input,
 select,
 textarea {
   font: inherit;
 }
-button {
+:is(button, a:where(.explorer-link)) {
   color: inherit;
+}
+:where(a.explorer-link) {
+  display: inline-block;
+  text-align: inherit;
+  cursor: pointer;
+}
+a.explorer-link[aria-disabled="true"] {
+  cursor: default;
+  opacity: 0.45;
 }
 a {
   color: inherit;
@@ -157,7 +169,10 @@ header nav {
   height: 100%;
   align-items: stretch;
 }
-header nav button {
+header nav :is(button, a:where(.explorer-link)) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   background: none;
   padding: 0 10px;
@@ -167,11 +182,11 @@ header nav button {
   position: relative;
   cursor: pointer;
 }
-header nav button:hover,
-header nav button.active {
+header nav :is(button, a:where(.explorer-link)):hover,
+header nav :is(button, a:where(.explorer-link)).active {
   color: var(--ink);
 }
-header nav button.active:after {
+header nav :is(button, a:where(.explorer-link)).active:after {
   content: "";
   position: absolute;
   bottom: 0;
@@ -415,7 +430,7 @@ main {
   padding: 0 15px;
   font-size: 15px;
 }
-.global-search button {
+.global-search :is(button, a:where(.explorer-link)) {
   border: 0;
   background: var(--ink);
   color: white;
@@ -443,7 +458,7 @@ main {
   height: 48px;
   box-shadow: var(--shadow-field);
 }
-.global-search.compact button {
+.global-search.compact :is(button, a:where(.explorer-link)) {
   padding: 9px 16px;
 }
 .search-hints {
@@ -710,7 +725,7 @@ input::placeholder {
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
-.panel-head button {
+.panel-head :is(button, a:where(.explorer-link)) {
   border: 0;
   background: none;
   color: var(--purple-deep);
@@ -753,8 +768,8 @@ input::placeholder {
 .block-height svg {
   color: var(--purple);
 }
-.block-height button,
-.tx-row button,
+.block-height :is(button, a:where(.explorer-link)),
+.tx-row :is(button, a:where(.explorer-link)),
 .text-link {
   border: 0;
   background: none;
@@ -877,7 +892,7 @@ input::placeholder {
   white-space: nowrap;
   max-width: 100%;
 }
-.copyable > button:last-child {
+.copyable > .copy-button {
   flex: 0 0 24px;
   width: 24px;
   height: 24px;
@@ -890,14 +905,44 @@ input::placeholder {
   place-items: center;
   cursor: pointer;
 }
-.copyable > button:last-child:hover {
+.copyable > .copy-button:hover {
   color: var(--purple-deep);
   background: var(--surface-selected);
 }
-.copyable > button.copied {
+.copyable > .copy-button.copied {
   color: var(--green);
   background: var(--surface-success);
 }
+.data-freshness {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 24px 0;
+  padding: 16px;
+  border: 1px solid var(--border-warning);
+  border-radius: var(--radius-card);
+  background: var(--surface-warning);
+  color: var(--text-warning);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.data-freshness > svg { flex: none; margin-top: 3px; }
+.data-freshness > div { flex: 1 1 200px; min-width: 0; }
+.data-freshness p { margin: 4px 0; }
+.data-freshness small { font-size: 12px; }
+.data-freshness :is(button, a:where(.explorer-link)) {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-warning);
+  border-radius: var(--radius-control);
+  background: var(--paper);
+  color: var(--text-warning);
+}
+.data-freshness :is(button, a:where(.explorer-link)):hover { background: var(--surface-warning); }
 .tx-value {
   text-align: right;
 }
@@ -967,7 +1012,7 @@ main > .empty {
   min-width: 0;
   max-width: 100%;
 }
-.error-state button {
+.error-state :is(button, a:where(.explorer-link)) {
   font-size: 11px;
   min-height: 44px;
   margin-top: 14px;
@@ -981,7 +1026,7 @@ main > .empty {
   gap: 7px;
   cursor: pointer;
 }
-.error-state button svg {
+.error-state :is(button, a:where(.explorer-link)) svg {
   width: 15px;
 }
 .empty {
@@ -1038,7 +1083,7 @@ main > .empty {
   border-top: 1px solid var(--line);
   padding: 0 15px;
 }
-.pagination button {
+.pagination :is(button, a:where(.explorer-link)) {
   border: 1px solid var(--line);
   background: white;
   padding: 7px 10px;
@@ -1048,7 +1093,7 @@ main > .empty {
   font-size: 10px;
   cursor: pointer;
 }
-.pagination button:disabled {
+.pagination :is(button, a:where(.explorer-link)):disabled {
   opacity: 0.4;
 }
 .pagination svg {
@@ -1056,7 +1101,6 @@ main > .empty {
 }
 .block-list .block-row {
   min-height: 68px;
-  grid-template-columns: 1.5fr 0.6fr 0.7fr 0.6fr 0.8fr;
 }
 .tx-list .tx-row {
   min-height: 84px;
@@ -1066,7 +1110,7 @@ main > .empty {
   gap: 7px;
   margin: 28px 0 -18px;
 }
-.ledger-filters button {
+.ledger-filters :is(button, a:where(.explorer-link)) {
   border: 1px solid var(--line);
   background: var(--paper);
   padding: 9px 13px;
@@ -1074,7 +1118,7 @@ main > .empty {
   font-weight: 600;
   cursor: pointer;
 }
-.ledger-filters button.active {
+.ledger-filters :is(button, a:where(.explorer-link)).active {
   background: var(--ink);
   border-color: var(--ink);
   color: white;
@@ -1162,7 +1206,7 @@ main > .empty {
   border-bottom: 1px solid var(--ink);
   margin-top: 25px;
 }
-.tabs button {
+.tabs :is(button, a:where(.explorer-link)) {
   border: 0;
   background: none;
   padding: 15px 18px;
@@ -1172,10 +1216,10 @@ main > .empty {
   cursor: pointer;
   position: relative;
 }
-.tabs button.active {
+.tabs :is(button, a:where(.explorer-link)).active {
   color: var(--ink);
 }
-.tabs button.active:after {
+.tabs :is(button, a:where(.explorer-link)).active:after {
   content: "";
   position: absolute;
   bottom: -1px;
@@ -1267,7 +1311,7 @@ main > .empty {
   gap: 8px;
   min-width: 0;
 }
-.generic-address svg {
+.generic-address > svg {
   width: 13px;
   color: #aaa;
 }
@@ -1675,7 +1719,7 @@ main > .empty {
   border: 1px solid var(--line);
   background: var(--paper);
 }
-.period-switch button {
+.period-switch :is(button, a:where(.explorer-link)) {
   border: 0;
   border-right: 1px solid var(--line);
   background: transparent;
@@ -1683,10 +1727,10 @@ main > .empty {
   font: 9px var(--font-mono);
   cursor: pointer;
 }
-.period-switch button:last-child {
+.period-switch :is(button, a:where(.explorer-link)):last-child {
   border-right: 0;
 }
-.period-switch button.active {
+.period-switch :is(button, a:where(.explorer-link)).active {
   background: var(--ink);
   color: white;
 }
@@ -1694,7 +1738,7 @@ main > .empty {
   display: flex;
   gap: 5px;
 }
-.analytics-actions button {
+.analytics-actions :is(button, a:where(.explorer-link)) {
   height: 30px;
   border: 1px solid var(--line);
   background: var(--paper);
@@ -1705,14 +1749,14 @@ main > .empty {
   font-size: 9px;
   cursor: pointer;
 }
-.analytics-actions button.active {
+.analytics-actions :is(button, a:where(.explorer-link)).active {
   background: #e7e1f6;
   border-color: #b9a5e8;
 }
 .analytics-actions svg {
   width: 13px;
 }
-.analytics-actions button:last-child {
+.analytics-actions :is(button, a:where(.explorer-link)):last-child {
   width: 30px;
   padding: 0;
   justify-content: center;
@@ -2085,6 +2129,9 @@ main > .empty {
   grid-template-columns: 2fr 1fr 1.2fr 1fr;
   gap: 50px;
 }
+.site-footer .brand {
+  width: max-content;
+}
 .site-footer .brand img {
   filter: brightness(0) invert(1);
 }
@@ -2100,7 +2147,7 @@ main > .empty {
   color: var(--muted-on-dark);
   margin-bottom: 14px;
 }
-.site-footer > div > button,
+.site-footer > div > :is(button, a:where(.explorer-link)),
 .site-footer > div > a {
   min-height: var(--control-height);
   border: 0;
@@ -2135,7 +2182,7 @@ main > .empty {
   margin: auto;
   color: var(--purple);
 }
-.not-found button {
+.not-found :is(button, a:where(.explorer-link)) {
   background: var(--ink);
   color: white;
   border: 0;
@@ -2409,7 +2456,7 @@ main > .empty {
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
-:where(button, a, input):focus-visible {
+:where(:is(button, a:where(.explorer-link)), a, input):focus-visible {
   outline: 3px solid var(--focus-color);
   outline-offset: 2px;
 }
@@ -2443,7 +2490,7 @@ main > .empty {
   header nav {
     margin-left: 20px;
   }
-  header nav button {
+  header nav :is(button, a:where(.explorer-link)) {
     padding: 0 8px;
   }
 }
@@ -2528,12 +2575,13 @@ main > .empty {
     display: grid;
     grid-template-columns: 1fr 1fr;
   }
-  header nav button {
+  header nav :is(button, a:where(.explorer-link)) {
     height: 44px;
     text-align: left;
+    justify-content: flex-start;
     padding: 0 12px;
   }
-  header nav button.active:after {
+  header nav :is(button, a:where(.explorer-link)).active:after {
     left: 0;
     right: auto;
     top: 10px;
@@ -2584,7 +2632,7 @@ main > .empty {
     padding-left: 12px;
     box-shadow: var(--shadow-field);
   }
-  .global-search button {
+  .global-search :is(button, a:where(.explorer-link)) {
     font-size: 12px;
     padding: 0 16px;
     width: auto;
@@ -2686,7 +2734,7 @@ main > .empty {
   .tabs {
     overflow-x: auto;
   }
-  .tabs button {
+  .tabs :is(button, a:where(.explorer-link)) {
     white-space: nowrap;
   }
   .generic-row {
@@ -2773,13 +2821,6 @@ main > .empty {
   }
   .health-banner h2 {
     font-size: 17px;
-  }
-  .block-list .block-row {
-    grid-template-columns: 1.3fr 0.6fr 0.7fr;
-  }
-  .block-list .block-row > div:nth-child(4),
-  .block-list .block-row > div:nth-child(5) {
-    display: none;
   }
 }
 .address-pagination {
@@ -2868,19 +2909,19 @@ main > .empty {
     width: 100%;
     overflow-x: auto;
   }
-  .period-switch button {
+  .period-switch :is(button, a:where(.explorer-link)) {
     flex: 1;
     min-width: 48px;
   }
   .analytics-actions {
     width: 100%;
   }
-  .analytics-actions button {
+  .analytics-actions :is(button, a:where(.explorer-link)) {
     min-height: 38px;
     flex: 1;
     justify-content: center;
   }
-  .analytics-actions button:last-child {
+  .analytics-actions :is(button, a:where(.explorer-link)):last-child {
     flex: 0 0 38px;
   }
   .analytics-freshness {
@@ -2894,7 +2935,7 @@ main > .empty {
   .ledger-filters {
     overflow-x: auto;
   }
-  .ledger-filters button {
+  .ledger-filters :is(button, a:where(.explorer-link)) {
     white-space: nowrap;
   }
   .counter-library > div {
@@ -3222,7 +3263,7 @@ main > .empty {
   width: 15px;
   color: var(--purple);
 }
-.pool-filter-status button {
+.pool-filter-status :is(button, a:where(.explorer-link)) {
   min-height: 36px;
   margin-left: 5px;
   padding: 0 11px;
@@ -3236,11 +3277,11 @@ main > .empty {
   font-size: 9px;
   cursor: pointer;
 }
-.pool-filter-status button:disabled {
+.pool-filter-status :is(button, a:where(.explorer-link)):disabled {
   opacity: 0.4;
   cursor: default;
 }
-.pool-filter-status button svg {
+.pool-filter-status :is(button, a:where(.explorer-link)) svg {
   width: 13px;
 }
 .pool-filter-grid {
@@ -3314,6 +3355,10 @@ main > .empty {
   background: #2cc28a;
   box-shadow: 0 0 0 3px #2cc28a1b;
 }
+.pool-live-refresh.is-stale { color: #96521b; }
+.pool-live-refresh.is-stale i { background: currentColor; box-shadow: none; }
+.pool-refresh-error { margin: 0 0 16px; }
+.pool-last-update { margin: 8px 16px; font-size: 12px; overflow-wrap: anywhere; }
 .pool-table-head,
 .pool-row {
   display: grid;
@@ -3330,7 +3375,7 @@ main > .empty {
   color: var(--muted);
   text-transform: uppercase;
 }
-.pool-table-head button {
+.pool-table-head :is(button, a:where(.explorer-link)) {
   min-width: 0;
   padding: 0;
   border: 0;
@@ -3344,12 +3389,12 @@ main > .empty {
   text-transform: inherit;
   cursor: pointer;
 }
-.pool-table-head button:nth-child(4),
-.pool-table-head button:nth-child(5) {
+.pool-table-head :is(button, a:where(.explorer-link)):nth-child(4),
+.pool-table-head :is(button, a:where(.explorer-link)):nth-child(5) {
   justify-content: flex-end;
   text-align: right;
 }
-.pool-table-head button svg {
+.pool-table-head :is(button, a:where(.explorer-link)) svg {
   width: 11px;
   color: var(--purple);
 }
@@ -3400,7 +3445,7 @@ main > .empty {
   color: var(--muted);
   text-transform: uppercase;
 }
-.pool-pagination button {
+.pool-pagination :is(button, a:where(.explorer-link)) {
   width: 34px;
   height: 34px;
   padding: 0;
@@ -3411,11 +3456,11 @@ main > .empty {
   place-content: center;
   cursor: pointer;
 }
-.pool-pagination button:disabled {
+.pool-pagination :is(button, a:where(.explorer-link)):disabled {
   opacity: 0.35;
   cursor: default;
 }
-.pool-pagination button svg {
+.pool-pagination :is(button, a:where(.explorer-link)) svg {
   width: 14px;
 }
 .pool-pair {
@@ -3493,8 +3538,8 @@ main > .empty {
   gap: 8px;
   flex: 0 0 230px;
 }
-.pool-actions button,
-.pool-actions a {
+.pool-actions :is(button, a:where(.explorer-link)),
+.pool-actions a:where(:not(.explorer-link)) {
   border: 1px solid var(--ink);
   background: var(--paper);
   padding: 12px 14px;
@@ -3504,7 +3549,7 @@ main > .empty {
   justify-content: space-between;
   cursor: pointer;
 }
-.pool-actions a {
+.pool-actions a:where(:not(.explorer-link)) {
   background: var(--ink);
   color: white;
 }
@@ -3597,12 +3642,13 @@ main > .empty {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
   }
-  header nav button {
+  header nav :is(button, a:where(.explorer-link)) {
     height: 44px;
     text-align: left;
+    justify-content: flex-start;
     padding: 0 12px;
   }
-  header nav button.active:after {
+  header nav :is(button, a:where(.explorer-link)).active:after {
     left: 0;
     right: auto;
     top: 10px;
@@ -3665,7 +3711,7 @@ main > .empty {
   .pool-filter-status {
     justify-content: space-between;
   }
-  .pool-filter-status button {
+  .pool-filter-status :is(button, a:where(.explorer-link)) {
     margin-left: auto;
   }
   .pool-filter-grid {
@@ -3777,7 +3823,7 @@ main > .empty {
 .pool-pair.large h1 + small {
   margin-top: 8px;
 }
-.search-results > button {
+.search-results > :is(button, a:where(.explorer-link)) {
   width: 100%;
   min-height: 72px;
   border: 0;
@@ -3794,25 +3840,25 @@ main > .empty {
 .search-results {
   min-height: clamp(280px, calc(60vh - 132px), 520px);
 }
-.search-results > button:hover {
+.search-results > :is(button, a:where(.explorer-link)):hover {
   background: var(--surface-muted);
 }
-.search-results > button > div {
+.search-results > :is(button, a:where(.explorer-link)) > div {
   min-width: 0;
 }
-.search-results > button strong,
-.search-results > button small {
+.search-results > :is(button, a:where(.explorer-link)) strong,
+.search-results > :is(button, a:where(.explorer-link)) small {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.search-results > button small {
+.search-results > :is(button, a:where(.explorer-link)) small {
   font-size: 9px;
   color: var(--muted);
   margin-top: 6px;
 }
-.search-results > button svg {
+.search-results > :is(button, a:where(.explorer-link)) svg {
   width: 15px;
 }
 @media (max-width: 760px) {
@@ -3821,7 +3867,7 @@ main > .empty {
   }
 }
 @media (max-width: 430px) {
-  .search-results > button {
+  .search-results > :is(button, a:where(.explorer-link)) {
     grid-template-columns: 75px 1fr 16px;
     padding: 12px;
     gap: 9px;
@@ -3960,6 +4006,10 @@ main > .empty {
   animation-delay: -12s;
 }
 
+#root:has(.nft-media) .liquid-atmosphere i {
+  animation: none;
+}
+
 @keyframes liquid-drift {
   to {
     translate: 34px -22px;
@@ -3977,7 +4027,7 @@ body {
   background-attachment: fixed;
 }
 
-button,
+:is(button, a:where(.explorer-link)),
 a,
 input,
 select,
@@ -4032,7 +4082,7 @@ header nav {
   gap: 2px;
 }
 
-header nav button {
+header nav :is(button, a:where(.explorer-link)) {
   height: 40px;
   margin: auto 0;
   padding: 0 11px;
@@ -4041,17 +4091,17 @@ header nav button {
   font-size: 11px;
 }
 
-header nav button:hover {
+header nav :is(button, a:where(.explorer-link)):hover {
   color: var(--purple-deep);
   background: #f0eaff;
 }
 
-header nav button.active {
+header nav :is(button, a:where(.explorer-link)).active {
   color: var(--purple-deep);
   background: var(--surface-selected);
 }
 
-header nav button.active::after {
+header nav :is(button, a:where(.explorer-link)).active::after {
   left: 12px;
   right: 12px;
   bottom: -18px;
@@ -4256,16 +4306,16 @@ main > .error-state,
     inset 0 0 0 1px #7136f3;
 }
 
-.global-search button,
-.pool-search button {
+.global-search :is(button, a:where(.explorer-link)),
+.pool-search :is(button, a:where(.explorer-link)) {
   min-height: 40px;
   border-radius: var(--radius-control);
   background: var(--action-fill);
   box-shadow: var(--shadow-action);
 }
 
-.global-search button:hover,
-.pool-search button:hover {
+.global-search :is(button, a:where(.explorer-link)):hover,
+.pool-search :is(button, a:where(.explorer-link)):hover {
   transform: translateY(-1px);
   background: var(--action-hover);
 }
@@ -4317,6 +4367,18 @@ main > .error-state,
 .home-overview > .metric-grid,
 .home-overview > .signal-grid {
   margin-top: 0;
+}
+.home-overview .metric > strong {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+@media (min-width: 761px) and (max-width: 1199px) {
+  .home-overview > .metric-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .home-overview > .metric-grid > .metric:last-child {
+    grid-column: span 2;
+  }
 }
 @media (min-width: 1600px) {
   .analytics-grid {
@@ -4371,8 +4433,8 @@ main > .error-state,
 
 .arrow-link:hover,
 .text-link:hover,
-.panel-head button:hover {
-  color: #6f32ff;
+.panel-head :is(button, a:where(.explorer-link)):hover {
+  color: var(--purple-deep);
 }
 
 .live-section {
@@ -4409,7 +4471,7 @@ main > .error-state,
 .asset-row,
 .nft-item,
 .contract-card,
-.search-results > button {
+.search-results > :is(button, a:where(.explorer-link)) {
   background: var(--surface-row);
 }
 
@@ -4418,7 +4480,7 @@ main > .error-state,
 .token-row:hover,
 .pool-row:hover,
 .asset-row:hover,
-.search-results > button:hover {
+.search-results > :is(button, a:where(.explorer-link)):hover {
   background: var(--surface-hover);
 }
 
@@ -4568,22 +4630,22 @@ main > .error-state,
   background: var(--surface-muted);
 }
 
-.tabs button {
+.tabs :is(button, a:where(.explorer-link)) {
   padding: 11px 15px;
   border-radius: var(--radius-inset);
 }
 
-.tabs button:hover {
+.tabs :is(button, a:where(.explorer-link)):hover {
   color: var(--purple-deep);
 }
 
-.tabs button.active {
+.tabs :is(button, a:where(.explorer-link)).active {
   color: var(--purple-deep);
   background: #fff;
   box-shadow: 0 6px 16px #4a168b12;
 }
 
-.tabs button.active::after {
+.tabs :is(button, a:where(.explorer-link)).active::after {
   display: none;
 }
 
@@ -4593,28 +4655,28 @@ main > .error-state,
 }
 
 /* Action families: common sizing and shape; explicit selected/disabled states. */
-.ledger-filters button,
-.pagination button,
-.analytics-actions button,
-.pool-pagination button,
-.pool-filter-status button,
-.pool-actions button,
-.pool-actions a,
+.ledger-filters :is(button, a:where(.explorer-link)),
+.pagination :is(button, a:where(.explorer-link)),
+.analytics-actions :is(button, a:where(.explorer-link)),
+.pool-pagination :is(button, a:where(.explorer-link)),
+.pool-filter-status :is(button, a:where(.explorer-link)),
+.pool-actions :is(button, a:where(.explorer-link)),
+.pool-actions a:where(:not(.explorer-link)),
 .primary-action,
 .external-action,
-.not-found button,
-.error-state button {
+.not-found :is(button, a:where(.explorer-link)),
+.error-state :is(button, a:where(.explorer-link)) {
   min-height: var(--control-height);
   border-radius: var(--radius-control);
   font-family: var(--font-ui);
   font-weight: 600;
 }
-.ledger-filters button,
-.pagination button,
-.analytics-actions button,
-.pool-pagination button,
-.pool-filter-status button,
-.pool-actions button {
+.ledger-filters :is(button, a:where(.explorer-link)),
+.pagination :is(button, a:where(.explorer-link)),
+.analytics-actions :is(button, a:where(.explorer-link)),
+.pool-pagination :is(button, a:where(.explorer-link)),
+.pool-filter-status :is(button, a:where(.explorer-link)),
+.pool-actions :is(button, a:where(.explorer-link)) {
   border-color: var(--line);
   background: var(--paper);
   color: var(--ink);
@@ -4632,15 +4694,15 @@ main > .error-state,
   padding: 3px;
   background: var(--surface-muted);
 }
-.period-switch button {
+.period-switch :is(button, a:where(.explorer-link)) {
   min-height: var(--control-height);
   border: 0;
   border-radius: var(--radius-inset);
   font-family: var(--font-ui);
   font-weight: 600;
 }
-.pool-pagination button,
-.analytics-actions button:last-child {
+.pool-pagination :is(button, a:where(.explorer-link)),
+.analytics-actions :is(button, a:where(.explorer-link)):last-child {
   width: var(--control-height);
   height: var(--control-height);
   flex-shrink: 0;
@@ -4649,23 +4711,23 @@ main > .error-state,
 .pool-pagination select {
   font-family: var(--font-ui);
 }
-.ledger-filters button:not(:disabled):not(.active):hover,
-.pagination button:not(:disabled):hover,
-.analytics-actions button:not(:disabled):not(.active):hover,
-.period-switch button:not(.active):hover,
-.pool-pagination button:not(:disabled):hover,
-.pool-filter-status button:not(:disabled):hover,
-.pool-actions button:not(:disabled):hover {
+.ledger-filters :is(button, a:where(.explorer-link)):not(:disabled):not(.active):hover,
+.pagination :is(button, a:where(.explorer-link)):not(:disabled):hover,
+.analytics-actions :is(button, a:where(.explorer-link)):not(:disabled):not(.active):hover,
+.period-switch :is(button, a:where(.explorer-link)):not(.active):hover,
+.pool-pagination :is(button, a:where(.explorer-link)):not(:disabled):hover,
+.pool-filter-status :is(button, a:where(.explorer-link)):not(:disabled):hover,
+.pool-actions :is(button, a:where(.explorer-link)):not(:disabled):hover {
   border-color: var(--purple);
   background: var(--surface-hover);
   color: var(--purple-deep);
 }
-.ledger-filters button.active,
-.period-switch button.active,
+.ledger-filters :is(button, a:where(.explorer-link)).active,
+.period-switch :is(button, a:where(.explorer-link)).active,
 .primary-action,
 .external-action,
-.not-found button,
-.pool-actions a {
+.not-found :is(button, a:where(.explorer-link)),
+.pool-actions a:where(:not(.explorer-link)) {
   border-color: var(--purple);
   background: var(--action-fill);
   color: #fff;
@@ -4673,8 +4735,8 @@ main > .error-state,
 }
 .primary-action:not(:disabled):hover,
 .external-action:hover,
-.not-found button:hover,
-.pool-actions a:hover {
+.not-found :is(button, a:where(.explorer-link)):hover,
+.pool-actions a:where(:not(.explorer-link)):hover {
   background: var(--action-hover);
 }
 .entity-profile > .external-action {
@@ -4685,15 +4747,15 @@ main > .error-state,
   background: var(--surface-hover);
 }
 
-.analytics-actions button.active {
+.analytics-actions :is(button, a:where(.explorer-link)).active {
   color: var(--purple-deep);
   border-color: var(--purple);
   background: var(--surface-selected);
 }
-.pagination button:disabled,
-.pool-pagination button:disabled,
-.pool-filter-status button:disabled,
-.analytics-actions button:disabled,
+.pagination :is(button, a:where(.explorer-link)):disabled,
+.pool-pagination :is(button, a:where(.explorer-link)):disabled,
+.pool-filter-status :is(button, a:where(.explorer-link)):disabled,
+.analytics-actions :is(button, a:where(.explorer-link)):disabled,
 .primary-action:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -4981,7 +5043,7 @@ main > .error-state,
   box-shadow: 0 0 0 3px #7136f31d;
 }
 
-:where(button, a, input, select, summary, .interactive-chart):focus-visible {
+:where(:is(button, a:where(.explorer-link)), a, input, select, summary, .interactive-chart):focus-visible {
   outline: 3px solid var(--focus-color);
   outline-offset: 3px;
 }
@@ -5007,15 +5069,16 @@ main > .error-state,
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  header nav button {
+  header nav :is(button, a:where(.explorer-link)) {
     height: 44px;
     min-width: 0;
     text-align: left;
+    justify-content: flex-start;
     overflow-wrap: anywhere;
     white-space: normal;
   }
 
-  header nav button.active::after {
+  header nav :is(button, a:where(.explorer-link)).active::after {
     left: 0;
     right: auto;
     top: 10px;
@@ -5335,10 +5398,6 @@ main > .error-state,
   .home-overview .metric-top svg {
     flex-shrink: 0;
   }
-  .home-overview .metric > strong {
-    white-space: normal;
-    overflow-wrap: anywhere;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -5429,7 +5488,7 @@ main > .error-state,
   text-align: center;
 }
 .chart-loading { background: linear-gradient(180deg, transparent, var(--surface-muted)); border-radius: var(--radius-inset); }
-.chart-error button {
+.chart-error :is(button, a:where(.explorer-link)) {
   min-height: var(--control-height);
   border: 1px solid var(--line);
   border-radius: var(--radius-control);

@@ -1,0 +1,47 @@
+/* Tiny renamed derivatives cover only the two native language labels.
+   Keep full Indic fonts out of the option fallback list so font-display:
+   swap does not load them while these label fonts are being fetched. */
+@font-face {
+  font-family: "Ink Language Names Devanagari";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("./assets/fonts/ink-language-names-devanagari.woff2") format("woff2-variations");
+  unicode-range: U+0926,U+0928,U+0939,U+093F,U+0940,U+094D;
+}
+@font-face {
+  font-family: "Ink Language Names Bengali";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("./assets/fonts/ink-language-names-bengali.woff2") format("woff2-variations");
+  unicode-range: U+0982,U+09AC,U+09B2,U+09BE;
+}
+.language-picker {
+  /* Native selects measure all labels using their own font, even when the
+     menu is closed. Scope the UI family to this control and its options. */
+  --font-ui: "Ink Language Names Devanagari", "Ink Language Names Bengali", "Plus Jakarta Sans Variable", Arial, sans-serif;
+}
+.language-picker option {
+  font-family: var(--font-ui);
+}
+
+/* Indic subsets from Fontsource 5.3.0. Unicode ranges retain the existing
+   Latin typography and avoid depending on operating-system language fonts.
+   Font licenses are available under /licenses/. */
+@font-face {
+  font-family: "Noto Sans Devanagari Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("@fontsource-variable/noto-sans-devanagari/files/noto-sans-devanagari-devanagari-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0900-097F,U+1CD0-1CF9,U+200C-200D,U+20A8,U+20B9,U+20F0,U+25CC,U+A830-A839,U+A8E0-A8FF,U+11B00-11B09;
+}
+@font-face {
+  font-family: "Noto Sans Bengali Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("@fontsource-variable/noto-sans-bengali/files/noto-sans-bengali-bengali-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0951-0952,U+0964-0965,U+0980-09FE,U+1CD0,U+1CD2,U+1CD5-1CD6,U+1CD8,U+1CE1,U+1CEA,U+1CED,U+1CF2,U+1CF5-1CF7,U+200C-200D,U+20B9,U+25CC,U+A8F1;
+}

@@ -13,6 +13,17 @@ async function rpc(url,method,params=[]) {
   if(value.error)throw new Error(`${method}: ${value.error.message}`);
   return value.result;
 }
+async function publicBlock(url,tag) {
+  // The local unsafe head can precede a public RPC. Wait for that exact height;
+  // never substitute another block or skip hash equality.
+  const until=Date.now()+15000;
+  for (;;) {
+    const block=await rpc(url,'eth_getBlockByNumber',[tag,false]);
+    if(block)return block;
+    assert(Date.now()<until,'Public reference did not expose the observed height within15seconds');
+    await new Promise(resolve=>setTimeout(resolve,500));
+  }
+}
 async function get(path) {
   for(let attempt=0;attempt<3;attempt++) {
     const response=await fetch(base+path,{signal:AbortSignal.timeout(25000)});
@@ -55,6 +66,12 @@ for (const [prefix,chainId,local,publicRpc] of [
     assert(pages<100,'A block cursor must terminate');
   } while(cursor);
   assert.deepEqual([...new Set(transactions.map(tx=>tx.hash))].sort(),[...node.transactions].sort(),'Complete block transaction set must match the node');
+  const blockReceipts = await rpc(local,'eth_getBlockReceipts',[tag]);
+  assert.deepEqual(blockReceipts.map(receipt=>receipt.transactionHash).sort(),[...node.transactions].sort());
+  assert(blockReceipts.every(receipt=>receipt.blockHash===indexed.hash));
+  const blockExecutionFees = blockReceipts.reduce((total,receipt)=>total+BigInt(receipt.gasUsed)*BigInt(receipt.effectiveGasPrice),0n);
+  const blockL1Fees = blockReceipts.reduce((total,receipt)=>total+BigInt(receipt.l1Fee || 0),0n);
+  assert.equal(BigInt(indexed.transaction_fees),blockExecutionFees,'Indexed block fees are execution-only, not inclusive of L1 data');
   const receipts=[];
   for(const tx of transactions.slice(0,5)) {
     const [detail,receipt]=await Promise.all([get(api+'/explorer/transactions/'+tx.hash),rpc(local,'eth_getTransactionReceipt',[tx.hash])]);
@@ -71,19 +88,23 @@ for (const [prefix,chainId,local,publicRpc] of [
   const balanceHeight=profile.block_number_balance_updated_at;
   assert(Number.isSafeInteger(balanceHeight));
   assert.equal(profile.balance_check?.source,'local','The displayed balance must identify its verified node source');
+  assert.equal(profile.balance_check.scope,'head');
+  assert.equal(profile.balance_check.block_number,balanceHeight);
+  const observationAge=Date.now()-Date.parse(profile.balance_check.checked_at);
+  assert(Number.isFinite(observationAge)&&observationAge>=-1000&&observationAge<15000,'The fetched balance must carry a current original observation time');
   const balanceBlock=profile.balance_check.block_hash;
   const [balance,indexedHeight,publicHeight]=await Promise.all([
     rpc(local,'eth_getBalance',[address,{blockHash:balanceBlock,requireCanonical:true}]),
     rpc(local,'eth_getBlockByNumber',['0x'+balanceHeight.toString(16),false]),
-    rpc(publicRpc,'eth_getBlockByNumber',['0x'+balanceHeight.toString(16),false]),
+    publicBlock(publicRpc,'0x'+balanceHeight.toString(16)),
   ]);
   assert.equal(indexedHeight.hash,balanceBlock);assert.equal(publicHeight.hash,balanceBlock);
-  assert.equal(BigInt(profile.coin_balance),BigInt(balance),'Compare balance at the indexed update height, never across different blocks');
+  assert.equal(BigInt(profile.coin_balance),BigInt(balance),'Compare the observed canonical-head balance at its exact block hash');
   assert.equal(profile.is_contract,(await rpc(local,'eth_getCode',[address,'latest']))!=='0x');
   const finalizedTag='0x'+snapshot.finalizedBlock.toString(16);
   const [finalized,publicFinalized]=await Promise.all([rpc(local,'eth_getBlockByNumber',[finalizedTag,false]),rpc(publicRpc,'eth_getBlockByNumber',[finalizedTag,false])]);
   assert.equal(finalized.hash,publicFinalized.hash);
-  results.push({chainId,checkedAt:new Date().toISOString(),height,hash:node.hash,transactions:transactions.length,pages,receipts,address,balanceHeight,balanceWei:profile.coin_balance,balanceCheck:profile.balance_check,finalizedHeight:snapshot.finalizedBlock,finalizedHash:finalized.hash,derivation:snapshot.derivation});
+  results.push({chainId,checkedAt:new Date().toISOString(),height,hash:node.hash,transactions:transactions.length,pages,receipts,blockExecutionFeesWei:String(blockExecutionFees),blockL1FeesWei:String(blockL1Fees),address,balanceHeight,balanceWei:profile.coin_balance,balanceCheck:profile.balance_check,finalizedHeight:snapshot.finalizedBlock,finalizedHash:finalized.hash,derivation:snapshot.derivation});
 }
 await mkdir('reports/chain-reconciliation',{recursive:true});
 await writeFile('reports/chain-reconciliation/results.json',JSON.stringify({recordedAt:new Date().toISOString(),requestFailures:observations,results},null,2));

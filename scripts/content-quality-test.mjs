@@ -52,7 +52,7 @@ for (const viewport of viewports) {
   for (const route of routes) {
     const response = await page.goto(`${base}${route}`, { waitUntil: "networkidle0", timeout: 30_000 });
     if (!response?.ok()) failures.push(`${viewport.name} ${route}: HTTP ${response?.status()}`);
-    const audit = await page.evaluate(() => {
+    const audit = await page.evaluate((developerPage) => {
       const visible = element => {
         const style = getComputedStyle(element);
         const rect = element.getBoundingClientRect();
@@ -75,8 +75,22 @@ for (const viewport of viewports) {
         .map(element => element.textContent?.trim() || "");
       const gasCards = [...document.querySelectorAll(".metric,.analytic-card")]
         .filter(element => /gas (?:estimate|price)/i.test(element.textContent || ""));
+      const body = document.body.innerText;
+      let auditedCopy = body;
+      // The index publishes a name containing "Null" for the EVM zero address.
+      for (const link of document.querySelectorAll(".copyable > a[href]")) {
+        const label = link.innerText.trim();
+        if (visible(link) && link.origin === location.origin &&
+            /^\/(?:testnet\/)?address\/0x0{40}$/.test(link.pathname) &&
+            label === "Null: 0x000...000") {
+          auditedCopy = auditedCopy.replace(label, "");
+        }
+      }
+      const brokenValuePattern = developerPage
+        ? /\b(?:undefined|nan)\b|\[object object\]|\bago\s+ago\b/i
+        : /\b(?:undefined|null|nan)\b|\[object object\]|\bago\s+ago\b/i;
       return {
-        body: document.body.innerText.toLowerCase(),
+        body: body.toLowerCase(),
         mainText: main.innerText.toLowerCase(),
         title: document.title,
         description: document.querySelector('meta[name="description"]')?.getAttribute("content") || "",
@@ -84,10 +98,11 @@ for (const viewport of viewports) {
         tailGap,
         unnamed,
         longProse: prose.filter(text => text.length > 230),
-        brokenValues: /\b(?:undefined|null|nan|\[object object\])\b|\bago\s+ago\b/i.test(document.body.innerText),
+        // `null` is a documented JSON value on the API page, not broken UI copy.
+        brokenValue: brokenValuePattern.exec(auditedCopy)?.[0],
         badGasUnit: gasCards.some(element => !(element.textContent || "").includes("Gwei")),
       };
-    });
+    },route === "/developers");
     for (const phrase of vagueCopy) if (audit.body.includes(phrase)) failures.push(`${viewport.name} ${route}: vague copy “${phrase}”`);
     if (route === "/") {
       for (const removed of ["local node", "op-reth v2.4.1", "rollup peers", "execution peers", "node details"]) {
@@ -98,7 +113,7 @@ for (const viewport of viewports) {
     if (audit.tailGap > 56) failures.push(`${viewport.name} ${route}: ${Math.round(audit.tailGap)}px empty gap before footer`);
     if (audit.unnamed) failures.push(`${viewport.name} ${route}: ${audit.unnamed} unnamed controls`);
     if (audit.longProse.length) failures.push(`${viewport.name} ${route}: overly long interface prose (${audit.longProse[0].length} characters)`);
-    if (audit.brokenValues) failures.push(`${viewport.name} ${route}: broken value leaked into visible copy`);
+    if (audit.brokenValue) failures.push(`${viewport.name} ${route}: broken value “${audit.brokenValue}” leaked into visible copy`);
     if (audit.badGasUnit) failures.push(`${viewport.name} ${route}: gas estimate is missing its Gwei unit`);
     if (!audit.title || audit.title.length > 90) failures.push(`${viewport.name} ${route}: invalid page title`);
     if (audit.description.length < 50 || audit.description.length > 180) failures.push(`${viewport.name} ${route}: meta description length is ${audit.description.length}`);

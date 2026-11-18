@@ -1,0 +1,5 @@
+/* Revalidation keeps the reading surface in place without presenting old values. */
+.stat-chart-plot { display:flow-root; }
+.chart-axis-unavailable,.chart-value-mask { visibility:hidden; }
+.chart-value-cell { position:relative; display:block; }
+.chart-value-unavailable { position:absolute; inset-block-start:0; inset-inline-start:0; }

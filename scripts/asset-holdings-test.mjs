@@ -10,21 +10,26 @@ try {
     page.on('pageerror', error => errors.push(error.message));
     // Incomplete token metadata previously shadowed the translation function
     // and crashed the whole React tree when the fallback label was rendered.
-    await page.route(`**/api/explorer/addresses/${address}/tokens`, route => route.fulfill({ json: { items: [
+    await page.route(`**/api/explorer/addresses/${address}/tokens`, route => route.fulfill({ headers:{date:new Date().toUTCString(),'x-ink-data-status':'fresh','x-ink-data-fetched-at':new Date().toISOString()},json: { items: [
       { value: '1000000', token: { address_hash: address, decimals: '6', name: null, exchange_rate: null } },
-      { value: '2000000', token: { address_hash: address, decimals: '6', name: 'Priced fixture', symbol: 'TEST', exchange_rate: '3', type: 'ERC-20' } },
+      { value: '2000000', token: { address_hash: '0x'+'2'.repeat(40), decimals: '6', name: 'Priced fixture', symbol: 'TEST', exchange_rate: '3', type: 'ERC-20' } },
+      { value: '1', token: { address_hash: '0x'+'3'.repeat(40), decimals: '18', name: 'Tiny balance', symbol: 'TINY' } },
+      { value: '9007199254740993', token: { address_hash: '0x'+'4'.repeat(40), name: 'Unknown precision', symbol: 'RAW', exchange_rate: '3' } },
       { value: '0' },
     ] } }));
     await page.goto(`${base}/address/${address}?lang=en`, { waitUntil: 'networkidle' });
     if (width < 500) await page.locator('.section-picker select').selectOption('tokens');
     else await page.getByRole('button', { name: 'Assets', exact: true }).click();
     await page.locator('.asset-row').last().waitFor();
-    assert.equal(await page.locator('.asset-row').count(), 3);
+    assert.equal(await page.locator('.asset-row').count(), 5);
     assert.match(await page.locator('.asset-row').first().textContent(), /Unknown asset.*No price data/);
     assert.match(await page.locator('.asset-row').nth(1).textContent(), /Priced fixture.*\$6/);
+    assert.match(await page.locator('.asset-row').nth(2).textContent(), /Tiny balance.*< 0\.000001/);
+    assert.equal(await page.locator('.asset-row').nth(2).locator('strong[title]').getAttribute('title'), '0.000000000000000001');
+    assert.match(await page.locator('.asset-row').nth(3).textContent(), /9,007,199,254,740,993 base units.*No price data/);
     assert.equal(await page.locator('.asset-row').last().isDisabled(), true);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
-    await page.route(`**/api/explorer/addresses/${address}/nft`, route => route.fulfill({ json: { items: [
+    await page.route(`**/api/explorer/addresses/${address}/nft`, route => route.fulfill({ headers:{date:new Date().toUTCString(),'x-ink-data-status':'fresh','x-ink-data-fetched-at':new Date().toISOString()},json: { items: [
       { id: 0, owner: { hash: address, name: 'NFT owner fixture' }, token: { address_hash: address, name: 'Zero ID NFT', type: 'ERC-721' } },
     ] } }));
     if (width < 500) await page.locator('.section-picker select').selectOption('nft');

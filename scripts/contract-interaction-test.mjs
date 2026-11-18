@@ -232,6 +232,12 @@ try {
       {},
       value,
     );
+  // Deterministic lifecycle signals exercise preparation races. Actual browser
+  // cache entry/restoration is covered separately by the live lifecycle suite.
+  const restoreSignal = () => page.evaluate(() => {
+    dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true }));
+    dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true }));
+  });
   await page.goto(`http://127.0.0.1:4192/address/${address}`, {
     waitUntil: "networkidle0",
   });
@@ -279,6 +285,38 @@ try {
     "Simulation does not broadcast",
     sends === 0 && (await direct.value()) === 0n,
   );
+  await page.evaluate(() => dispatchEvent(new PageTransitionEvent("pageshow", { persisted: false })));
+  check("Ordinary pageshow preserves a prepared contract simulation", Boolean(await page.$(".contract-method:not([hidden]) .transaction-review")));
+  await restoreSignal();
+  await page.waitForFunction(() => !document.querySelector(".contract-method:not([hidden]) .transaction-review"));
+  check("Cached restoration invalidates contract preparation without disconnecting or clearing inputs",
+    (await text()).includes("Disconnect") && await page.$eval(".contract-method:not([hidden]) form input", element => element.value) === "900719925474099312345" && sends === 0);
+  await page.evaluate(() => {
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = async (url, init) => {
+      const response = await originalFetch(url, init);
+      if (String(url).endsWith("/contract-rpc") && JSON.parse(init.body).method === "eth_estimateGas" && window.contractHoldEstimate) {
+        window.contractHoldEstimate = false;
+        // Consume a clone so release is followed only by buffered JSON work.
+        await response.clone().json();
+        await new Promise(resolve => { window.contractReleaseEstimate = resolve; });
+        window.contractEstimateReleased = true;
+      }
+      return response;
+    };
+    window.contractHoldEstimate = true;
+  });
+  await button("Simulate transaction").click();
+  await page.waitForFunction(() => typeof window.contractReleaseEstimate === "function");
+  await restoreSignal();
+  await page.evaluate(() => window.contractReleaseEstimate());
+  await page.waitForFunction(() => window.contractEstimateReleased);
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  check("Pre-restoration RPC completion cannot revive a contract preparation",
+    !(await page.$(".contract-method:not([hidden]) .transaction-review")) && !(await text()).includes("Simulation succeeded") && sends === 0);
+  await button("Simulate transaction").click();
+  await waitText("Simulation succeeded");
+  check("Fresh contract simulation remains available after restoration", Boolean(await page.$(".contract-method:not([hidden]) .transaction-review")));
   reject = true;
   await button("Confirm in wallet").click();
   await waitText("Request rejected");
@@ -290,6 +328,10 @@ try {
     "Write executes on EVM with exact uint256",
     (await direct.value()) === 900719925474099312345n,
   );
+  const submittedHashLink = await page.$eval('.contract-method:not([hidden]) a[href*="/tx/"]', element => element.getAttribute("href"));
+  await restoreSignal();
+  check("Cached restoration preserves submitted contract hash and confirmed receipt",
+    await page.$eval('.contract-method:not([hidden]) a[href*="/tx/"]', element => element.getAttribute("href")) === submittedHashLink && (await text()).includes("Confirmed successfully"));
   await page.screenshot({
     path: `${artifact}/write-confirmed-mobile.png`,
     fullPage: true,
@@ -302,6 +344,8 @@ try {
   await button("Confirm in wallet").click();
   for (let attempt = 0; !releaseHash && attempt < 100; attempt++) await wait(20);
   assert(releaseHash, "Wallet transaction reached the EVM");
+  await restoreSignal();
+  check("Restoration keeps a submitted contract wallet response pending without a duplicate send", sends === 2 && await page.$eval(".contract-method:not([hidden]) form button", element => element.disabled));
   await page.evaluate(() => window.fixtureListeners.accountsChanged.forEach(listener => listener([])));
   await waitText("Wallet changed");
   await page.locator('.contract-interaction input[type="search"]').fill("no_such_function");

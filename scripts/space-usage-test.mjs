@@ -8,11 +8,13 @@ await mkdir(output, { recursive: true });
 const browser = await puppeteer.launch({ executablePath: '/usr/bin/google-chrome', args: ['--no-sandbox'] });
 const results = [];
 const failures = [];
+const homeBreakpoints = [760, 761, 1050, 1051, 1199, 1200];
 try {
-  for (const width of [320, 390, 768, 1920, 2560]) {
+  for (const width of [320, 390, 768, 1920, 2560, ...homeBreakpoints]) {
     const page = await browser.newPage();
     await page.setViewport({ width, height: width < 500 ? 844 : 1080, isMobile: width < 500, hasTouch: width < 500 });
     for (const [name, route] of [['home', '/'], ['blocks', '/blocks'], ['analytics', '/analytics'], ['network', '/network'], ['search', '/search?q=WETH'], ['account', '/address/0x4c50254dafd191bba2a6e0517c1742caf1426df5'], ['contract', '/address/0x4200000000000000000000000000000000000006']]) {
+      if (homeBreakpoints.includes(width) && name !== 'home') continue;
       await page.goto(base + route, { waitUntil: 'networkidle0', timeout: 30000 });
       await page.waitForFunction(() => !document.querySelector('main > .loading'));
       const metrics = await page.evaluate(() => {
@@ -20,7 +22,7 @@ try {
         const main = rect('main');
         const children = [...document.querySelector('main').children].map(el => el.getBoundingClientRect()).filter(r => r.height > 0);
         return {
-          main, intro: rect('.home-intro'), search: rect('.home-command'), counters: rect('.home-overview .metric-grid'), trend: rect('.signal-grid'), live: rect('.live-section'),
+          main, intro: rect('.home-intro'), search: [...document.querySelectorAll('header .global-search,header .mobile-search-trigger')].map(el=>el.getBoundingClientRect()).find(r=>r.width>0)?.toJSON(), counters: rect('.home-overview .metric-grid'), trend: rect('.signal-grid'), live: rect('.live-section'),
           addressActivity: rect('.address-activity'), firstTransaction: rect('.address-activity .tx-row'),
           chartHeights: [...document.querySelectorAll('.interactive-chart')].map(el => el.getBoundingClientRect().height),
           gap: Math.max(0, ...children.slice(1).map((r, i) => r.top - children[i].bottom)),
@@ -32,7 +34,7 @@ try {
       const checks = {
         contentLoaded: !metrics.error,
         documentFits: metrics.overflow <= 1,
-        wideCanvasUsed: width < 1920 || metrics.main.width / width >= 0.85,
+        wideCanvasUsed: width < 1920 || Math.abs(metrics.main.width-Math.min(1800,width-64))<=1,
         sectionSpacing: metrics.gap <= 56,
         chartsBounded: metrics.chartHeights.every(height => height <= 320),
         valuesReadable: metrics.metricClipping.length === 0,

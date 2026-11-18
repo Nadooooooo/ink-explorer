@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {JsonRpcProvider,Contract} from 'ethers';
+import {mkdir,writeFile} from 'node:fs/promises';
+import {publicRpcMethods} from '../src/rpc-policy.ts';
+const base=process.env.BASE_URL||'http://127.0.0.1:4470',out=process.env.RPC_OUTPUT||'reports/rpc-live';await mkdir(out,{recursive:true});
+const rows=[],system='0x4200000000000000000000000000000000000006';
+try{for(const [prefix,chainId]of [['',57073],['/testnet',763373]]){
+ const rpc=base+prefix+'/api/rpc';
+ const discovery=await fetch(base+prefix+'/api').then(r=>r.json());assert.equal(discovery.chainId,chainId);assert.equal(discovery.rpc,'https://inkexplorer.xyz'+prefix+'/api/rpc');
+ const capabilities=await fetch(rpc).then(r=>r.json());assert.deepEqual(capabilities.methods,[...publicRpcMethods]);assert.equal(capabilities.readOnly,true);
+ const call=async(method,params=[])=>{const id=`live-${chainId}-${method}`,r=await fetch(rpc,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id,method,params}),signal:AbortSignal.timeout(20000)}),j=await r.json();assert.equal(r.status,200);assert.equal(j.id,id);assert.equal(j.jsonrpc,'2.0');assert.equal(j.error,undefined,`${chainId} ${method}: ${JSON.stringify(j.error)}`);assert('result'in j);return j.result;};
+ assert.equal(BigInt(await call('eth_chainId')),BigInt(chainId));const latest=BigInt(await call('eth_blockNumber')),height='0x'+(latest-20n).toString(16),block=await call('eth_getBlockByNumber',[height,false]);assert(block.transactions.length,'A real indexed transaction is needed');const hash=block.transactions[0];
+ const params={eth_getBalance:[system,'latest'],eth_getCode:[system,'latest'],eth_getTransactionCount:[system,'latest'],eth_getStorageAt:[system,'0x0','latest'],eth_getBlockByNumber:[height,false],eth_getBlockByHash:[block.hash,false],eth_getBlockTransactionCountByNumber:[height],eth_getBlockTransactionCountByHash:[block.hash],eth_getTransactionByHash:[hash],eth_getTransactionReceipt:[hash],eth_getTransactionByBlockHashAndIndex:[block.hash,'0x0'],eth_getTransactionByBlockNumberAndIndex:[height,'0x0'],eth_call:[{to:system,data:'0x95d89b41'},'latest'],eth_estimateGas:[{to:system,data:'0x95d89b41'}],eth_feeHistory:['0x4','latest',[25,50,75]],eth_getLogs:[{blockHash:block.hash,address:system}]};
+ for(const method of publicRpcMethods){const result=await call(method,params[method]??[]);if(method==='eth_chainId')assert.equal(BigInt(result),BigInt(chainId));if(method==='net_version')assert.equal(result,String(chainId));rows.push({chainId,method,idPreserved:true,resultType:result===null?'null':Array.isArray(result)?'array':typeof result,passed:true});}
+ const provider=new JsonRpcProvider(rpc);try{assert.equal((await provider.getNetwork()).chainId,BigInt(chainId));assert(await provider.getBlockNumber()>0);assert.equal(typeof await provider.getBalance(system),'bigint');const weth=new Contract(system,['function symbol() view returns (string)'],provider);assert.equal(await weth.symbol(),'WETH');const fee=await provider.getFeeData();assert(fee.gasPrice!==null);rows.push({chainId,sdk:'ethers JsonRpcProvider / Contract',passed:true});}finally{provider.destroy();}
+ console.log(JSON.stringify({chainId,methods:publicRpcMethods.length,sdk:true}));
+}}finally{await writeFile(out+'/results.json',JSON.stringify({base,at:new Date().toISOString(),passed:rows.length===(publicRpcMethods.length+1)*2,rows},null,2));}

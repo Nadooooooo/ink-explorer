@@ -95,7 +95,7 @@ const groups = [
   ".site-footer",
 ];
 
-async function inspect(page, label) {
+async function inspect(page, label, headerDocumentTop) {
   const result = await page.evaluate((selectors) => {
     const visible = (element) => {
       const style = getComputedStyle(element);
@@ -147,8 +147,8 @@ async function inspect(page, label) {
     const headerParts = [
       ".brand",
       ".language-picker",
-      ".header-search",
-      ".menu",
+      ".header-search-field",
+      ".drawer-trigger",
     ]
       .map((selector) => header?.querySelector(selector))
       .filter((element) => element && visible(element));
@@ -202,20 +202,28 @@ async function inspect(page, label) {
       );
     const headerRect = header ? box(header) : null;
     return {
+      width:innerWidth,
       overflowX: document.documentElement.scrollWidth - innerWidth,
       collisions: [...new Set(collisions)],
       clipped: [...new Set(clipped)],
       headerTop: headerRect?.top,
+      headerPosition: header && getComputedStyle(header).position,
+      headerInset: header ? parseFloat(getComputedStyle(header).top) : NaN,
       scrollY,
       body: document.body.innerText,
     };
   }, groups);
   if (result.overflowX > 1)
     failures.push(`${label}: horizontal overflow ${result.overflowX}px`);
-  if (result.scrollY > 34 && Math.abs(result.headerTop || 0) > 1)
-    failures.push(
-      `${label}: sticky header top ${result.headerTop}px at scroll ${result.scrollY}px`,
-    );
+  if (result.width > 760 && headerDocumentTop !== undefined) {
+    if (result.headerPosition !== "sticky" || !Number.isFinite(result.headerInset)) {
+      failures.push(`${label}: desktop header must retain a finite sticky inset`);
+    } else {
+      const expectedTop = Math.max(result.headerInset, headerDocumentTop - result.scrollY);
+      if (Math.abs(result.headerTop - expectedTop) > 1)
+        failures.push(`${label}: sticky header top ${result.headerTop}px, expected ${expectedTop}px at scroll ${result.scrollY}px`);
+    }
+  }
   for (const message of result.collisions)
     failures.push(`${label}: ${message}`);
   for (const message of result.clipped)
@@ -247,17 +255,14 @@ try {
           `${viewportName} ${routeName}: HTTP ${response?.status()}`,
         );
       if (action) {
-        const clicked = await page.$$eval(
-          "button",
-          (buttons, text) => {
-            const button = buttons.find(
-              (item) => item.textContent?.trim() === text,
-            );
-            button?.click();
-            return Boolean(button);
-          },
-          action,
-        );
+        let clicked=false;
+        const picker=await page.$('.section-picker select');
+        if(picker && await picker.evaluate(el=>el.getClientRects().length>0)) {
+          const value=await picker.evaluate((el,label)=>[...el.options].find(option=>option.textContent.trim()===label)?.value,action);
+          if(value){await page.select('.section-picker select',value);clicked=true;}
+        } else for(const button of await page.$$('.tabs button')) {
+          if(await button.evaluate((el,label)=>el.textContent.trim()===label && el.getClientRects().length>0,action)){await button.click();clicked=true;break;}
+        }
         if (!clicked)
           failures.push(
             `${viewportName} ${routeName}: missing ${action} control`,
@@ -269,6 +274,14 @@ try {
       const body = await page.$eval("body", (element) => element.innerText);
       if (body.includes("Data temporarily unavailable"))
         failures.push(`${viewportName} ${routeName}: upstream error state`);
+      // The utility bar precedes the sticky header. Sample both its natural
+      // position and its pinned position, including short pages whose entire
+      // scroll range is smaller than the utility bar. CSS smooth scrolling must
+      // not leave a sample between the requested coordinates.
+      const headerDocumentTop = await page.evaluate(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+        return document.querySelector("header").getBoundingClientRect().top;
+      });
       const maxScroll = await page.evaluate(() =>
         Math.max(0, document.documentElement.scrollHeight - innerHeight),
       );
@@ -278,9 +291,9 @@ try {
         ),
       ];
       for (const position of positions) {
-        await page.evaluate((y) => window.scrollTo(0, y), position);
+        await page.evaluate((y) => window.scrollTo({ top: y, left: 0, behavior: "instant" }), position);
         await new Promise((resolve) => setTimeout(resolve, 35));
-        await inspect(page, `${viewportName} ${routeName} @${position}`);
+        await inspect(page, `${viewportName} ${routeName} @${position}`, headerDocumentTop);
       }
     }
     if (errors.length)
@@ -301,30 +314,15 @@ try {
     waitUntil: "networkidle0",
     timeout: 30000,
   });
-  await nftPage.$$eval("button", (buttons) =>
-    buttons.find((item) => item.textContent?.trim() === "NFTs")?.click(),
-  );
+  await nftPage.waitForSelector('.section-picker select');
+  await nftPage.select('.section-picker select','nft');
   await nftPage.waitForSelector(".nft-grid", { timeout: 15000 });
-  const firstCount = await nftPage.$$eval(".nft-item", (items) => items.length);
-  const beforeScroll = await nftPage.evaluate(() => scrollY);
-  await nftPage.$$eval("button", (buttons) =>
-    buttons.find((item) => item.textContent?.includes("Load more"))?.click(),
-  );
-  await nftPage
-    .waitForFunction(
-      (count) => document.querySelectorAll(".nft-item").length > count,
-      { timeout: 30000 },
-      firstCount,
-    )
-    .catch(() => {});
-  const secondCount = await nftPage.$$eval(
-    ".nft-item",
-    (items) => items.length,
-  );
-  if (firstCount !== 50 || secondCount <= firstCount)
-    failures.push(
-      `NFT pagination: expected more than ${firstCount} cards, found ${secondCount}`,
-    );
+  const firstPage=await nftPage.$$eval('.nft-item',items=>items.map(el=>el.getAttribute('href')));
+  const beforeScroll=await nftPage.evaluate(()=>scrollY);
+  await nftPage.click('.token-list-controls .cursor-pagination button[aria-label="Next page"]');
+  await nftPage.waitForFunction(first=>document.querySelector('.nft-item')?.getAttribute('href')!==first && document.querySelector('.nft-item'),{},firstPage[0]);
+  const secondPage=await nftPage.$$eval('.nft-item',items=>items.map(el=>el.getAttribute('href')));
+  if(firstPage.length!==50 || !secondPage.length || secondPage.length>50 || secondPage.some(href=>firstPage.includes(href))) failures.push('NFT cursor did not display a separate next page');
   const height = await nftPage.evaluate(
     () => document.documentElement.scrollHeight,
   );
@@ -393,5 +391,5 @@ if (failures.length) {
   process.exit(1);
 }
 console.log(
-  `Layout stress test passed (${routes.length} routes × ${viewports.length} viewports × full-page scroll, 100 NFT cards and pool filters in 10 locales).`,
+  `Layout stress test passed (${routes.length} routes × ${viewports.length} viewports × full-page scroll, distinct NFT cursor pages and pool filters in 10 locales).`,
 );

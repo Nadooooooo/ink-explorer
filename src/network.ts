@@ -20,13 +20,19 @@ export let liveWebSocketUrl = (() => {
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
   return url.toString();
 })();
-export async function resolveLiveWebSocketUrl() {
+export async function resolveLiveWebSocketUrl(signal?: AbortSignal) {
+  const controller = new AbortController();
+  const cancel = () => controller.abort();
+  if (signal?.aborted) cancel();
+  else signal?.addEventListener("abort", cancel, { once: true });
+  const timeout = setTimeout(cancel, 5000);
   try {
-    const response = await fetch(`${API}/live/config`, { signal: AbortSignal.timeout(5000) });
+    const response = await fetch(`${API}/live/config`, { signal: controller.signal });
     const value = await response.json();
     const url = new URL(value.url);
-    if (response.ok && ["ws:", "wss:"].includes(url.protocol) && !url.username && !url.password && url.pathname.endsWith(`${basePath}/api/live`) && (isTestnet || !/\/testnet\/api\/live$/.test(url.pathname))) liveWebSocketUrl = url.href;
+    if (!signal?.aborted && response.ok && ["ws:", "wss:"].includes(url.protocol) && !url.username && !url.password && url.pathname.endsWith(`${basePath}/api/live`) && (isTestnet || !/\/testnet\/api\/live$/.test(url.pathname))) liveWebSocketUrl = url.href;
   } catch { /* The local WebSocket remains usable while config is unavailable. */ }
+  finally { clearTimeout(timeout); signal?.removeEventListener("abort", cancel); }
   return liveWebSocketUrl;
 }
 export function networkPath(path: string) {

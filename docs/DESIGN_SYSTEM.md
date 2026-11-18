@@ -1,6 +1,66 @@
 # Ink Explorer — shared visual rules
 
-The `:root` block in `src/styles.css` is the source of visual tokens. Components keep their layout and purpose; the families below define their shared appearance.
+## Direction actuelle — 18 novembre 2026
+
+L'explorateur est un outil de lecture répété : la recherche, l'identité du relevé
+et ses valeurs doivent se repérer avant la décoration. La
+[charte officielle Ink](https://docs.inkonchain.com/work-with-ink/brand-kit)
+définit une base noire et blanche, avec Ink Purple `#7132F5` en accent,
+Ink Light `#9E70FF` et Ink Soft `#F2ECFF` en couleurs de soutien.
+
+`src/polish.css`, après `redesign.css`, définit cette palette : page neutre,
+cartes blanches ou anthracite, texte neutre et accent réservé aux actions,
+liens, graphiques et états sélectionnés. La première métrique de l'accueil reste
+un repère violet uni. Les détails, compteurs et panneaux ordinaires utilisent
+leur surface neutre ; le fond de page n'a plus de dégradé violet.
+Les couleurs fonctionnelles de succès, d'erreur et d'avertissement restent
+distinctes de la palette de marque.
+
+En clair, le texte violet utilise Ink Purple sur une surface claire. En sombre,
+Ink Light assure la lisibilité des liens, alors que les actions pleines gardent
+Ink Purple et du texte blanc. Ink Light n'est pas une couleur de petit texte
+sur fond blanc. Les surfaces de soutien sombres sont une adaptation teintée,
+pas un aplat Ink Soft clair sous du texte clair. Les contours des champs ont
+leur propre token `--field-border`, séparé des bordures discrètes des données.
+
+Les grilles, espacements, densités, rayons, géométrie du logo, routage et commandes
+restent les mêmes. Les légendes compactes de blocs passent de 11 à 12 px,
+conformément au plancher de lecture déjà retenu pour les métadonnées.
+
+### Typographie et distribution
+
+La charte Ink nomme Satoshi. Ce dépôt distribuable conserve Plus Jakarta Sans
+pour l'interface, DM Mono pour les identifiants et les polices locales de
+complément pour les écritures non latines. Il ne prétend donc pas reproduire
+exactement la typographie officielle.
+
+L'archive Satoshi récupérée depuis Fontshare le 18 novembre 2026 contient la
+licence ITF FFL v2.0 du 17 août 2026. Sa section 01 autorise notamment
+l'auto-hébergement pour les propres sites et applications du licencié ; sa
+section 02 restreint la redistribution des fichiers de police, notamment via un
+repository. Pour ce dépôt destiné à être partagé, aucun fichier Satoshi n'est
+ajouté et aucun chargement distant Fontshare n'est imposé. Une installation
+privée de cette police requiert que son opérateur obtienne sa propre copie et
+respecte sa licence. Voir la
+[licence officielle ITF FFL](https://www.fontshare.com/licenses/itf-ffl).
+
+### Cascade et portée
+
+Les tokens de base viennent de `src/styles.css`, puis `redesign.css` et
+`polish.css` les précisent. `polish.css` est la couche de direction visuelle,
+pas la dernière feuille chargée : `main.tsx` importe ensuite les règles de
+ledger, détails, mobile, typographie tactile et autres composants.
+Conserver cet ordre et vérifier les styles calculés sur le rendu compilé après
+un changement de tokens. Ne pas déplacer les règles de géométrie ni multiplier
+les nouvelles palettes dans les composants.
+
+La [revue du 17 octobre](POLISH_2026-10-17.md) reste un historique de l'ancienne
+présentation ; ses surfaces violettes et valeurs ne définissent plus la palette
+courante.
+
+## Référence des composants
+
+The shared tokens originate in `src/styles.css`; `redesign.css` and the visual-direction `polish.css` layer refine them before the later component/responsive layers. Components keep their layout and purpose; the families below define their shared appearance.
 
 | Family | Rules |
 | --- | --- |
@@ -8,7 +68,7 @@ The `:root` block in `src/styles.css` is the source of visual tokens. Components
 | Identifiers, addresses, hashes, block numbers and code | `--font-mono`: DM Mono, falling back to monospace |
 | Metric, contract, NFT and statistics cards | `--surface-card`, `--line`, `--radius-card`, `--shadow-card` |
 | Data panels, details, tables and code areas | `--surface-panel`, `--line`, `--radius-panel`, `--shadow-panel` |
-| Page, token and pool heroes | `--radius-hero` and the existing purple gradient |
+| Page, token and pool heroes | `--radius-hero`, neutral `--surface-panel` and `--line`; a local accent is reserved for a primary action or state |
 | Address, transaction and block headers | `--radius-hero`, `--line`, calm `--surface-panel`, compact identity and status |
 | Table headers and collapsible code sections | `--surface-header` |
 | Search fields | `--surface-field`, `--field-border`, `--shadow-field`, `--radius-control` |
@@ -20,6 +80,7 @@ The `:root` block in `src/styles.css` is the source of visual tokens. Components
 | Status badges | `--radius-pill`, semantic success/error colour; light variant on dark backgrounds |
 | Inline copy | 24 px desktop / 36 px phone button, no native border, `--radius-inset`, green confirmation |
 | Error | `--surface-error`, `--border-error`, message and retry action |
+| Cached index data | `--surface-warning`, `--border-warning`, `--text-warning`; dated status notice with a 44 px retry action, independent of local node health |
 | Chart period | Native select inside its chart header; muted surface, purple text, 36 px desktop / 44 px touch target; independent state |
 | Chart inspector | One local, bounded tooltip; date and value only, with ≈ for a partial last observation; dismiss on outside interaction, Escape, blur or scrolling |
 | Chart without data | Secondary surface, subtle border, preserved minimum height and state message |
@@ -90,6 +151,12 @@ Card requests are cancellable and have local loading, empty, failure and retry s
 
 Run `npm run test:charts` for deterministic range, isolation, touch, keyboard, request race, retry, empty and RTL checks. `CHART_BROWSERS=chromium,firefox,webkit` covers all three browser engines. These fixtures only run in the test browser; application data remains source-backed.
 
+`npm run test:data-freshness` checks fallback warnings, recovery and navigation
+in three engines on both networks at 320 px Arabic, 390 px French and 1440 px
+English. It includes contrast/accessibility checks and screenshots. Rounded
+nonzero amounts use an explicit bound instead of a zero; monetary rows retain
+exact title values. Block fee columns describe L2 fees, not L1-inclusive totals.
+
 ## Mobile ergonomics
 
 `src/mobile.css`, imported after the component styles, contains the shared mobile and coarse-pointer refinements. Keep those rules together so orientation and touch behaviour remain consistent across page families.
@@ -100,5 +167,6 @@ Run `npm run test:charts` for deterministic range, isolation, touch, keyboard, r
 - A keyboard-opened header menu focuses its first destination. Escape restores the menu button; moving focus out dismisses the menu. Client-side navigation focuses the main region and scrolls immediately to the new page.
 - Analytics tables preserve the date column during horizontal scrolling. Row dates are row headers, column names are column headers, and the labelled scroll region is keyboard-focusable. A visible hint explains horizontal scrolling.
 - Keep viewport zoom enabled. Respect reduced motion. Focused form controls must remain reachable under the sticky header when the viewport becomes short.
+- Keep the decorative atmosphere static on small or touch screens and NFT detail pages. Animated artwork remains intact; repeatedly repainting both it and the blurred decoration creates avoidable long tasks.
 
 Run `BASE_URL=http://127.0.0.1:<preview-port> npm run test:mobile`. Use `MOBILE_BROWSERS=chromium,firefox,webkit` for all engines; `MOBILE_WIDTHS` and `MOBILE_OUTPUT` select the viewport matrix and evidence directory. Browser emulation does not replace testing a physical phone's software keyboard.

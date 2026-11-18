@@ -1,29 +1,56 @@
 .network-picker {
   display: inline-flex;
   min-width: 0;
+  position: relative;
+}
+.network-picker::after {
+  content: "";
+  position: absolute;
+  inset-inline-end: 10px;
+  top: calc(50% - 5px);
+  width: 6px;
+  height: 6px;
+  border: solid currentColor;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+  pointer-events: none;
 }
 .network-picker select {
   max-width: 180px;
-  padding: 4px 22px 4px 6px;
+  padding: 4px 6px;
+  padding-inline-end: 26px;
   min-height: 30px;
   font: inherit;
   color: inherit;
-  background: transparent;
+  background: #201432;
+  -webkit-appearance: none;
+  appearance: none;
   border: 1px solid #ad7cfb66;
   border-radius: 6px;
   cursor: pointer;
 }
 .network-picker option {
-  color: #201432;
-  background: #fff;
+  color: var(--ink);
+  background: var(--surface-panel);
 }
 .contract-interaction {
-  padding: clamp(16px, 3vw, 32px);
+  padding: clamp(14px, 2vw, 24px);
   min-width: 0;
 }
+.contract-interaction-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.contract-interaction-heading h2 { min-width:0; margin:0; font-size:20px; line-height:1.4; overflow-wrap:anywhere; }
+.contract-interaction-heading .info-disclosure > .info-button { width:44px; min-width:44px; height:44px; min-height:44px; padding:0; border:0; background:transparent; }
+.contract-interaction .contract-target { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:8px; font-size:12px; margin:8px 0; }
+.contract-target .copyable > .mono { font-size:12px; white-space:normal; overflow:visible; overflow-wrap:anywhere; direction:ltr; unicode-bidi:isolate; }
+.contract-target .copyable > .copy-button { flex:0 0 44px; width:44px; min-width:44px; height:44px; min-height:44px; padding:0; border:0; background:transparent; }
+.contract-target .copyable > .copy-button:hover { background:var(--surface-selected); }
+.contract-target .copyable > .copy-button.copied { color:var(--green); background:var(--surface-success); }
+.contract-controls { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:16px 0; }
+.contract-interaction .contract-controls > label { margin:0; font-size:12px; }
+@media (max-width:600px) { .contract-controls { grid-template-columns:minmax(0,1fr); } }
 .contract-interaction > p {
   margin: 12px 0;
-  color: var(--text-secondary, #625a72);
+  color: var(--muted);
   overflow-wrap: anywhere;
 }
 .contract-interaction label {
@@ -37,15 +64,19 @@
   width: 100%;
   min-width: 0;
   min-height: 44px;
-  border: 1px solid #d6c5f4;
+  border: 1px solid var(--accent-border);
   border-radius: 10px;
-  background: #fff;
-  color: #201432;
+  background: var(--surface-panel);
+  color: var(--ink);
   padding: 10px 12px;
   font: inherit;
+  font-size: 14px;
 }
 .contract-interaction textarea {
   resize: vertical;
+}
+@media (max-width:760px), (pointer:coarse) {
+  .contract-interaction :is(input,select,textarea) { font-size:16px; }
 }
 .contract-interaction button {
   min-height: 44px;
@@ -53,9 +84,9 @@
   border-radius: 10px;
 }
 .contract-interaction button:not(.primary-action) {
-  background: #f5efff;
-  border: 1px solid #d6c5f4;
-  color: #5624ac;
+  background: var(--surface-selected);
+  border: 1px solid var(--accent-border);
+  color: var(--purple-deep);
 }
 .contract-interaction button:disabled {
   opacity: 0.5;
@@ -73,27 +104,40 @@
   min-width: 0;
 }
 .contract-method {
-  border: 1px solid #d6c5f4;
+  border: 1px solid var(--accent-border);
   border-radius: 14px;
   padding: 0 16px;
   margin: 12px 0;
-  background: #fcfaff;
+  background: var(--surface-panel);
   min-width: 0;
 }
 .contract-method > summary {
+  display: grid;
+  grid-template-columns: 18px minmax(0,1fr) auto;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
   cursor: pointer;
   padding: 16px 0;
   min-height: 48px;
   overflow-wrap: anywhere;
 }
+.contract-method > summary::-webkit-details-marker { display:none; }
+.contract-method-chevron { color:var(--purple); }
+[dir="rtl"] .contract-method-chevron { transform:rotate(180deg); }
+.contract-method[open] > summary .contract-method-chevron { transform:rotate(90deg); }
 .contract-method > summary span {
+  min-width:0;
   font-family: var(--font-mono, monospace);
   font-size: 14px;
 }
 .contract-method > summary small {
-  margin-inline-start: 12px;
-  color: #6c508c;
+  margin-inline-start: 0;
+  white-space:nowrap;
+  font-size:12px;
+  color: var(--muted);
 }
+[dir="rtl"] .contract-method > summary span { text-align:right; }
 .contract-method[open] {
   padding-bottom: 16px;
 }
@@ -103,7 +147,7 @@
 }
 .contract-method pre {
   padding: 14px;
-  background: #eee7fa;
+  background: var(--surface-muted);
   border-radius: 10px;
   font-size: 13px;
   margin: 14px 0;
@@ -111,14 +155,14 @@
 .contract-method a {
   display: block;
   margin: 8px 0;
-  color: #6520cf;
+  color: var(--purple);
 }
 .contract-error {
-  color: #a91943;
+  color: var(--red);
   margin: 14px 0;
 }
 .transaction-review {
-  border-top: 1px solid #d6c5f4;
+  border-top: 1px solid var(--accent-border);
   margin-top: 16px;
   padding-top: 16px;
 }
@@ -126,15 +170,15 @@
   margin: 8px 0;
 }
 .sync-progress {
-  border: 1px solid #d6c5f4;
+  border: 1px solid var(--accent-border);
   border-radius: 16px;
   padding: 24px;
   margin: 20px 0;
-  background: #fcfaff;
+  background: var(--surface-panel);
 }
 .sync-progress p {
   margin: 12px 0;
-  color: #625a72;
+  color: var(--muted);
   line-height: 1.6;
 }
 .sync-progress dl {
@@ -168,11 +212,11 @@
   }
 }
 
-.wallet-qr-dialog { max-width: min(400px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 24px; border: 1px solid #d6c5f4; border-radius: 18px; color: #201432; background: #fff; text-align: center; }
+.wallet-qr-dialog { max-width: min(400px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 24px; border: 1px solid var(--accent-border); border-radius: 18px; color: var(--ink); background: var(--surface-panel); text-align: center; }
 .wallet-qr-dialog::backdrop { background: #20143299; }
 .wallet-qr-dialog svg { display: block; width: min(240px, 100%); height: auto; margin: 16px auto; }
 .wallet-qr-dialog :is(a, button) { display: block; margin: 12px auto; min-height: 44px; padding: 12px; }
-.wallet-picker-dialog { width: min(400px, calc(100vw - 32px)); box-sizing: border-box; max-height: calc(100dvh - 32px); overflow-y: auto; padding: 24px; border: 1px solid #d6c5f4; border-radius: 18px; color: #201432; background: #fff; overflow-wrap: anywhere; }
+.wallet-picker-dialog { width: min(400px, calc(100vw - 32px)); box-sizing: border-box; max-height: calc(100dvh - 32px); overflow-y: auto; padding: 24px; border: 1px solid var(--accent-border); border-radius: 18px; color: var(--ink); background: var(--surface-panel); overflow-wrap: anywhere; }
 .wallet-picker-dialog::backdrop { background: #20143299; }
 .wallet-picker-dialog h2 { margin: 0 0 12px; font-size: 1.25rem; }
 .wallet-picker-dialog p { line-height: 1.5; }

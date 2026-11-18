@@ -1,30 +1,21 @@
-import { nodeReadiness } from './node-readiness.mjs';
+import {createCurrentAddressBalance} from './current-address-balance.mjs';
 
-// Index balances near the unsafe tip can disagree with their advertised height.
-// Bind the displayed balance to one canonical block hash and retain provenance.
-export async function verifyAddressBalance(profile, { rpc, chainId, now = Date.now(), signal }) {
-  const unavailable = () => ({ ...profile, balance_check: { status: 'unavailable' } });
-  const height = profile?.block_number_balance_updated_at;
-  if (!profile || !/^0x[\da-f]{40}$/i.test(profile.hash || '') ||
-      !Number.isSafeInteger(height) || height < 0 || !/^\d+$/.test(String(profile.coin_balance ?? '')))
+// Profile metadata comes from the index; its ETH balance comes from a current
+// canonical head, even if the index last recorded a change much earlier.
+export async function verifyAddressBalance(profile, { rpc, chainId, now = Date.now(), signal, currentBalance }) {
+  const unavailable = () => ({ ...profile, coin_balance:null,block_number_balance_updated_at:null,balance_check: { status: 'unavailable',indexed_balance:profile?.coin_balance ?? null,indexed_block_number:profile?.block_number_balance_updated_at ?? null } });
+  if (!profile || !/^0x[\da-f]{40}$/i.test(profile.hash || ''))
     return unavailable();
   try {
-    const [chain, sync, head] = await Promise.all([
-      rpc('eth_chainId', [], signal), rpc('eth_syncing', [], signal),
-      rpc('eth_getBlockByNumber', ['latest', false], signal),
-    ]);
-    if (!nodeReadiness({chain, expectedChainId:chainId, sync, block:head, now}).synced || height > Number(head.number))
-      return unavailable();
-    const block = await rpc('eth_getBlockByNumber', ['0x'+height.toString(16), false], signal);
-    if (!/^0x[\da-f]{64}$/i.test(block?.hash || '') || Number(block.number) !== height)
-      return unavailable();
-    const balance = await rpc('eth_getBalance', [profile.hash, {blockHash:block.hash, requireCanonical:true}], signal);
-    if (!/^0x[\da-f]+$/i.test(balance || '')) return unavailable();
-    const coin_balance = BigInt(balance).toString();
-    return {...profile, coin_balance, balance_check:{
-      status:BigInt(profile.coin_balance) === BigInt(balance) ? 'matched' : 'corrected',
-      indexed_balance:String(profile.coin_balance), block_number:height, block_hash:block.hash,
-      source:'local', checked_at:new Date(now).toISOString(),
+    signal?.throwIfAborted();
+    const observation=await (currentBalance || createCurrentAddressBalance({rpc,chainId,now:()=>now}))(profile.hash);
+    signal?.throwIfAborted();
+    const coin_balance=observation.balance;
+    return {...profile, coin_balance, block_number_balance_updated_at:observation.block.number, balance_check:{
+      status:String(profile.coin_balance)===coin_balance ? 'matched' : 'corrected',scope:'head',
+      indexed_balance:profile.coin_balance ?? null,indexed_block_number:profile.block_number_balance_updated_at ?? null,
+      block_number:observation.block.number,block_hash:observation.block.hash,block_timestamp:observation.block.timestamp,
+      source:observation.source,checked_at:observation.observedAt,
     }};
   } catch { return unavailable(); }
 }

@@ -1,0 +1,23 @@
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright';
+import {mkdir,writeFile} from 'node:fs/promises';
+const base=process.env.BASE_URL||'http://127.0.0.1:4310',out=process.env.TRANSFER_DIRECTORY_REAL_OUTPUT||'reports/transfer-directory/real';await mkdir(out,{recursive:true});
+const browser=await chromium.launch({args:['--no-sandbox']}),results=[];
+const signature=data=>data.items.map(i=>[i.transaction_hash||i.hash,i.log_index??i.token_transfer_index,i.token_transfer_batch_index].join(':'));
+try{for(const prefix of['','/testnet'])for(const width of[390,1440])for(const standard of['ERC-20','ERC-721','ERC-1155']){
+ const page=await browser.newPage({viewport:{width,height:1000},colorScheme:width===390?'light':'dark'}),r={prefix,width,standard,passed:false},errors=[];page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(25000);
+ const response=()=>page.waitForResponse(r=>new URL(r.url()).pathname===prefix+'/api/explorer/advanced-filters');
+ const next=()=>page.locator('.token-list-controls .cursor-pagination button').last(),previous=()=>page.locator('.token-list-controls .cursor-pagination button').first();
+ const ready=async data=>{assert(data.items?.length>0);await page.locator('.transfer-record').nth(data.items.length-1).waitFor();assert.equal(await page.locator('.transfer-transaction .text-link').first().getAttribute('href'),prefix+'/tx/'+(data.items[0].transaction_hash||data.items[0].hash)+'?lang=fr');};
+ try{
+  const fetched=response();await page.goto(base+prefix+'/token-transfers?lang=fr&type='+standard+'&age_to=2026-10-17T22%3A00%3A00Z',{waitUntil:'domcontentloaded'});const first=await(await fetched).json();await ready(first);assert(first.items.every(i=>i.token.type===standard));r.records=first.items.length;
+  if(first.next_page_params){const secondResponse=response();await next().click();const second=await(await secondResponse).json();await ready(second);assert.notDeepEqual(signature(second),signature(first));r.page2=signature(second).slice(0,2);if(second.next_page_params){const thirdResponse=response();await next().click();const third=await(await thirdResponse).json();await ready(third);assert.notDeepEqual(signature(third),signature(second));const backResponse=response();await previous().click();const back=await(await backResponse).json();await ready(back);assert.deepEqual(signature(back),signature(second));r.page3AndReturn=true;}const resetResponse=response();await previous().click();const reset=await(await resetResponse).json();await ready(reset);assert.deepEqual(signature(reset),signature(first));r.pagination=true;}
+  if(standard!=='ERC-20'){const id=first.items[0].total?.token_id??first.items[0].total?.token_ids?.[0];assert.equal(await page.locator('.nft-transfer-id').first().getAttribute('href'),prefix+'/token/'+first.items[0].token.address_hash+'/instance/'+id+'?lang=fr');r.nft=id;}
+  const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);assert.equal(overflow,false);assert.deepEqual(errors,[]);await page.screenshot({path:`${out}/${prefix?'sepolia':'mainnet'}-${standard}-${width}.png`});r.passed=true;
+ }catch(e){r.error=e.stack;await page.screenshot({path:`${out}/failure-${prefix?'sepolia':'mainnet'}-${standard}-${width}.png`}).catch(()=>{});}finally{await page.close();}results.push(r);console.log(JSON.stringify(r));await writeFile(out+'/results.json',JSON.stringify({base,complete:false,results},null,2));
+}
+for(const prefix of['','/testnet'])for(const width of[390,1440])for(const route of['accounts','internal-txs','deposits','withdrawals']){
+ const page=await browser.newPage({viewport:{width,height:1000}}),r={prefix,width,route,passed:false},errors=[];page.on('pageerror',e=>errors.push(e.message));try{await page.goto(base+prefix+'/'+route+'?lang=fr',{waitUntil:'domcontentloaded'});await page.locator('.data-ledger tbody tr,.data-ledger .empty,.data-ledger .error-state').first().waitFor();assert.equal(await page.locator('.data-ledger .error-state').count(),0);r.records=await page.locator('.data-ledger tbody tr').count();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);assert.deepEqual(errors,[]);r.passed=true;}catch(e){r.error=e.stack;}finally{await page.close();}results.push(r);console.log(JSON.stringify(r));await writeFile(out+'/results.json',JSON.stringify({base,complete:false,results},null,2));
+}
+}finally{await browser.close();}
+await writeFile(out+'/results.json',JSON.stringify({base,complete:true,passed:results.every(r=>r.passed),physicalDeviceTest:false,results},null,2));if(results.some(r=>!r.passed))process.exitCode=1;

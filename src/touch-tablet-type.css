@@ -1,0 +1,81 @@
+/* Keep compact status copy readable on phones. */
+@media (max-width: 760px) {
+  .confirmation-label { font-size: 12px; }
+}
+
+/* Confirmation states can also appear in compact tablet and desktop rows.
+   Keep their label legible at every width, including landscape touch screens. */
+@media (min-width: 761px) {
+  .confirmation-label { font-size: 12px; }
+}
+
+@media (pointer: coarse) {
+  .drawer-preferences .language-picker select { font-size: 16px; }
+}
+
+/* The intermediate layout is also used by touch tablets in landscape.
+   Keep form controls above the 16px iOS zoom threshold and short labels
+   above the site's 12px compact-copy floor. */
+@media (min-width: 761px) and (max-width: 1179px) {
+  .ledger-filters select,
+  .stats-filter-bar :is(input, select),
+  .pool-search input,
+  html .pool-filter-grid select:not([multiple]):not([size]) {
+    font-size: 16px;
+  }
+  .home-activity-panel .compact-tx-row .tx-fee,
+  .home-activity-panel .compact-tx-row .tx-fee :is(span, bdi),
+  .home-activity-panel .failure-label,
+  .activity-ledger-page .ledger-viewport .failure-label,
+  .http-method,
+  .api-endpoints summary > span:last-child,
+  .api-definitions dt {
+    font-size: 12px;
+  }
+}
+
+/* Large touch screens keep the desktop columns, but their controls and
+   compact feed labels still need touch-readable typography. */
+@media (pointer: coarse) and (min-width: 900px) {
+  .home-activity-panel .compact-block-row :is(.block-tx-count, .block-gas) small {
+    font-size: 12px;
+  }
+}
+
+@media (pointer: coarse) and (min-width: 1180px) {
+  .utility-bar .language-picker select,
+  .theme-control select,
+  .ledger-filters select,
+  .stats-filter-bar :is(input, select),
+  .pool-search input,
+  html .pool-filter-grid select:not([multiple]):not([size]) {
+    font-size: 16px;
+  }
+  .utility-bar .language-picker select {
+    height: 44px;
+    margin-block: -1px;
+  }
+
+  .home-activity-panel .compact-tx-row .tx-fee,
+  .home-activity-panel .compact-tx-row .tx-fee :is(span, bdi),
+  .failure-label,
+  .activity-ledger-page .ledger-viewport .full-tx-row > .method,
+  .http-method,
+  .api-endpoints summary > span:last-child,
+  .api-definitions dt {
+    font-size: 12px;
+  }
+}
+
+/* The base metric reserves physical left space for its icon. In RTL the
+   logical start padding also lands on the right, so release the duplicate
+   left padding and move the icon to the logical start. */
+@media (min-width: 1180px) {
+  html[dir="rtl"] .home-overview .metric:not(.utilization-metric) { padding-left: 22px; }
+  html[dir="rtl"] .home-overview .metric-top svg { left: auto; right: 22px; }
+}
+
+@media (min-width: 1180px) and (max-width: 1279px) {
+  .home-overview .metric:not(.utilization-metric) { padding-inline-start: 60px; }
+  .home-overview .metric:not(.utilization-metric) > strong { font-size: 22px; }
+}

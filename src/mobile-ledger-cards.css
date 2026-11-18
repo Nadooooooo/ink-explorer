@@ -1,0 +1,222 @@
+/* Phones need every record's key fields in view; wide ledgers remain tables. */
+.block-count-compact { display:none; }
+.transfer-ledger .transfer-count-compact { display:none; }
+@media (max-width:1339px) {
+  .activity-ledger-page .block-count-compact { display:inline; }
+  .activity-ledger-page .block-count-full {
+    position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+    overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+  }
+  .activity-ledger-page .ledger-viewport,
+  .data-ledger.transfer-ledger .ledger-scroll { overflow:visible; scroll-padding:0; }
+  .activity-ledger-page .ledger-viewport .ledger-columns:is(.tx-columns,.block-columns) { display:none; }
+  .activity-ledger-page .ledger-viewport :is(.tx-row.full-tx-row,.block-row) {
+    min-width:0; padding:12px 14px; gap:8px 10px; align-items:start;
+  }
+  .activity-ledger-page .ledger-viewport :is(.tx-primary,.block-height) {
+    position:static; inset:auto; z-index:auto; background:transparent;
+  }
+  .activity-ledger-page .ledger-viewport :is(.tx-primary,.block-height)::before,
+  .activity-ledger-page .ledger-viewport :is(.tx-primary,.block-height)::after { display:none; }
+
+  .activity-ledger-page .ledger-viewport .tx-row.full-tx-row {
+    grid-template-columns:minmax(0,1fr) auto;
+    grid-template-areas:"primary primary" "kind method" "block block" "flow flow" "value value";
+  }
+  .activity-ledger-page .ledger-viewport .full-tx-row > .tx-primary {
+    grid-area:primary; padding:0; align-self:center;
+  }
+  .activity-ledger-page .ledger-viewport .full-tx-row .tx-primary > div { min-width:0; }
+  .activity-ledger-page .ledger-viewport .full-tx-row .tx-primary small { margin:0; }
+  .activity-ledger-page .ledger-viewport .full-tx-row > .tx-kind { grid-area:kind; min-width:0; align-self:center; }
+  .activity-ledger-page .ledger-viewport .full-tx-row > .method {
+    grid-area:method; justify-self:end; align-self:center; max-width:min(130px,40vw);
+    font-size:12px;
+  }
+  .activity-ledger-page .ledger-viewport .full-tx-row > .tx-block {
+    grid-area:block; justify-self:start; min-height:24px; display:flex; align-items:center; gap:5px;
+  }
+  .activity-ledger-page .ledger-viewport .full-tx-row .flow {
+    display:grid; grid-area:flow; grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px; padding-top:8px; border-top:1px solid var(--line);
+  }
+  .activity-ledger-page .ledger-viewport .full-tx-row .flow-party {
+    display:grid; grid-template-columns:20px minmax(0,1fr);
+    grid-template-rows:auto auto; gap:4px 6px; min-width:0;
+  }
+  .activity-ledger-page .ledger-viewport .full-tx-row .flow-party .mobile-label {
+    display:block; grid-column:1 / -1; font-size:12px; color:var(--muted);
+  }
+  .activity-ledger-page .ledger-viewport .full-tx-row .flow-party .entity-mark { grid-column:1; grid-row:2; }
+  .activity-ledger-page .ledger-viewport .full-tx-row .flow-party .copyable { grid-column:2; grid-row:2; min-width:0; }
+  .activity-ledger-page .ledger-viewport .full-tx-row .flow-party .copy-button { display:none; }
+  .activity-ledger-page .ledger-viewport .full-tx-row .flow-party .text-link {
+    min-height:32px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .activity-ledger-page .ledger-viewport .full-tx-row .tx-value {
+    display:flex; grid-area:value; align-items:baseline; justify-content:space-between;
+    flex-wrap:wrap; gap:4px 12px; padding-top:8px; border-top:1px solid var(--line);
+    text-align:start;
+  }
+  .activity-ledger-page .ledger-viewport .full-tx-row .tx-value > strong { text-align:start; }
+  .activity-ledger-page .ledger-viewport .full-tx-row .tx-fee { text-align:end; }
+  .activity-ledger-page .ledger-viewport .full-tx-row .fee-caption { display:inline; }
+
+  .activity-ledger-page .ledger-viewport .block-list .block-row {
+    grid-template-columns:minmax(0,1fr) auto;
+    grid-template-areas:"height tx" "beneficiary size" "gas gas";
+  }
+  .activity-ledger-page .ledger-viewport .block-row > .block-height {
+    grid-area:height; padding:0; min-width:0; align-self:center;
+  }
+  .activity-ledger-page .ledger-viewport .block-height > div { min-width:0; }
+  .activity-ledger-page .ledger-viewport .block-row > .block-tx-count { grid-area:tx; text-align:end; }
+  .activity-ledger-page .ledger-viewport .block-row > .block-beneficiary {
+    grid-area:beneficiary; min-width:0; align-self:center;
+  }
+  .activity-ledger-page .ledger-viewport .block-beneficiary .copyable { min-width:0; flex:1; }
+  .activity-ledger-page .ledger-viewport .block-beneficiary .text-link {
+    min-width:0; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .activity-ledger-page .ledger-viewport .block-row > .block-size { grid-area:size; text-align:end; align-self:center; }
+  .activity-ledger-page .ledger-viewport .block-row > .block-gas {
+    display:grid; grid-area:gas; grid-template-columns:minmax(0,1fr) auto;
+    align-items:center; gap:4px 8px; padding-top:8px; border-top:1px solid var(--line);
+  }
+  .activity-ledger-page .ledger-viewport .block-row > :is(.block-size,.block-tx-count,.block-gas) > small {
+    position:static; width:auto; height:auto; overflow:visible; clip:auto; clip-path:none;
+    display:block; margin:0 0 2px; color:var(--muted); font-size:12px;
+  }
+  .activity-ledger-page .ledger-viewport .block-gas > small { margin:0; }
+  .activity-ledger-page .ledger-viewport .block-gas > strong { text-align:end; }
+  .activity-ledger-page .ledger-viewport .block-gas > .gas-meter { grid-column:1 / -1; margin:0; }
+
+  .data-ledger.transfer-ledger table,
+  .data-ledger.transfer-ledger tbody { display:block; width:100%; min-width:0; table-layout:auto; }
+  .data-ledger.transfer-ledger colgroup { display:none; }
+  .data-ledger.transfer-ledger thead {
+    display:block; position:absolute; width:1px; height:1px;
+    overflow:hidden; clip:rect(0,0,0,0); clip-path:inset(50%);
+  }
+  .data-ledger.transfer-ledger .ledger-scroll tbody tr {
+    display:grid; width:100%; height:auto; min-width:0; padding:12px 14px;
+    grid-template-columns:minmax(0,1fr) minmax(0,.85fr);
+    grid-template-areas:"transaction transaction" "asset value" "method block" "from from" "to to";
+    gap:8px 12px; border-bottom:1px solid var(--line);
+  }
+  .data-ledger.transfer-ledger .ledger-scroll tbody tr:last-child { border-bottom:0; }
+  .data-ledger.transfer-ledger .ledger-scroll td {
+    display:block; width:auto; min-width:0; padding:0; border:0;
+  }
+  .data-ledger.transfer-ledger .transfer-transaction { grid-area:transaction; padding-bottom:6px!important; border-bottom:1px solid var(--line)!important; }
+  .data-ledger.transfer-ledger .transfer-method { grid-area:method; align-self:center; }
+  .data-ledger.transfer-ledger .transfer-block { grid-area:block; margin:0; text-align:end; }
+  .data-ledger.transfer-ledger .transfer-from { grid-area:from; }
+  .data-ledger.transfer-ledger .transfer-to { grid-area:to; }
+  .data-ledger.transfer-ledger .transfer-asset { grid-area:asset; min-width:0; }
+  .data-ledger.transfer-ledger .transfer-value { grid-area:value; min-width:0; }
+  .data-ledger.transfer-ledger .transfer-record-nft {
+    grid-template-areas:"transaction transaction" "asset asset" "value value" "method block" "from from" "to to";
+  }
+  .data-ledger.transfer-ledger .transfer-transaction .cell-value {
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+  }
+  .data-ledger.transfer-ledger .transfer-transaction .copyable { min-width:0; }
+  .data-ledger.transfer-ledger .transfer-transaction small { text-align:end; flex:0 0 auto; }
+  .data-ledger.transfer-ledger .transfer-from,
+  .data-ledger.transfer-ledger .transfer-to {
+    display:grid; grid-template-columns:38px minmax(0,1fr); align-items:center; gap:6px;
+  }
+  .data-ledger.transfer-ledger .cell-label { display:block; margin:0; font-size:12px; color:var(--muted); }
+  .data-ledger.transfer-ledger .transfer-address .copyable { min-width:0; }
+  .data-ledger.transfer-ledger .transfer-value .token-amount { text-align:end; }
+  .data-ledger.transfer-ledger .transfer-value .token-amount strong {
+    white-space:normal; overflow-wrap:anywhere;
+  }
+
+  .transfer-ledger > .token-list-controls {
+    display:flex; align-items:center; justify-content:space-between; gap:4px; padding-inline:8px;
+  }
+  .transfer-ledger > .token-list-controls > .indexed-update-slot:empty { display:none; }
+  .transfer-ledger > .token-list-controls > .cursor-pagination { margin-inline-start:auto; }
+}
+
+@media (max-width:760px) {
+  .failure-label { font-size:12px; }
+}
+
+@media (min-width:760px) and (max-width:1339px) {
+  .activity-ledger-page .ledger-viewport :is(.tx-list,.block-list),
+  .data-ledger.transfer-ledger .ledger-scroll tbody {
+    display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 12px;
+  }
+  .activity-ledger-page .ledger-viewport :is(.tx-row.full-tx-row,.block-row),
+  .data-ledger.transfer-ledger .ledger-scroll tbody tr {
+    border-bottom:1px solid var(--line);
+  }
+}
+
+@media (max-width:359px) {
+  .activity-ledger-page .ledger-viewport .full-tx-row .flow { grid-template-columns:minmax(0,1fr); }
+  .activity-ledger-page .ledger-viewport .block-beneficiary .copy-button { display:none; }
+  .transfer-ledger .transfer-count-full,
+  .transfer-ledger .cursor-page-full {
+    position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+    overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+  }
+  .transfer-ledger .transfer-count-compact,
+  .transfer-ledger .cursor-page-compact { display:inline; }
+  .transfer-ledger > .token-list-controls > .transfer-count {
+    flex:0 0 32px; min-width:32px; text-align:center;
+  }
+  .transfer-ledger .cursor-pagination > span { min-width:24px; padding-inline:0; }
+}
+
+@media (max-width:320px) {
+  .mobile-drawer { padding-inline:12px; }
+  .drawer-links :is(button,a.explorer-link),.drawer-back {
+    padding-inline:10px; gap:10px; font-size:14px;
+  }
+}
+
+/* The catalogue rows already define compact field layouts above. Restore
+   those layouts after the wide-table rules so every value is visible on touch. */
+@media (max-width:1100px), (pointer:coarse) {
+  .data-ledger.ledger-catalogue .ledger-scroll { overflow:visible; scroll-padding:0; }
+  .data-ledger.ledger-catalogue table,
+  .data-ledger.ledger-catalogue tbody {
+    display:block; width:100%; min-width:0; table-layout:auto;
+  }
+  .data-ledger.ledger-catalogue colgroup { display:none; }
+  .data-ledger.ledger-catalogue thead {
+    display:block; position:absolute; width:1px; height:1px; overflow:hidden;
+    clip:rect(0,0,0,0); clip-path:inset(50%);
+  }
+  .data-ledger.ledger-catalogue tbody tr {
+    display:grid; width:100%; height:auto; min-width:0;
+    grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 14px;
+    padding:14px 16px; border-bottom:1px solid var(--line);
+  }
+  .data-ledger.ledger-catalogue tbody tr:last-child { border-bottom:0; }
+  .ledger-accounts .data-ledger.ledger-catalogue tbody tr {
+    grid-template-columns:minmax(66px,.55fr) minmax(0,1.45fr);
+  }
+  .data-ledger.ledger-catalogue .ledger-scroll td {
+    display:block; width:auto; min-width:0; padding:0; border:0;
+  }
+  .data-ledger.ledger-catalogue .cell-label {
+    display:block; margin-bottom:4px; color:var(--muted); font-size:12px;
+  }
+  .data-ledger.ledger-catalogue .ledger-cell-reference > .cell-label { display:none; }
+  .data-ledger.ledger-catalogue .ledger-reference {
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+  }
+  .data-ledger.ledger-catalogue .ledger-reference > small { margin:0; text-align:end; }
+  .data-ledger.ledger-catalogue .ledger-identity { flex-wrap:wrap; }
+  .data-ledger.ledger-catalogue .ledger-l1-result { flex-direction:row; align-items:center; gap:10px; }
+}
+@media (min-width:700px) and (max-width:1100px) {
+  .data-ledger.ledger-catalogue tbody {
+    display:grid; grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}

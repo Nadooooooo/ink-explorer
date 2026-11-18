@@ -1,0 +1,39 @@
+/assets/*.js
+  X-Content-Type-Options: nosniff
+  Cache-Control: public, max-age=31536000, immutable
+
+/assets/*.css
+  X-Content-Type-Options: nosniff
+  Cache-Control: public, max-age=31536000, immutable
+
+/assets/*.woff2
+  X-Content-Type-Options: nosniff
+  Cache-Control: public, max-age=31536000, immutable
+
+/assets/*.woff
+  X-Content-Type-Options: nosniff
+  Cache-Control: public, max-age=31536000, immutable
+
+/assets/openapi.json
+  X-Content-Type-Options: nosniff
+  Cache-Control: public, max-age=3600
+
+/assets/marks/*
+  X-Content-Type-Options: nosniff
+  Cache-Control: public, max-age=3600
+
+/brand/*
+  X-Content-Type-Options: nosniff
+  Cache-Control: public, max-age=3600
+
+/licenses/*
+  X-Content-Type-Options: nosniff
+  Cache-Control: public, max-age=3600
+
+/manifest.webmanifest
+  X-Content-Type-Options: nosniff
+  Cache-Control: public, max-age=3600
+
+/theme.js
+  X-Content-Type-Options: nosniff
+  Cache-Control: public, max-age=3600

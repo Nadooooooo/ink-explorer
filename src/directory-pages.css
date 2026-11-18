@@ -1,0 +1,32 @@
+.directory-controls { display:flex; align-items:center; flex-wrap:wrap; gap:8px; min-height:60px; padding:8px 12px; border:1px solid var(--line); border-radius:14px; background:var(--surface-header); }
+.directory-controls > span:first-child { margin-inline-end:auto; color:var(--muted); font-size:12px; }
+.directory-page .contract-grid { margin:12px 0; }
+.directory-page .contract-grid:focus-visible { outline:2px solid var(--focus-color); outline-offset:4px; }
+.directory-page .contract-grid > :is(.loading,.error-state,.empty) { grid-column:1 / -1; }
+.directory-page .advanced-list { margin-top:12px; }
+.directory-page .advanced-list > .directory-controls { border:0; border-bottom:1px solid var(--line); border-radius:0; }
+.directory-page .ledger-pagination-footer { height:auto; min-height:60px; padding:8px 12px; gap:8px; flex-wrap:wrap; justify-content:space-between; }
+.directory-page .ledger-pagination-footer svg { width:18px; }
+.directory-identity { display:flex; align-items:center; gap:8px; min-width:0; }
+.directory-identity > .entity-mark { flex-shrink:0; }
+.directory-identity > .copyable { min-width:0; }
+.directory-page .protocol-row .copy-button { display:grid; flex:0 0 44px; width:44px; height:44px; min-width:44px; min-height:44px; }
+.directory-page .protocol-row .text-link { min-height:44px; display:flex; align-items:center; }
+.directory-page .protocol-row > .directory-status { display:flex; align-items:center; gap:6px; color:var(--muted); }
+.directory-page .directory-status svg { flex-shrink:0; }
+.directory-page .directory-status.completed { color:var(--green); }
+.directory-page .directory-status.failed { color:var(--red); }
+.user-operation-ledger { overflow:auto; max-width:100%; overscroll-behavior-x:contain; scrollbar-width:thin; scrollbar-color:var(--accent-border) transparent; scroll-padding-inline:16px; }
+.user-operation-ledger:focus-visible { outline:2px solid var(--focus-color); outline-offset:-2px; }
+.directory-page .user-operation-ledger > :is(.operation-columns,.protocol-row) { display:grid; grid-template-columns:minmax(220px,1fr) minmax(130px,.6fr) minmax(230px,1.2fr) minmax(240px,1.2fr) minmax(160px,.8fr); grid-template-areas:"operation status account inclusion fee"; min-width:1100px; gap:0 16px; padding:8px 16px; align-items:center; }
+.directory-page .user-operation-ledger > .protocol-row { min-height:88px; }
+.directory-page .user-operation-ledger .directory-status { grid-area:status; font-size:12px; }
+.directory-page .user-operation-ledger .protocol-row > div:nth-child(2) { grid-area:operation; text-align:start; }
+.directory-page .user-operation-ledger .protocol-row > div:nth-child(3) { grid-area:account; }
+.directory-page .user-operation-ledger .protocol-row > div:nth-child(4) { grid-area:inclusion; }
+.directory-page .user-operation-ledger .protocol-row > strong { grid-area:fee; font-size:12px; text-align:end; }
+.directory-page .user-operation-ledger .protocol-row > div > small { font-size:12px; }
+.directory-page .user-operation-ledger .protocol-row > :is(div:nth-child(3),div:nth-child(4)) > small { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+.directory-page .user-operation-ledger .mobile-label { display:none; }
+.directory-page .operation-columns { background:var(--surface-header); color:var(--muted); font-size:12px; min-height:44px; border-bottom:1px solid var(--line); }
+.directory-page .operation-columns > span:last-child { text-align:end; }

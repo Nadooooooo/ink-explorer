@@ -1,16 +1,51 @@
 type Row = Record<string, any>;
 
+let amountLocale: {
+  locale: string;
+  formatter: Intl.NumberFormat;
+  decimal: string;
+  digits: string[];
+} | undefined;
+
+function amountFormat(locale: string) {
+  if (amountLocale?.locale === locale) return amountLocale;
+  const formatter = new Intl.NumberFormat(locale);
+  amountLocale = {
+    locale,
+    formatter,
+    decimal: formatter.formatToParts(1.1).find(part => part.type === "decimal")?.value || ".",
+    digits: Array.from({ length: 10 }, (_, digit) => formatter.format(digit)),
+  };
+  return amountLocale;
+}
+
 // Detail amounts retain every wei, including values beyond Number precision.
 export function formatWei(value: unknown, locale = "en"): string {
-  if(value == null || value === "")return "—";
+  return formatChainAmount(value, 18, locale);
+}
+
+export function formatChainAmount(value: unknown, decimals: unknown, locale = "en", maximumFractionDigits?: number): string {
+  if (value == null || value === "" || decimals == null || decimals === "") return "—";
+  if (typeof value === "number" && !Number.isSafeInteger(value)) return "—";
+  const precision = Number(decimals);
+  if (!Number.isInteger(precision) || precision < 0 || precision > 255 || !/^-?\d+$/.test(String(value))) return "—";
+  if (maximumFractionDigits != null && (!Number.isInteger(maximumFractionDigits) || maximumFractionDigits < 0)) return "—";
   try {
-    const amount=BigInt(String(value)),absolute=amount<0n?-amount:amount;
-    const whole=absolute/1000000000000000000n;
-    const fraction=String(absolute%1000000000000000000n).padStart(18,"0").replace(/0+$/,"");
-    const formatter=new Intl.NumberFormat(locale,{useGrouping:false});
-    const decimal=new Intl.NumberFormat(locale).formatToParts(1.1).find(part=>part.type==="decimal")?.value || ".";
-    const digits=fraction.replace(/\d/g,digit=>formatter.format(Number(digit)));
-    return `${amount<0n?"−":""}${whole.toLocaleString(locale)}${fraction?decimal+digits:""}`;
+    const amount = BigInt(String(value));
+    let absolute = amount < 0n ? -amount : amount;
+    if (maximumFractionDigits != null && maximumFractionDigits < precision) {
+      const step = 10n ** BigInt(precision - maximumFractionDigits);
+      if (absolute > 0n && absolute < step) {
+        return `${amount < 0n ? "> −" : "< "}${formatChainAmount(step, precision, locale)}`;
+      }
+      absolute = ((absolute + step / 2n) / step) * step;
+    }
+    const scale = 10n ** BigInt(precision);
+    const whole = absolute / scale;
+    const fraction = precision ? String(absolute % scale).padStart(precision,"0").replace(/0+$/,"") : "";
+    const format = amountFormat(locale);
+    const digits = fraction.replace(/\d/g, digit => format.digits[Number(digit)]);
+    return `${amount<0n?"−":""}${format.formatter.format(whole)}${fraction?format.decimal+digits:""}`;
   }catch{return "—";}
 }
 
@@ -28,8 +63,9 @@ export function transactionState(tx: Row): "pending" | "failed" | "confirmed" | 
   return "confirmed";
 }
 
-export function blockFinality(block: Row, snapshot?: Row): "confirmed" | "safe" | "finalized" {
-  if (!snapshot?.synced || !snapshot.online || snapshot.chainId !== snapshot.expectedChainId) return "confirmed";
+export function blockFinality(block: Row, snapshot?: Row): "confirmed" | "safe" | "finalized" | "Forked block" {
+  if (block.type === "reorg") return "Forked block";
+  if (!snapshot?.synced || !snapshot.online || snapshot.stale || snapshot.chainId !== snapshot.expectedChainId) return "confirmed";
   const height = Number(block.height);
   if (!Number.isSafeInteger(height) || height < 0) return "confirmed";
   if (Number.isSafeInteger(snapshot.finalizedBlock) && snapshot.finalizedBlock > 0 && height <= snapshot.finalizedBlock) return "finalized";
@@ -57,4 +93,17 @@ export function cursorQuery(cursor?: Row | null): string {
     .filter(([, value]) => value != null)
     .map(([key, value]) => [key, String(value)])).toString();
   return query ? `?${query}` : "";
+}
+
+export function mergeIndexedBlocks(current: Row[], indexed: Row[]): Row[] {
+  const seen = new Set<string>();
+  return [...indexed, ...current]
+    .sort((first, second) => Number(second.height) - Number(first.height))
+    .filter(block => {
+      const key = String(block.height ?? block.hash);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, Math.max(current.length, indexed.length));
 }

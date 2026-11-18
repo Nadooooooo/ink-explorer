@@ -38,7 +38,7 @@ test("wallet SDK remains under permissive licenses with patched dependencies", a
   for (const [path, pkg] of Object.entries(lock.packages)) {
     if (/node_modules\/(?:@walletconnect|@reown)\/[^/]+$/.test(path)) assert(["Apache-2.0", "MIT", "ISC", "0BSD"].includes(pkg.license), `${path}: ${pkg.license}`);
     if (/node_modules\/ws$/.test(path)) assert.equal(pkg.version, "8.21.3");
-    if (/node_modules\/decode-uri-component$/.test(path)) assert.equal(pkg.version, "0.5.0");
+    if (/node_modules\/decode-uri-component$/.test(path)) assert.equal(pkg.version, "0.5.1");
   }
 });
 
@@ -63,7 +63,7 @@ test("proxy preserves JSON, query, origin, binary media and status without forwa
     let body = ""; for await (const chunk of req) body += chunk;
     calls.push({ url: req.url, headers: req.headers, body });
     if (req.url === "/api/media?url=x") { res.writeHead(200, { "content-type": "image/png", "cache-control": "public, max-age=60" }); return res.end(Buffer.from([0, 255, 1, 128])); }
-    res.writeHead(req.url.includes("failure") ? 429 : 200, { "content-type": "application/json" }); res.end(JSON.stringify({ ok: true }));
+    res.writeHead(req.url.includes("failure") ? 429 : 200, { "content-type": "application/json", "x-ink-data-status": "stale", "x-ink-data-fetched-at": "2026-10-08T12:00:00.000Z" }); res.end(JSON.stringify({ ok: true }));
   });
   await new Promise(resolve => upstream.listen(0, "127.0.0.1", resolve));
   const origin = `http://127.0.0.1:${upstream.address().port}`;
@@ -73,6 +73,8 @@ test("proxy preserves JSON, query, origin, binary media and status without forwa
   try {
     const response = await fetch(`${base}/testnet/api/contract-rpc?scope=real`, { method: "POST", headers: { "content-type": "application/json", origin: "https://site.invalid", authorization: "fixture-only", cookie: "fixture=only", "x-forwarded-host": "evil.invalid" }, body: '{"method":"eth_chainId","params":[]}' });
     assert.equal(response.status, 200); assert.deepEqual(await response.json(), { ok: true });
+    assert.equal(response.headers.get("x-ink-data-status"), "stale");
+    assert.equal(response.headers.get("x-ink-data-fetched-at"), "2026-10-08T12:00:00.000Z");
     assert.equal(calls[0].url, "/testnet/api/contract-rpc?scope=real"); assert.equal(calls[0].headers.origin, "https://site.invalid"); assert.equal(calls[0].headers.authorization, undefined); assert.equal(calls[0].headers.cookie, undefined); assert.equal(calls[0].headers["x-forwarded-host"], undefined); assert.equal(calls[0].body, '{"method":"eth_chainId","params":[]}');
     const media = await fetch(`${base}/api/media?url=x`); assert.deepEqual(Buffer.from(await media.arrayBuffer()), Buffer.from([0, 255, 1, 128])); assert.equal(media.headers.get("cache-control"), "public, max-age=60");
     assert.equal((await fetch(`${base}/api/failure`)).status, 429);

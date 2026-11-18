@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';import {chromium,firefox,webkit} from 'playwright';import {mkdir,writeFile} from 'node:fs/promises';
+const base=process.env.BASE_URL||'http://127.0.0.1:4319',baseline=process.env.FOOTER_BASELINE==='1',large=process.env.FOOTER_FONT_MIN==='24',engine=large?'firefox':process.env.FOOTER_ENGINE||'chromium',out=process.env.FOOTER_OUTPUT||'reports/footer/layout',results=[];
+const locales=baseline?['en','fr']:['en','fr','ar','zh','hi','bn','es','pt','ru','ja'];await mkdir(out,{recursive:true});const browser=await({chromium,firefox,webkit})[engine].launch(large?{firefoxUserPrefs:Object.fromEntries(['x-western','x-cyrillic','x-unicode','ar','ja','zh-CN','zh-HK','zh-TW','x-devanagari','x-beng'].map(group=>['font.minimum-size.'+group,24]))}:engine==='chromium'?{args:['--no-sandbox']}:{});
+try{for(const locale of locales)for(const width of baseline?[320]:large?[320,390]:[320,390,768,1440]){
+ const context=await browser.newContext({viewport:{width,height:1000},colorScheme:width===320?'dark':'light'}),page=await context.newPage(),row={locale,width,large,engine,passed:false};
+ await context.routeWebSocket(/\/api\/live$/,ws=>ws.close());await context.route('**/api/**',route=>route.fulfill({status:503,json:{error:'Controlled unrelated source'}}));
+ try{await page.goto(base+'/?lang='+locale,{waitUntil:'domcontentloaded'});await page.locator('.site-footer').waitFor();await page.evaluate(()=>document.fonts.ready);await page.locator('.site-footer').scrollIntoViewIfNeeded();
+  const geometry=await page.evaluate(()=>{
+   const footer=document.querySelector('.site-footer'),rect=footer.getBoundingClientRect(),offscreen=[];for(const el of footer.querySelectorAll('p,h2,nav,nav a,nav h2,div > span,div > a')){const box=el.getBoundingClientRect();if(box.right>rect.right+1||box.left<rect.left-1||el.scrollWidth>el.clientWidth+1)offscreen.push({text:el.textContent,width:box.width,left:box.left,right:box.right,scrollWidth:el.scrollWidth,clientWidth:el.clientWidth});}
+   const links=[...footer.querySelectorAll('a')].map(el=>({text:el.textContent,...el.getBoundingClientRect().toJSON()}));return{offscreen,links,overflow:document.documentElement.scrollWidth-innerWidth,height:rect.height};
+  });
+  if(baseline){assert(geometry.offscreen.length);row.reproduced=geometry.offscreen.map(v=>v.text);}else{assert.deepEqual(geometry.offscreen,[]);assert(geometry.overflow<=1);assert(geometry.links.every(l=>l.height>=44));assert.equal(await page.locator('.site-footer nav').count(),2);if(locale!=='en')assert.notEqual(await page.locator('.site-footer a[href*="/advanced"]').textContent(),'Explorer tools');}
+  await page.screenshot({path:`${out}/${locale}-${width}.png`});row.passed=true;row.height=geometry.height;
+ }catch(error){row.error=error.stack;await page.screenshot({path:`${out}/failure-${locale}-${width}.png`}).catch(()=>{});}finally{await context.close();}
+ results.push(row);console.log(JSON.stringify(row));await writeFile(`${out}/results.json`,JSON.stringify({base,complete:false,results},null,2));
+}}finally{await browser.close();}await writeFile(`${out}/results.json`,JSON.stringify({base,complete:true,passed:results.every(r=>r.passed),baseline,mockedApi:true,physicalDeviceTest:false,results},null,2));if(results.some(r=>!r.passed))process.exitCode=1;

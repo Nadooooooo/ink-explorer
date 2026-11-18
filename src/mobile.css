@@ -1,11 +1,25 @@
 /* Shared mobile ergonomics. Keep data readable instead of shrinking the desktop
    layout. The 44px controls are a comfort target, not the WCAG AA minimum. */
 html { scroll-padding-block-start: 88px; }
-:where(button, a, input, select, textarea, summary, [tabindex]) {
+:where(:is(button, a:where(.explorer-link)), a, input, select, textarea, summary, [tabindex]) {
   scroll-margin-block: 88px 24px;
 }
 #main-content:focus { outline: none; }
 .section-picker { display: none; }
+/* Tablet detail pages also expose this native section control. */
+.section-picker select {
+  min-width: 0;
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 16px;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface-muted);
+  color: var(--ink);
+  font-weight: 600;
+  cursor: pointer;
+}
 .pool-filter-toggle { display: none; }
 .analytics-data .data-scroll { overflow: auto; overscroll-behavior-inline: contain; }
 .analytics-data th { font-weight: 600; }
@@ -22,10 +36,11 @@ html { scroll-padding-block-start: 88px; }
 
 @media (max-width: 1160px) {
   header nav.open { max-height: calc(100dvh - 80px); overflow-y: auto; overscroll-behavior: contain; }
-  header nav button { height: auto; min-height: 44px; padding-block: 12px; font-size: 14px; }
+  header nav :is(button, a:where(.explorer-link)) { height: auto; min-height: 44px; padding-block: 12px; font-size: 14px; }
 }
 
 @media (max-width: 760px), (pointer: coarse) {
+  .liquid-atmosphere i { animation: none; }
   /* Native focus scrolling must settle immediately when a keyboard reduces the
      viewport. Explicit chart/table scrolling can still request animation. */
   html { scroll-behavior: auto; }
@@ -39,22 +54,10 @@ html { scroll-padding-block-start: 88px; }
     font-size: 12px;
     font-weight: 600;
   }
-  .section-picker select {
-    min-width: 0;
-    width: 100%;
-    padding: 10px 12px;
-    font-size: 16px;
-    min-height: 44px;
-    border: 1px solid var(--line);
-    border-radius: var(--radius-control);
-    background: var(--surface-muted);
-    color: var(--ink);
-    font-weight: 600;
-    cursor: pointer;
-  }
+
 
   /* Primary content, supporting labels and prose have separate size floors. */
-  .block-row, .block-row > div > strong, .block-height button, .protocol-row, .state-row, .holder-row,
+  .block-row, .block-row > div > strong, .block-height :is(button, a:where(.explorer-link)), .protocol-row, .state-row, .holder-row,
   .tx-row, .generic-row, .asset-row, .token-row,
   .token-name strong, .pool-row > strong, .pool-pair strong,
   .definition dd, .network-facts dl div, .pool-detail-grid dl div {
@@ -81,7 +84,7 @@ html { scroll-padding-block-start: 88px; }
   .source-head, .contract-source .source-head > div > span:last-child, .contract-source dl div,
   .contract-source pre, .contract-source footer, .source-file summary, .raw-metadata summary, .raw-metadata pre,
   .code-panel pre, .code-panel > div, .code-panel > .empty, .address-pagination > span,
-  .loading, .search-results > button small, .health-banner p, .health-banner span,
+  .loading, .search-results > :is(button, a:where(.explorer-link)) small, .health-banner p, .health-banner span,
   .node-note > span, .peer-core > span, .peer-count small, .rpc-community :is(span, small),
   .storage > div:first-child > span, .storage > div:first-child small, .storage > div:last-child,
   .developer-grid article > span, .developer-grid code, .protocol-row > div > small,
@@ -95,16 +98,16 @@ html { scroll-padding-block-start: 88px; }
   .entity-profile p, .nft-facts > p, .methodology p, .node-note p,
   .developer-grid p, .protocol-note p, .error-state p,
   .stat-chart p, .analytic-card > p, .rpc-community p { font-size: 14px; line-height: 1.7; }
-  header nav button, .panel-head button, .ledger-filters button,
-  .pagination button, .pool-filter-status button, .analytics-actions button,
-  .primary-action, .external-action, .pool-actions :is(a, button), .error-state button,
-  .site-footer :is(a, button):not(.brand) { font-size: 13px; min-height: 44px; min-width: 44px; }
-  .header-search, .global-search .search-submit, .pool-pagination button { min-height: 44px; min-width: 44px; }
+  header nav :is(button, a:where(.explorer-link)), .panel-head :is(button, a:where(.explorer-link)), .ledger-filters :is(button, a:where(.explorer-link)),
+  .pagination :is(button, a:where(.explorer-link)), .pool-filter-status :is(button, a:where(.explorer-link)), .analytics-actions :is(button, a:where(.explorer-link)),
+  .primary-action, .external-action, .pool-actions :is(a, :is(button, a:where(.explorer-link))), .error-state :is(button, a:where(.explorer-link)),
+  .site-footer :is(a, :is(button, a:where(.explorer-link))):not(.brand) { font-size: 13px; min-height: 44px; min-width: 44px; }
+  .header-search, .global-search .search-submit, .pool-pagination :is(button, a:where(.explorer-link)) { min-height: 44px; min-width: 44px; }
 }
 
 @media (max-width: 760px) {
   html { scroll-padding-block-start: 80px; }
-  :where(button, a, input, select, textarea, summary, [tabindex]) { scroll-margin-block-start: 80px; }
+  :where(:is(button, a:where(.explorer-link)), a, input, select, textarea, summary, [tabindex]) { scroll-margin-block-start: 80px; }
   .brand { min-height: 44px; justify-content: center; }
   .language-picker { padding: 0; flex: 0 1 116px; }
   .language-picker svg { display: none; }
@@ -156,10 +159,10 @@ html { scroll-padding-block-start: 88px; }
   .table-toolbar { height: auto; min-height: 48px; gap: 10px; flex-wrap: wrap; padding-block: 10px; }
   .analytics-freshness { gap: 10px; flex-wrap: wrap; }
   .ledger-filters { flex-wrap: wrap; }
-  .ledger-filters button { white-space: normal; }
-  .text-link, .block-height button, .tx-primary small button { min-height: 32px; min-width: 24px; }
-  .copyable > button.copy-button { flex-basis: 36px; width: 36px; height: 36px; }
-  .copyable > button.copy-button svg { width: 15px; height: 15px; }
+  .ledger-filters :is(button, a:where(.explorer-link)) { white-space: normal; }
+  .text-link, .block-height :is(button, a:where(.explorer-link)), .tx-primary small :is(button, a:where(.explorer-link)) { min-height: 32px; min-width: 24px; }
+  .copyable > :is(button, a:where(.explorer-link)).copy-button { flex-basis: 36px; width: 36px; height: 36px; }
+  .copyable > :is(button, a:where(.explorer-link)).copy-button svg { width: 15px; height: 15px; }
   .tx-row { grid-template-columns: minmax(0, 1fr) auto; gap: 10px 12px; }
   .tx-primary { grid-column: 1 / -1; }
   .tx-primary small { white-space: normal; }
@@ -225,7 +228,7 @@ html { scroll-padding-block-start: 88px; }
   .network-picker select { max-width: 240px; }
   .global-search { height: auto; min-height: 58px; }
   .pool-filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .tabs button { min-height: 44px; }
+  .tabs :is(button, a:where(.explorer-link)) { min-height: 44px; }
 }
 
 @media (max-width: 359px) {
@@ -288,9 +291,9 @@ html { scroll-padding-block-start: 88px; }
   .event-log-head { display: grid; gap: 6px; padding: 12px 16px; }
   .event-log-head > span { justify-content: space-between; }
   .event-decoded { padding: 12px 16px; }
-  .search-results > button > div { min-width: 0; }
-  .search-results > button strong { white-space: normal; overflow: visible; overflow-wrap: anywhere; line-height: 1.5; }
-  .search-results > button small { overflow-wrap: anywhere; }
+  .search-results > :is(button, a:where(.explorer-link)) > div { min-width: 0; }
+  .search-results > :is(button, a:where(.explorer-link)) strong { white-space: normal; overflow: visible; overflow-wrap: anywhere; line-height: 1.5; }
+  .search-results > :is(button, a:where(.explorer-link)) small { overflow-wrap: anywhere; }
   .nft-item > strong { white-space: normal; overflow-wrap: anywhere; }
 }
 @media (max-width: 379px) {

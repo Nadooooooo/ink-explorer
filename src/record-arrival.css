@@ -1,0 +1,5 @@
+.record-arrival, .record-arrival-loading { min-width:0; }
+.record-arrival .definitions { margin-top:14px; }
+.record-arrival .definition dd, .record-arrival-header p { overflow-wrap:anywhere; }
+.record-arrival-status { padding:20px; border:1px solid var(--line); border-radius:16px; background:var(--surface-panel); color:var(--muted); }
+.record-observation { color:var(--muted); font-size:.75rem; margin:12px 4px; }

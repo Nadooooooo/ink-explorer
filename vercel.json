@@ -1,5 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build && node scripts/prepare-vercel.mjs",
+  "outputDirectory": "dist/static",
   "rewrites": [
     {
       "source": "/testnet/api/:path*",
@@ -11,12 +13,16 @@
     },
     {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": "/api/page?path=/$1"
     }
   ],
   "functions": {
     "api/gateway.mjs": {
       "maxDuration": 60
+    },
+    "api/page.mjs": {
+      "maxDuration": 10,
+      "includeFiles": "dist/{index.html,snapshots/pages/apps-*.json,snapshots/ecosystem/**}"
     }
   }
 }

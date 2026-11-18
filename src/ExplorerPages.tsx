@@ -1,52 +1,18 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Download, RefreshCw } from "lucide-react";
+import Apps from "./Apps";
+import { Page, State, Field, useData, integer, type ExplorerPageProps } from "./ExplorerPageShell";
+export type { ExplorerPageProps } from "./ExplorerPageShell";
+import { ExplorerDirectory } from "./ExplorerDirectory";
+import Statistics from "./Statistics";
+import GasTracker from "./GasTracker";
+import { ExplorerLink } from "./ExplorerLink";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Download } from "lucide-react";
 import { formatUnits, parseUnits } from "ethers";
 import { API, network, externalDestination } from "./network";
 import { requestJson, FILTER_TIMEOUT } from "./api-request";
 import { downloadCsv } from "./activity-data";
 
 type Row = Record<string, any>;
-export type ExplorerPageProps = {
-  page: string;
-  id?: string;
-  t: (key: string) => string;
-  go: (path: string) => void;
-  get: (path: string, signal?: AbortSignal) => Promise<any>;
-  identity: (value: string, link?: string, label?: string) => ReactNode;
-  transaction: (item: Row) => ReactNode;
-  block: (item: Row) => ReactNode;
-  chart: (metric: string, title: string, unit?: string) => ReactNode;
-  historyChart?: (items: Row[]) => ReactNode;
-  activity: (item: Row, type: string) => ReactNode;
-};
-
-export const explorerDestinations = [
-  ["/approvals", "approvalsTitle"],
-  ["/accounts", "Top accounts"],
-  ["/internal-txs", "Internal transactions"],
-  ["/token-transfers", "Token transfers"],
-  ["/deposits", "L1 → L2 deposits"],
-  ["/withdrawals", "L2 → L1 withdrawals"],
-  ["/batches", "Transaction batches"],
-  ["/dispute-games", "Dispute games"],
-  ["/ops", "User operations"],
-  ["/name-services", "Name services"],
-  ["/gas-tracker", "Gas tracker"],
-  ["/apps", "Dapps"],
-  ["/stats", "All statistics"],
-  ["/contract-verification", "Verify contract"],
-  ["/public-tags/submit", "Submit public tag"],
-] as const;
-
-const integer = (value: any) => {
-  try {
-    return value == null
-      ? "—"
-      : BigInt(value).toLocaleString(document.documentElement.lang);
-  } catch {
-    return "—";
-  }
-};
 const units = (value: any, decimals = 18) => {
   try {
     return value == null ? "—" : formatUnits(BigInt(value), decimals);
@@ -92,107 +58,6 @@ function Amount({ value, decimals = 18 }: { value: any; decimals?: number }) {
   );
 }
 
-export function ExplorerDirectory({
-  t,
-  go,
-}: Pick<ExplorerPageProps, "t" | "go">) {
-  return (
-    <nav className="explorer-directory" aria-label={t("Explorer tools")}>
-      {explorerDestinations.map(([path, label]) => (
-        <button key={path} onClick={() => go(path)}>
-          {t(label)}
-        </button>
-      ))}
-    </nav>
-  );
-}
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="explorer-field">
-      <dt>{label}</dt>
-      <dd>{children}</dd>
-    </div>
-  );
-}
-
-function useData(props: ExplorerPageProps, endpoint: string, refresh = 0) {
-  const [data, setData] = useState<any>(),
-    [error, setError] = useState(""),
-    [retry, setRetry] = useState(0);
-  useEffect(() => {
-    const controller = new AbortController();
-    setData(undefined);
-    setError("");
-    props
-      .get(endpoint, controller.signal)
-      .then((value) => {
-        if (!controller.signal.aborted) setData(value);
-      })
-      .catch((e) => {
-        if (!controller.signal.aborted) setError(e.message);
-      });
-    return () => controller.abort();
-  }, [endpoint, refresh, retry]);
-  return { data, error, retry: () => setRetry((v) => v + 1) };
-}
-
-function State({
-  data,
-  error,
-  retry,
-  t,
-  children,
-}: {
-  data: any;
-  error: string;
-  retry: () => void;
-  t: ExplorerPageProps["t"];
-  children: ReactNode;
-}) {
-  if (error)
-    return (
-      <div className="error-state" role="alert">
-        <div>
-          <strong>{t("unavailable")}</strong>
-          <p>{error}</p>
-          <button onClick={retry}>
-            <RefreshCw size={16} /> {t("retry")}
-          </button>
-        </div>
-      </div>
-    );
-  if (data === undefined)
-    return (
-      <div className="loading" role="status">
-        <i />
-        <span>{t("readingChain")}</span>
-      </div>
-    );
-  return <>{children}</>;
-}
-
-function Page({
-  title,
-  props,
-  children,
-}: {
-  title: string;
-  props: ExplorerPageProps;
-  children: ReactNode;
-}) {
-  return (
-    <div className="explorer-page">
-      <section className="page-intro">
-        <div>
-          <span>{network.name}</span>
-          <h1>{props.t(title)}</h1>
-        </div>
-      </section>
-      {children}
-    </div>
-  );
-}
 
 function List({
   endpoint,
@@ -232,7 +97,7 @@ function List({
         <span>
           {props.t("Page")} {position + 1}
         </span>
-        <button
+        <button aria-label={props.t("exportPage")} title={props.t("exportPage")}
           className="text-link"
           disabled={!visibleItems.length}
           onClick={() =>
@@ -249,7 +114,7 @@ function List({
             )
           }
         >
-          <Download size={16} /> {props.t("exportPage")}
+          <Download size={16} aria-hidden="true" /> CSV
         </button>
       </div>
       <State {...state} error={listError} t={props.t}>
@@ -383,12 +248,12 @@ function Batches(props: ExplorerPageProps) {
         render={(item) => (
           <>
             <div className="explorer-record-heading">
-              <button
+              <ExplorerLink
                 className="text-link"
-                onClick={() => props.go(`/batches/${item.number}`)}
+                to={`/batches/${item.number}`}
               >
                 #{integer(item.number)}
-              </button>
+              </ExplorerLink>
               <time>{date(item.l1_timestamp)}</time>
             </div>
             <dl className="explorer-record-facts">
@@ -403,22 +268,22 @@ function Batches(props: ExplorerPageProps) {
                 {integer(item.l1_transaction_hashes?.length)}
               </Field>
               <Field label={props.t("L2 blocks")}>
-                <button
+                <ExplorerLink
                   className="text-link"
-                  onClick={() => props.go(`/batches/${item.number}?tab=blocks`)}
+                  to={`/batches/${item.number}?tab=blocks`}
                 >
                   {integer(
                     item.l2_end_block_number - item.l2_start_block_number + 1,
                   )}
-                </button>
+                </ExplorerLink>
               </Field>
               <Field label={props.t("transactions")}>
-                <button
+                <ExplorerLink
                   className="text-link"
-                  onClick={() => props.go(`/batches/${item.number}?tab=txs`)}
+                  to={`/batches/${item.number}?tab=txs`}
                 >
                   {integer(item.transactions_count)}
-                </button>
+                </ExplorerLink>
               </Field>
             </dl>
           </>
@@ -819,13 +684,11 @@ function Operation(props: ExplorerPageProps) {
                 {props.t("The operation’s execution log range is unavailable.")}
               </p>
               {item?.transaction_hash && (
-                <button
-                  onClick={() =>
-                    props.go(`/tx/${item.transaction_hash}?tab=${tab}`)
-                  }
+                <ExplorerLink
+                  to={`/tx/${item.transaction_hash}?tab=${tab}`}
                 >
                   {props.t("Included in")}
-                </button>
+                </ExplorerLink>
               )}
             </div>
           ))}
@@ -1081,15 +944,28 @@ function Names(props: ExplorerPageProps) {
         className="explorer-search"
         onSubmit={(event) => {
           event.preventDefault();
-          setQuery(name.trim());
+          const value = name.trim();
+          if (!value) return;
+          setName(value);
+          setQuery(value);
         }}
       >
         <label>
-          {props.t("Domain name")}
+          {props.t("Domain name")} / {props.t("Address")}
           <input
             value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="name.eth"
+            onChange={(e) => {
+              const value = e.target.value;
+              setName(value);
+              if (!value.trim()) setQuery("");
+            }}
+            type="search"
+            required
+            autoComplete="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            enterKeyHint="search"
+            placeholder="name.eth / 0x…"
             maxLength={250}
           />
         </label>
@@ -1107,7 +983,7 @@ function Names(props: ExplorerPageProps) {
             ))}
           </select>
         </label>
-        <button type="submit">{props.t("search")}</button>
+        <button type="submit" disabled={!name.trim()}>{props.t("search")}</button>
       </form>
       {protocols.error && (
         <div role="alert">
@@ -1115,7 +991,7 @@ function Names(props: ExplorerPageProps) {
           <button onClick={protocols.retry}>{props.t("retry")}</button>
         </div>
       )}
-      <List
+      {query && <List
         key={q.toString()}
         props={props}
         endpoint={`/names/${addressQuery ? "addresses:lookup" : "domains:lookup"}?${q}`}
@@ -1123,16 +999,12 @@ function Names(props: ExplorerPageProps) {
         render={(item) => (
           <>
             <div className="explorer-record-heading">
-              <button
+              <ExplorerLink
                 className="text-link"
-                onClick={() =>
-                  props.go(
-                    `/name-services/domains/${encodeURIComponent(item.name)}?protocol_id=${encodeURIComponent(item.protocol?.id || "")}`,
-                  )
-                }
+                to={`/name-services/domains/${encodeURIComponent(item.name)}?protocol_id=${encodeURIComponent(item.protocol?.id || "")}`}
               >
                 {item.name}
-              </button>
+              </ExplorerLink>
               <span>{item.protocol?.short_name}</span>
             </div>
             <dl className="explorer-record-facts">
@@ -1151,7 +1023,7 @@ function Names(props: ExplorerPageProps) {
             </dl>
           </>
         )}
-      />
+      />}
     </Page>
   );
 }
@@ -1222,189 +1094,6 @@ function Domain(props: ExplorerPageProps) {
           </>
         )}
       />
-    </Page>
-  );
-}
-
-function Apps(props: ExplorerPageProps) {
-  const state = useData(props, "/dapps"),
-    [search, setSearch] = useState(""),
-    [category, setCategory] = useState("");
-  const apps: Row[] = Array.isArray(state.data) ? state.data : [];
-  const categories = [
-    ...new Set(
-      apps.flatMap((item) =>
-        Array.isArray(item.categories) ? item.categories : [],
-      ),
-    ),
-  ].sort();
-  const items = apps.filter(
-    (item) =>
-      (!props.id || item.id === props.id) &&
-      (!category || item.categories?.includes(category)) &&
-      `${item.title} ${item.shortDescription || ""}`
-        .toLowerCase()
-        .includes(search.toLowerCase()),
-  );
-  return (
-    <Page title="Dapps" props={props}>
-      <State {...state} t={props.t}>
-        {!props.id && (
-          <div className="explorer-search">
-            <label>
-              {props.t("search")}
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </label>
-            <label>
-              {props.t("Category")}
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-              >
-                <option value="">{props.t("All categories")}</option>
-                {categories.map((value) => (
-                  <option key={value}>{value}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-        )}
-        <div className="explorer-app-grid">
-          {items.map((item) => (
-            <article className="explorer-app" key={item.id}>
-              <h2>
-                <button
-                  className="text-link"
-                  onClick={() =>
-                    props.go(`/apps/${encodeURIComponent(item.id)}`)
-                  }
-                >
-                  {item.title}
-                </button>
-              </h2>
-              <p>{props.id ? item.description : item.shortDescription}</p>
-              <p>{item.categories?.join(" · ")}</p>
-              {props.id && (
-                <dl>
-                  <Field label={props.t("Author")}>{item.author || "—"}</Field>
-                  <Field label={props.t("Rating")}>
-                    {item.rating == null
-                      ? "—"
-                      : `${item.rating}/5 (${integer(item.ratingsTotalCount)})`}
-                  </Field>
-                </dl>
-              )}
-              {externalUrl(item.url) && (
-                <a
-                  href={externalUrl(item.url)}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {props.t("Open app")} ↗
-                </a>
-              )}
-            </article>
-          ))}
-        </div>
-        {!items.length && <div className="empty">{props.t("noRecords")}</div>}
-      </State>
-    </Page>
-  );
-}
-
-function Statistics(props: ExplorerPageProps) {
-  const state = useData(props, "/stats/lines"),
-    counters = useData(props, "/stats/counters");
-  const [category, setCategory] = useState(""),
-    [search, setSearch] = useState("");
-  const sections: Row[] = Array.isArray(state.data?.sections)
-    ? state.data.sections
-    : [];
-  const charts = sections.flatMap((section) =>
-    (section.charts || []).map((chart: Row) => ({
-      ...chart,
-      section: section.id,
-    })),
-  );
-  const selected = charts.filter(
-    (chart) =>
-      (!props.id || chart.id === props.id) &&
-      (!category || chart.section === category) &&
-      `${props.t(chart.title)} ${props.t(chart.description)} ${chart.title} ${chart.description}`
-        .toLowerCase()
-        .includes(search.toLowerCase()),
-  );
-  return (
-    <Page title="All statistics" props={props}>
-      <State {...state} t={props.t}>
-        {!props.id && (
-          <>
-            <details className="explorer-tools">
-              <summary>{props.t("Network totals")}</summary>
-              <State {...counters} t={props.t}>
-                <dl className="explorer-record-facts">
-                  {(counters.data?.counters || []).map((counter: Row) => (
-                    <Field key={counter.id} label={props.t(counter.title)}>
-                      {counter.value == null
-                        ? "—"
-                        : counter.units
-                          ? `${counter.value} ${counter.units}`
-                          : integer(counter.value)}
-                    </Field>
-                  ))}
-                </dl>
-              </State>
-            </details>
-            <div className="explorer-search">
-              <label>
-                {props.t("search")}
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </label>
-              <label>
-                {props.t("Category")}
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                >
-                  <option value="">{props.t("All categories")}</option>
-                  {sections.map((section) => (
-                    <option key={section.id} value={section.id}>
-                      {props.t(section.title)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          </>
-        )}
-        <div className="stat-chart-grid">
-          {selected.map((chart) => (
-            <section key={chart.id} className="explorer-chart">
-              <button
-                className="text-link"
-                onClick={() => props.go(`/stats/${chart.id}`)}
-              >
-                {props.t("View chart")}
-              </button>
-              {props.chart(
-                chart.id,
-                props.t(chart.title),
-                chart.units || undefined,
-              )}
-              <p>{props.t(chart.description)}</p>
-            </section>
-          ))}
-        </div>
-        {!selected.length && (
-          <div className="empty">{props.t("noRecords")}</div>
-        )}
-      </State>
     </Page>
   );
 }
@@ -1645,13 +1334,7 @@ function Verification(props: ExplorerPageProps) {
           ) : (
             <>
               <label>
-                {props.t(
-                  isStandard
-                    ? "Standard input JSON"
-                    : isMulti
-                      ? "Source files"
-                      : "Source code",
-                )}
+                {props.t("Source files")}
                 <input
                   type="file"
                   multiple={isMulti}
@@ -1726,6 +1409,15 @@ function Verification(props: ExplorerPageProps) {
                     setError("");
                   }}
                 />
+              </label>
+              <label>
+                {props.t(
+                  isStandard
+                    ? "Standard input JSON"
+                    : isMulti
+                      ? "Source files"
+                      : "Source code",
+                )}
                 <textarea
                   value={source}
                   onChange={(e) => {
@@ -1869,11 +1561,11 @@ function Verification(props: ExplorerPageProps) {
               )}
             </strong>
             <p>{job.message}</p>
-            <button
-              onClick={() => props.go(`/address/${job.address}?tab=contract`)}
+            <ExplorerLink
+              to={`/address/${job.address}?tab=contract`}
             >
               {props.t("View contract source")}
-            </button>
+            </ExplorerLink>
             {!busy && job.status === "pending" && (
               <button onClick={resume}>{props.t("Check result")}</button>
             )}
@@ -1902,6 +1594,18 @@ function PublicTags(props: ExplorerPageProps) {
     labelDescription: "",
   });
   const [extraLabels, setExtraLabels] = useState<Row[]>([]);
+  const formRef = useRef<HTMLFormElement>(null);
+  const addLabelRef = useRef<HTMLButtonElement>(null);
+  const pendingLabelFocus = useRef<number | "add" | null>(null);
+  useLayoutEffect(() => {
+    const target = pendingLabelFocus.current;
+    if (target === null) return;
+    pendingLabelFocus.current = null;
+    const control = target === "add"
+      ? addLabelRef.current
+      : formRef.current?.querySelectorAll("fieldset[data-extra-label]")[target]?.querySelector("input");
+    control?.focus();
+  }, [extraLabels]);
   const [consent, setConsent] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -1958,7 +1662,7 @@ function PublicTags(props: ExplorerPageProps) {
         )}
       </p>
       <State {...types} t={props.t}>
-        <form className="explorer-form" onSubmit={submit}>
+        <form ref={formRef} className="explorer-form" onSubmit={submit}>
           <div className="explorer-form-grid">
             {field("requester", "Your name", true, 100)}
             {field("email", "Email", true, 254, "email")}
@@ -1999,7 +1703,7 @@ function PublicTags(props: ExplorerPageProps) {
             </div>
           </details>
           {extraLabels.map((label, index) => (
-            <fieldset key={index}>
+            <fieldset key={index} data-extra-label>
               <legend>
                 {props.t("Additional label")} {index + 2}
               </legend>
@@ -2049,23 +1753,28 @@ function PublicTags(props: ExplorerPageProps) {
               <button
                 type="button"
                 disabled={busy}
-                onClick={() =>
-                  setExtraLabels((old) => old.filter((_, i) => i !== index))
-                }
+                onClick={() => {
+                  pendingLabelFocus.current = extraLabels.length > 1
+                    ? Math.min(index, extraLabels.length - 2)
+                    : "add";
+                  setExtraLabels((old) => old.filter((_, i) => i !== index));
+                }}
               >
                 {props.t("Remove label")}
               </button>
             </fieldset>
           ))}
           <button
+            ref={addLabelRef}
             type="button"
             disabled={busy || extraLabels.length >= 19}
-            onClick={() =>
+            onClick={() => {
+              pendingLabelFocus.current = extraLabels.length;
               setExtraLabels((old) => [
                 ...old,
                 { address: "", label: "", type: "name" },
-              ])
-            }
+              ]);
+            }}
           >
             {props.t("Add label")}
           </button>
@@ -2109,9 +1818,9 @@ function PublicTags(props: ExplorerPageProps) {
             <p>
               {props.t("Reference")}: {result.id}
             </p>
-            <button onClick={() => props.go(`/address/${draft.address}`)}>
+            <ExplorerLink to={`/address/${draft.address}`}>
               {props.t("View address")}
-            </button>
+            </ExplorerLink>
           </div>
         )}
       </State>
@@ -2125,7 +1834,7 @@ export default function ExplorerPages(props: ExplorerPageProps) {
   if (props.page === "batches")
     return props.id ? <Batch {...props} /> : <Batches {...props} />;
   if (props.page === "dispute-games") return <Games {...props} />;
-  if (props.page === "gas-tracker") return <Gas {...props} />;
+  if (props.page === "gas-tracker") return <GasTracker {...props} />;
   if (props.page === "op") return <Operation {...props} />;
   if (props.page === "name-services")
     return props.id ? <Domain {...props} /> : <Names {...props} />;

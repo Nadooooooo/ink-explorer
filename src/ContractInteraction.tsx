@@ -10,11 +10,36 @@ import { API, network, networkPath } from "./network";
 import { requestJson } from "./api-request";
 import { exactJson, parseArgument } from "./contract-abi";
 import { formatMessage, message, type Locale } from "./i18n";
+import { Info } from "./Info";
+import { CopyableValue } from "./CopyableValue";
+import { ChevronRight } from "lucide-react";
 
 import WalletConnection from "./WalletConnection";
 import { useWallet, type Wallet } from "./wallet";
 
 type RpcResult = { result: any; source: string };
+
+function revealMobileFormField(target: HTMLElement) {
+  if (!window.matchMedia("(max-width: 760px), (pointer: coarse)").matches) return;
+  const reveal = () => {
+    if (document.activeElement !== target || !target.isConnected) return;
+    const viewport = window.visualViewport;
+    const top = viewport?.offsetTop ?? 0;
+    const bottom = top + (viewport?.height ?? window.innerHeight);
+    const headerBottom = document.querySelector("header")?.getBoundingClientRect().bottom ?? 0;
+    const visibleTop = Math.max(top + 16, headerBottom + 16);
+    const visibleBottom = bottom - 20;
+    const field = target.getBoundingClientRect();
+    if (field.bottom > visibleBottom)
+      window.scrollBy({ top: field.bottom - visibleBottom, behavior: "auto" });
+    else if (field.top < visibleTop)
+      window.scrollBy({ top: field.top - visibleTop, behavior: "auto" });
+  };
+  requestAnimationFrame(reveal);
+  // The software keyboard can resize the visual viewport after focus fires.
+  window.setTimeout(reveal, 350);
+}
+
 async function rpc(method: string, params: unknown[]): Promise<RpcResult> {
   const response = await fetch(`${API}/contract-rpc`, {
     method: "POST",
@@ -100,6 +125,25 @@ function Method({
       generation.current++;
     };
   }, [wallet?.account, wallet?.chain]);
+  useEffect(() => {
+    const invalidateCachedPreparation = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      // A cached document retains React state and pending RPC callbacks. A
+      // pre-navigation simulation must never authorize a restored submission.
+      generation.current++;
+      setPrepared(undefined);
+      setResult("");
+      setSource("");
+      setError("");
+      setBusy(signing.current);
+    };
+    window.addEventListener("pagehide", invalidateCachedPreparation);
+    window.addEventListener("pageshow", invalidateCachedPreparation);
+    return () => {
+      window.removeEventListener("pagehide", invalidateCachedPreparation);
+      window.removeEventListener("pageshow", invalidateCachedPreparation);
+    };
+  }, []);
   const invalidate = () => {
     generation.current++;
     setPrepared(undefined);
@@ -242,17 +286,24 @@ function Method({
       if (mounted.current) setError(errorText(error, abi, locale));
     } finally {
       signing.current = false;
-      if (mounted.current) setAwaitingWallet(false);
-      if (request === generation.current) setBusy(false);
+      if (mounted.current) {
+        setAwaitingWallet(false);
+        setBusy(false);
+      }
     }
   };
   return (
     <details className="contract-method" hidden={hidden}>
       <summary>
-        <span>{signature}</span>
+        <ChevronRight className="contract-method-chevron" size={18} aria-hidden="true"/>
+        <span dir="ltr">{signature}</span>
         <small>{fragment.stateMutability}</small>
       </summary>
       <form
+        onFocusCapture={(event) => {
+          if (event.target instanceof HTMLInputElement)
+            revealMobileFormField(event.target);
+        }}
         onSubmit={(event) => {
           event.preventDefault();
           run();
@@ -261,8 +312,9 @@ function Method({
         {fragment.inputs.map((input, index) => (
           <label key={index}>
             {input.name || cf("argumentNumber", { number: index + 1 })}{" "}
-            <code>{input.format("full")}</code>
+            <code dir="ltr">{input.format("full")}</code>
             <input
+              dir={input.baseType === "string" ? "auto" : "ltr"}
               value={inputs[index]}
               disabled={awaitingWallet}
               autoComplete="off"
@@ -287,6 +339,7 @@ function Method({
           <label>
             {ct("callerOptional")}
             <input
+              dir="ltr"
               value={sender}
               placeholder="0x…"
               onChange={(event) => {
@@ -300,6 +353,7 @@ function Method({
           <label>
             {ct("ethToSend")}
             <input
+              dir="ltr"
               value={value}
               disabled={awaitingWallet}
               inputMode="decimal"
@@ -440,15 +494,17 @@ export default function ContractInteraction({
     fragment.format("sighash").toLowerCase().includes(filter.toLowerCase());
   return (
     <section className="contract-interaction">
-      <h2>{ct(mode === "read" ? "readContract" : "writeContract")}</h2>
-      <p>
-        {network.name} · {ct("chain")} {network.chainId} ·{" "}
-        {mode === "read"
-          ? ct("readIntro")
-          : ct("writeIntro")}
-      </p>
-      <p className="contract-target">{ct("target")}: {address}</p>
+      <div className="contract-interaction-heading">
+        <h2>{ct(mode === "read" ? "readContract" : "writeContract")}</h2>
+        <Info label={ct(mode === "read" ? "readContract" : "writeContract")}>
+          <strong>{network.name} · {ct("chain")} {network.chainId}</strong><br/>
+          {ct(mode === "read" ? "readIntro" : "writeIntro")}<br/>{ct("integerHelp")}
+        </Info>
+      </div>
+      {mode === "write" && <p>{ct("writeIntro")}</p>}
+      <p className="contract-target"><span>{ct("target")}</span><CopyableValue value={address} display={address} t={ct}/></p>
       {mode === "write" && <WalletConnection connection={connection} locale={locale} />}
+      <div className="contract-controls">
       <label>
         {ct("contractInterface")}
         <select
@@ -464,6 +520,11 @@ export default function ContractInteraction({
           <option value="custom">{ct("customAbi")}</option>
         </select>
       </label>
+      {abi && <label>
+        {ct("filterFunctions")}
+        <input type="search" dir="ltr" value={filter} onChange={(event) => setFilter(event.target.value)}/>
+      </label>}
+      </div>
       {abiSource !== "direct" && abiSource !== "custom" && (
         <p>
           {cf("usingImplementation", { implementation: abiSource, proxy: address })}
@@ -490,6 +551,7 @@ export default function ContractInteraction({
           <label>
             ABI JSON
             <textarea
+              dir="ltr"
               value={custom}
               maxLength={200000}
               onChange={(event) => setCustom(event.target.value)}
@@ -514,17 +576,7 @@ export default function ContractInteraction({
         </p>
       ) : (
         <>
-          <label>
-            {ct("filterFunctions")}
-            <input
-              type="search"
-              value={filter}
-              onChange={(event) => setFilter(event.target.value)}
-            />
-          </label>
-          <p>
-            {ct("integerHelp")}
-          </p>
+          {mode === "write" && <p>{ct("integerHelp")}</p>}
           {functions.map((fragment) => (
               <Method
                 key={`${address}-${abiSource}-${abiRevision}-${fragment.format("sighash")}`}

@@ -53,7 +53,7 @@ async function inspect(page, label) {
       .slice(0, 5);
     const headerTargets = [
       ...document.querySelectorAll(
-        "header .language-picker, header .header-search, header .menu",
+        ".utility-bar .language-picker select, header .mobile-search-trigger, header .drawer-trigger",
       ),
     ]
       .filter(visible)
@@ -110,26 +110,27 @@ try {
     if (!response?.ok() && response?.status() !== 304) failures.push(`${width}px: HTTP ${response?.status()}`);
     await inspect(page, `${width}px home`);
 
-    const menu = await page.$(".menu");
+    const menu = await page.$(".drawer-trigger");
     const menuVisible = await menu?.evaluate((element) => {
       const style = getComputedStyle(element);
       return style.display !== "none";
     });
-    if (width <= 1160 && !menuVisible)
+    if (width < 1180 && !menuVisible)
       failures.push(`${width}px: compact menu trigger is missing`);
-    if (width > 1160 && menuVisible)
+    if (width >= 1180 && menuVisible)
       failures.push(`${width}px: compact menu trigger remains visible`);
     if (menuVisible && menu) {
       await menu.click();
+      await page.$eval('.mobile-drawer',async element=>{await Promise.all(element.getAnimations().map(animation=>animation.finished));});
       const opened = await page.$eval(
-        ".menu",
+        ".drawer-trigger",
         (element) => element.getAttribute("aria-expanded") === "true",
       );
       if (!opened) failures.push(`${width}px: menu did not open`);
       await inspect(page, `${width}px open menu`);
-      const navState = await page.$eval("header nav", (element) => {
+      const navState = await page.$eval(".mobile-drawer", (element) => {
         const rect = element.getBoundingClientRect();
-        const controls = [...element.querySelectorAll("button")].map((button) => {
+        const controls = [...element.querySelectorAll(".drawer-links > a[href], .drawer-links > button")].map((button) => {
           const box = button.getBoundingClientRect();
           return {
             width: box.width,
@@ -153,11 +154,11 @@ try {
             !control.visible || control.width < 44 || control.height < 44,
         )
       )
-        failures.push(`${width}px: open menu is clipped or hard to tap`);
+        failures.push(`${width}px: open menu is clipped or hard to tap: ${JSON.stringify(navState)}`);
 
       await page.keyboard.press("Escape");
       await new Promise((resolve) => setTimeout(resolve, 50));
-      const escapeState = await page.$eval(".menu", (element) => ({
+      const escapeState = await page.$eval(".drawer-trigger", (element) => ({
         open: element.getAttribute("aria-expanded"),
         focused: document.activeElement === element,
       }));
@@ -165,9 +166,11 @@ try {
         failures.push(`${width}px: Escape did not close menu and restore focus`);
 
       await menu.click();
-      await page.click("main");
+      await page.$eval('.mobile-drawer',async element=>{await Promise.all(element.getAnimations().map(animation=>animation.finished));});
+      const drawerBox = await (await page.$('.mobile-drawer')).boundingBox();
+      await page.mouse.click(drawerBox.x + drawerBox.width < width - 1 ? width - 2 : 2, Math.min(height - 2, drawerBox.y + 20));
       if (
-        (await page.$eval(".menu", (element) =>
+        (await page.$eval(".drawer-trigger", (element) =>
           element.getAttribute("aria-expanded"),
         )) !== "false"
       )
@@ -217,6 +220,8 @@ try {
     isMobile: true,
     hasTouch: true,
   });
+  // No stream is available in this complete-outage recovery scenario.
+  await recovery.setUserAgent('InkExplorerResponsiveReviewBot/1.0');
   let failBlocks = true;
   await recovery.setRequestInterception(true);
   recovery.on("request", (request) => {
@@ -225,7 +230,7 @@ try {
       new URL(request.url()).pathname === "/api/explorer/blocks"
     ) {
       request.respond({
-        status: 503,
+        status: 503,headers:{"retry-after":"1"},
         contentType: "application/json",
         body: JSON.stringify({ error: "Synthetic upstream outage" }),
       });
@@ -238,12 +243,10 @@ try {
   await recovery.waitForSelector(".error-state button");
   await inspect(recovery, "320px network error");
   failBlocks = false;
-  await Promise.all([
-    recovery.waitForNavigation({ waitUntil: "networkidle0", timeout: 30_000 }),
-    recovery.click(".error-state button"),
-  ]);
-  if (!(await recovery.$(".block-list .block-row")))
-    failures.push("network error: retry did not recover the block ledger");
+  await new Promise(resolve=>setTimeout(resolve,1100));
+  await recovery.click('.error-state button');
+  await recovery.waitForSelector('.activity-ledger-blocks .block-row');
+  if (await recovery.$('.table-shell > .error-state')) failures.push('network error: retry did not recover the block ledger');
   await recovery.close();
 
   const empty = await browser.newPage();
@@ -269,17 +272,18 @@ try {
       )
     ) {
       delayedTransfer = true;
-      setTimeout(() => request.continue(), 1_500);
+      setTimeout(() => request.continue().catch(()=>{}), 1_500);
     } else request.continue();
   });
+  const pendingTransfer=stale.waitForRequest(request=>new URL(request.url()).pathname.endsWith('/tokens/0x4200000000000000000000000000000000000006/transfers'));
   await stale.goto(
     `${base}/token/0x4200000000000000000000000000000000000006`,
     { waitUntil: "domcontentloaded", timeout: 30_000 },
   );
   await stale.waitForSelector(".token-hero");
-  await stale.$$eval(".tabs button", (buttons) =>
-    buttons.find((button) => button.textContent?.trim() === "Holders")?.click(),
-  );
+  await pendingTransfer;
+  await stale.waitForSelector('.section-picker select');
+  await stale.select('.section-picker select','holders');
   await stale.waitForSelector(".holder-row", { timeout: 10_000 });
   await new Promise((resolve) => setTimeout(resolve, 1_700));
   const staleState = await stale.evaluate(() => ({

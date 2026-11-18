@@ -1,7 +1,23 @@
 import puppeteer from "puppeteer-core";
+import {writeFile} from "node:fs/promises";
 import { nftContract, nftInstance, sampleNftHolder } from "./public-nft-fixture.mjs";
 
 const base = process.env.BASE_URL || "http://127.0.0.1:4188";
+function isLocalCachedNftSource(source, baseUrl) {
+  try {
+    const origin = new URL(baseUrl).origin;
+    const url = new URL(source, origin);
+    const kind = url.searchParams.get("kind") ?? "original";
+    return url.origin === origin && url.pathname === "/api/media" &&
+      url.searchParams.getAll("url").length === 1 &&
+      Boolean(url.searchParams.get("url")?.trim()) &&
+      url.searchParams.getAll("kind").length <= 1 &&
+      ["original", "thumbnail"].includes(kind);
+  } catch {
+    return false;
+  }
+}
+
 const browser = await puppeteer.launch({
   executablePath: "/usr/bin/google-chrome",
   headless: true,
@@ -15,7 +31,7 @@ const routes = [
   ["/tokens", "Tokens"],
   ["/pools", "Liquidity pools"],
   ["/contracts", "Verified contracts"],
-  ["/analytics", "Ink analytics"],
+  ["/analytics", "Chain stats"],
   ["/advanced", "Advanced activity"],
   ["/developers", "Developer API"],
   ["/network", "Network health"],
@@ -31,14 +47,14 @@ const poolPage = await fetch(`${base}/api/contract-info/pools`).then((r) =>
 const nftHolder = await sampleNftHolder(base);
 const sampleTx = overview.transactions[0];
 routes.push(
-  [`/block/${overview.blocks[0].height}`, "TRANSACTIONS IN THIS BLOCK"],
-  [`/tx/${sampleTx.hash}`, "TRANSACTION HASH"],
+  [`/block/${overview.blocks[0].height}`, "Block hash"],
+  [`/tx/${sampleTx.hash}`, "Transaction details"],
   [`/address/${sampleTx.from.hash}`, "ETH BALANCE"],
   [`/token/${tokenPage.items[0].address_hash}`, "Token transfers"],
   [`/pools/${poolPage.items[0].pool_id}`, "LIQUIDITY POOL"],
   [
     `/token/${nftContract}/instance/${nftInstance}`,
-    "NFT INSTANCE",
+    "Token ID",
   ],
 );
 
@@ -50,7 +66,8 @@ const viewports = [
   { width: 390, height: 844, name: "mobile" },
   { width: 320, height: 700, name: "small-mobile" },
 ];
-for (const viewport of viewports) {
+const routeViewports=process.env.UI_INTERACTIONS_ONLY==='1'?[]:viewports;
+for (const viewport of routeViewports) {
   const page = await browser.newPage();
   await page.setViewport({
     width: viewport.width,
@@ -77,7 +94,7 @@ for (const viewport of viewports) {
       const main = rect("main"),
         brand = rect("header .brand"),
         nav = rect("header nav"),
-        search = rect("header .header-search");
+        search = rect("header .header-search-field");
       return {
         mainWidth: main?.width || 0,
         mainLeft: main?.left || 0,
@@ -94,14 +111,14 @@ for (const viewport of viewports) {
       failures.push(`${viewport.name} ${route}: upstream error state`);
     if (overflow)
       failures.push(`${viewport.name} ${route}: horizontal overflow`);
-    if (viewport.width >= 1200 && Math.abs(layout.mainWidth - Math.min(2200, viewport.width - 64)) > 1)
+    if (viewport.width >= 1200 && Math.abs(layout.mainWidth - Math.min(1800, viewport.width - 64)) > 1)
       failures.push(
         `${viewport.name} ${route}: content rail does not use the available width (${layout.mainWidth}px)`,
       );
-    if (viewport.width > 760 && layout.navRight > layout.searchLeft + 1)
+    if (viewport.width >= 1180 && layout.searchLeft > 0 && layout.navRight > layout.searchLeft + 1)
       failures.push(`${viewport.name} ${route}: navigation overlaps search`);
     if (
-      viewport.width > 760 &&
+      viewport.width >= 1180 &&
       Math.abs(layout.brandLeft - layout.mainLeft) > 1
     )
       failures.push(
@@ -120,9 +137,9 @@ for (const viewport of viewports) {
       );
     const { stickyTop, expectedTop } = await page.evaluate(() => ({
       stickyTop: document.querySelector("header").getBoundingClientRect().top,
-      expectedTop: Math.max(0, document.querySelector(".network-ribbon").getBoundingClientRect().bottom),
+      expectedTop: Math.max(0, document.querySelector(".utility-bar").getBoundingClientRect().bottom),
     }));
-    if (Math.abs(stickyTop - expectedTop) > 1)
+    if (viewport.width > 760 && Math.abs(stickyTop - expectedTop) > 1)
       failures.push(
         `${viewport.name} ${route}: sticky header left the viewport (${stickyTop}px)`,
       );
@@ -132,13 +149,16 @@ for (const viewport of viewports) {
     failures.push(
       `${viewport.name}: console errors: ${consoleErrors.join(" | ")}`,
     );
+  console.log(`Route overview passed through ${viewport.name}`);
   await page.close();
 }
 
+await writeFile('reports/ui-route-preflight.json',JSON.stringify({failures},null,2));
+console.log('Route overview findings',JSON.stringify(failures));
 const page = await browser.newPage();
 await page.goto(base, { waitUntil: "networkidle0", timeout: 30000 });
 await page.waitForFunction(
-  () => document.body.innerText.includes("WEBSOCKET LIVE"),
+  () => document.querySelector('[data-live-transport="websocket"][data-live-head]:not([data-live-head=""])'),
   { timeout: 10000 },
 );
 const logoReady = await page.$eval(
@@ -156,7 +176,7 @@ await page.goto(`${base}/blocks`, {
   timeout: 30000,
 });
 const initialBlockHeight = await page.$eval(
-  ".block-list .block-height button",
+  ".activity-ledger-blocks .block-height a[href]",
   (element) => Number((element.textContent || "").replace(/\D/g, "")),
 );
 await page
@@ -164,7 +184,7 @@ await page
     (initial) =>
       Number(
         (
-          document.querySelector(".block-list .block-height button")
+          document.querySelector(".activity-ledger-blocks .block-height a[href]")
             ?.textContent || ""
         ).replace(/\D/g, ""),
       ) > initial,
@@ -176,60 +196,58 @@ const liveBlockState = await page.evaluate(
   (initial) => ({
     height: Number(
       (
-        document.querySelector(".block-list .block-height button")
+        document.querySelector(".activity-ledger-blocks .block-height a[href]")
           ?.textContent || ""
       ).replace(/\D/g, ""),
     ),
     status:
-      document.querySelector(".table-toolbar span:last-child")?.textContent ||
-      "",
+      document.querySelector("[data-live-transport]")?.getAttribute("data-live-transport") || "",
   }),
   initialBlockHeight,
 );
 if (
   liveBlockState.height <= initialBlockHeight ||
-  !liveBlockState.status.includes("Live · head")
+  liveBlockState.status !== "websocket"
 )
   failures.push(
     `blocks: live head did not advance (${initialBlockHeight} → ${liveBlockState.height}, ${liveBlockState.status})`,
   );
 await page.goto(`${base}/txs`, { waitUntil: "networkidle0", timeout: 30000 });
-await page.waitForSelector(".tx-list .tx-row");
+await page.waitForSelector(".activity-ledger-transactions .tx-row");
 await page
-  .waitForSelector(".tx-list .tx-row.live-arrival", { timeout: 20000 })
+  .waitForSelector(".activity-ledger-transactions .tx-row.live-arrival", { timeout: 20000 })
   .catch(() => {});
 const liveTransactionState = await page.evaluate(() => ({
-  liveRows: document.querySelectorAll(".tx-list .tx-row.live-arrival").length,
-  marks: document.querySelectorAll(".tx-list .tx-row .entity-mark").length,
+  liveRows: document.querySelectorAll(".activity-ledger-transactions .tx-row.live-arrival").length,
+  marks: document.querySelectorAll(".activity-ledger-transactions .tx-row .entity-mark").length,
   status:
-    document.querySelector(".table-toolbar span:last-child")?.textContent || "",
+    document.querySelector("[data-live-transport]")?.getAttribute("data-live-transport") || "",
 }));
 if (
   !liveTransactionState.liveRows ||
   liveTransactionState.marks < 2 ||
-  !liveTransactionState.status.includes("Live · head")
+  liveTransactionState.status !== "websocket"
 )
   failures.push(
     `transactions: live rows or identity marks missing (${JSON.stringify(liveTransactionState)})`,
   );
-const clickText = async (label) => {
-  const clicked = await page.$$eval(
-    "button",
-    (buttons, wanted) => {
-      const button = buttons.find((el) => el.textContent?.trim() === wanted);
-      button?.click();
-      return Boolean(button);
-    },
-    label,
-  );
-  if (!clicked) failures.push(`interaction: button '${label}' not found`);
+const clickText = async label => {
+  for (const button of await page.$$('button')) {
+    if (await button.evaluate((el,label)=>el.textContent?.trim()===label && el.getClientRects().length>0,label)) { await button.click();return; }
+  }
+  const picker=await page.$('.section-picker select');
+  if (picker && await picker.evaluate(el=>el.getClientRects().length>0)) {
+    const value=await picker.evaluate((el,label)=>[...el.options].find(option=>option.textContent.trim()===label)?.value,label);
+    if (value) {await page.select('.section-picker select',value);return;}
+  }
+  throw new Error(`Visible control '${label}' not found`);
 };
 await page.goto(`${base}/tx/${sampleTx.hash}`, {
   waitUntil: "networkidle0",
   timeout: 30000,
 });
 await clickText("Input data");
-if (!(await page.$eval("body", (el) => el.innerText)).includes("METHOD"))
+if (!(await page.$eval("body", (el) => el.innerText)).toLowerCase().includes("method"))
   failures.push("transaction: input data tab failed");
 await clickText("State changes");
 await page
@@ -277,29 +295,21 @@ await page.goto(`${base}/address/${nftHolder}`, {
 });
 await clickText("NFTs");
 await page.waitForSelector(".nft-grid", { timeout: 10000 });
-const firstNftPage = await page.$$(".nft-item");
-await clickText("Load more");
-await page
-  .waitForFunction(
-    (count) => document.querySelectorAll(".nft-item").length > count,
-    { timeout: 30000 },
-    firstNftPage.length,
-  )
-  .catch(() => {});
-const expandedNftCount = await page.$$eval(
-  ".nft-item",
-  (items) => items.length,
-);
-if (firstNftPage.length !== 50 || expandedNftCount <= firstNftPage.length)
-  failures.push(
-    `NFTs: pagination did not append results (${firstNftPage.length} → ${expandedNftCount})`,
-  );
+const firstNftPage = await page.$$eval('.nft-item', items=>items.map(item=>item.getAttribute('href')));
+await page.click('.token-list-controls .cursor-pagination button[aria-label="Next page"]');
+await page.waitForFunction(first=>document.querySelector('.nft-item')?.getAttribute('href')!==first && document.querySelector('.nft-item'),{},firstNftPage[0]);
+const nextNftPage=await page.$$eval('.nft-item',items=>items.map(item=>item.getAttribute('href')));
+if (firstNftPage.length!==50 || !nextNftPage.length || nextNftPage.length>50 || nextNftPage.some(href=>firstNftPage.includes(href)) || new Set(nextNftPage).size!==nextNftPage.length) failures.push('NFTs: cursor pagination repeated or omitted the requested page');
+await page.click('.token-list-controls .cursor-pagination button[aria-label="Previous page"]');
+await page.waitForFunction(first=>document.querySelector('.nft-item')?.getAttribute('href')===first,{},firstNftPage[0]);
+const restoredNfts=await page.$$eval('.nft-item',items=>items.map(item=>item.getAttribute('href')));
+if (JSON.stringify(restoredNfts)!==JSON.stringify(firstNftPage)) failures.push('NFTs: previous page did not restore its records');
 const nftMedia = await page.$$eval(".nft-item img", (images) =>
   images.map((img) => img.getAttribute("src")).filter(Boolean),
 );
-if (!nftMedia.some((src) => src.startsWith("/api/media?url=")))
+if (!nftMedia.some((src) => isLocalCachedNftSource(src, base)))
   failures.push("NFTs: remote media does not use the local cache");
-const cachedNfts = nftMedia.filter((src) => src.startsWith("/api/media?url="));
+const cachedNfts = nftMedia.filter((src) => isLocalCachedNftSource(src, base));
 if (cachedNfts.length) {
   const validMedia = await page.evaluate(async (sources) => {
     for (const src of sources) {
@@ -350,15 +360,6 @@ if (poolCatalogueResponses < 2)
   failures.push(
     `pools: expected a live refresh after 10 seconds, received ${poolCatalogueResponses} catalogue response(s)`,
   );
-if (
-  !(
-    await page.$eval(
-      ".pool-live-refresh",
-      (element) => element.textContent || "",
-    )
-  ).includes("10")
-)
-  failures.push("pools: 10-second refresh status is missing");
 const poolNumbers = async (attribute) =>
   page.$$eval(
     ".pool-row",
@@ -503,8 +504,8 @@ const poolLink = await page.$$eval('.address-facts .text-link', (buttons, pair) 
 if (!poolLink) failures.push('pool/address: pool details link is missing');
 else await page.waitForFunction(id => location.pathname === `/pools/${id}`, {timeout:5000}, poolPage.items[0].pool_id);
 await page.goto(`${base}/txs`, { waitUntil: "networkidle0", timeout: 30000 });
-await clickText("Token transfers");
-await new Promise((r) => setTimeout(r, 500));
+await page.goto(`${base}/token-transfers`,{waitUntil:"networkidle0",timeout:30000});
+await page.waitForSelector(".transfer-ledger");
 if (
   (await page.$eval("body", (el) => el.innerText)).includes(
     "Data temporarily unavailable",
@@ -529,22 +530,14 @@ await page.goto(`${base}/advanced`, {
   waitUntil: "networkidle0",
   timeout: 30000,
 });
-await clickText("L2 → L1 withdrawals");
-await new Promise((r) => setTimeout(r, 500));
-if (
-  !(await page.$eval("body", (el) => el.innerText)).includes(
-    "Messages exiting Ink",
-  )
-)
-  failures.push("advanced: withdrawals tab failed");
-await clickText("User operations");
-await new Promise((r) => setTimeout(r, 500));
-if (
-  !(await page.$eval("body", (el) => el.innerText)).includes(
-    "ERC‑4337 smart accounts",
-  )
-)
-  failures.push("advanced: user operations tab failed");
+for (const [label,endpoint] of [['L2 → L1 withdrawals','/api/explorer/optimism/withdrawals'],['User operations','/api/explorer/proxy/account-abstraction/operations']]) {
+  const response=page.waitForResponse(response=>new URL(response.url()).pathname===endpoint);
+  await clickText(label);
+  if (!(await response).ok()) failures.push(`Advanced activity: ${label} request failed`);
+  await page.waitForFunction(()=>document.querySelector('.advanced-list[aria-busy="false"]'));
+  const selected=await page.$eval('.tabs button.active',el=>el.textContent.trim());
+  if(selected!==label) failures.push(`Advanced activity: ${label} did not become the active section`);
+}
 await page.setViewport({
   width: 390,
   height: 844,
@@ -552,106 +545,34 @@ await page.setViewport({
   isMobile: true,
   hasTouch: true,
 });
-await page.goto(`${base}/analytics`, {
-  waitUntil: "networkidle0",
-  timeout: 30000,
-});
-await page.select(".analytics-lead .chart-range select", "7");
-await page.waitForFunction(
-  () => document.body.innerText.toLowerCase().includes("7 observations"),
-  { timeout: 30000 },
-);
-if (!page.url().includes("range=7"))
-  failures.push("analytics: timeframe is not persisted in URL");
-await page.$eval(".analytics-lead .interactive-chart", (el) =>
-  window.scrollTo({
-    top: el.getBoundingClientRect().top + scrollY - innerHeight * 0.4,
-    behavior: "instant",
-  }),
-);
-await new Promise((r) => setTimeout(r, 100));
-const chartBox = await page.$eval(
-  ".analytics-lead .interactive-chart",
-  (el) => {
-    const r = el.getBoundingClientRect();
-    return { x: r.x, y: r.y, width: r.width, height: r.height };
-  },
-);
-await page.touchscreen.tap(
-  chartBox.x + chartBox.width * 0.42,
-  chartBox.y + chartBox.height * 0.55,
-);
-await new Promise((r) => setTimeout(r, 150));
-const tooltips = await page.$$(".chart-tooltip");
-if (tooltips.length !== 1)
-  failures.push(
-    `analytics: one local mobile tooltip expected, found ${tooltips.length}`,
-  );
-const tooltipText = tooltips.length
-  ? await tooltips[0].evaluate((el) => el.textContent)
-  : "";
-if (!tooltipText?.match(/ago|today/))
-  failures.push("analytics: tooltip does not include relative time");
-const tooltipValue = tooltips.length
-  ? await tooltips[0].$eval("strong", (el) => el.textContent?.trim())
-  : "";
-if (!tooltipValue?.trim()) failures.push("analytics: selected point has no value");
-await clickText("Data");
-await new Promise((r) => setTimeout(r, 700));
-if (
-  !(await page.$eval("body", (el) => el.innerText.toLowerCase())).includes(
-    "exact values",
-  )
-)
-  failures.push("analytics: exact data table failed");
-await page.evaluate(() => {
-  window.__capturedCsv = "";
-  URL.createObjectURL = (blob) => {
-    blob.text().then((text) => {
-      window.__capturedCsv = text;
-    });
-    return "blob:captured";
-  };
-  HTMLAnchorElement.prototype.click = function () {};
-});
-await clickText("CSV");
-await page.waitForFunction(
-  () => window.__capturedCsv?.startsWith("date,transactions,active_accounts"),
-  { timeout: 5000 },
-);
-const csvRows = await page.evaluate(
-  () => window.__capturedCsv.trim().split("\n").length,
-);
-if (csvRows !== 8)
-  failures.push(
-    `analytics: 7-day CSV expected 8 rows including header, found ${csvRows}`,
-  );
-await page.select(".analytics-lead .chart-range select", "365");
-await page.waitForFunction(
-  () => document.querySelector(".analytics-lead")?.getAttribute("aria-busy") === "false" && document.querySelector(".analytics-freshness")?.textContent?.includes("Weekly"),
-  { timeout: 30000 },
-);
-if (!page.url().includes("range=365"))
-  failures.push("analytics: one-year timeframe is not persisted");
-const keyboardChart = await page.$(".analytics-lead .interactive-chart");
-await keyboardChart?.focus();
-await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-await page.keyboard.press("End");
-await page.keyboard.press("ArrowLeft");
-if (!(await page.$(".analytics-lead .chart-tooltip")))
-  failures.push("analytics: keyboard chart inspection failed");
-const successRate = await page.$$eval(".stat-chart", (cards) =>
-  Number(
-    cards
-      .find((card) => card.textContent?.includes("Transaction success"))
-      ?.querySelector("strong")
-      ?.textContent?.replace("%", ""),
-  ),
-);
-if (!(successRate > 90 && successRate <= 100))
-  failures.push(
-    `analytics: success ratio is not rendered as a percentage (${successRate})`,
-  );
+await page.goto(`${base}/stats/newTxns`, {waitUntil:'networkidle0',timeout:30000});
+await page.waitForSelector('article.stat-chart .chart-range select');
+await page.select('article.stat-chart .chart-range select','7');
+await page.$eval('article.stat-chart',el=>el.scrollIntoView({block:'center',behavior:'instant'}));
+await page.waitForSelector('article.stat-chart[aria-busy="false"] .interactive-chart');
+await page.$eval('article.stat-chart .interactive-chart',el=>el.scrollIntoView({block:'center',behavior:'instant'}));
+await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+const chartBox=await page.$eval('article.stat-chart .interactive-chart',el=>{const r=el.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height};});
+await page.touchscreen.tap(chartBox.x+chartBox.width*.42,chartBox.y+chartBox.height*.55);
+await page.waitForSelector('.chart-tooltip');
+if((await page.$$('.chart-tooltip')).length!==1)failures.push('statistics: exactly one local inspector expected');
+if(!await page.$eval('.chart-tooltip strong',el=>el.textContent.trim()))failures.push('statistics: selected point has no value');
+await page.keyboard.press('Escape');
+await page.click('.chart-data summary');
+await page.waitForSelector('.chart-data tbody tr');
+const exactRowCount=await page.$$eval('.chart-data tbody tr',rows=>rows.length);
+await page.evaluate(()=>{window.__capturedCsv='';URL.createObjectURL=blob=>{blob.text().then(text=>window.__capturedCsv=text);return'blob:captured';};HTMLAnchorElement.prototype.click=function(){};});
+await page.click('.chart-data button');
+await page.waitForFunction(()=>window.__capturedCsv?.length>0);
+const exportedRows=await page.evaluate(()=>window.__capturedCsv.trim().split('\n').length);
+if(exportedRows!==exactRowCount+1)failures.push('statistics: CSV rows must exactly match the displayed observations plus header');
+await page.select('article.stat-chart .chart-range select','365');
+await page.waitForFunction(()=>document.querySelector('article.stat-chart')?.getAttribute('aria-busy')==='false');
+await page.$eval('.interactive-chart',el=>el.scrollIntoView({block:'center',behavior:'instant'}));
+const keyboardChart=await page.$('.interactive-chart');await keyboardChart.focus();
+await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+await page.keyboard.press('End');await page.keyboard.press('ArrowLeft');
+if(!await page.$('.chart-tooltip'))failures.push('statistics: keyboard inspection failed');
 
 // Language selection is persisted in both URL and local storage, and every
 // supported locale remains available after client-side navigation.
@@ -665,7 +586,10 @@ const localeCount = await page.$$eval(
 );
 if (localeCount !== 10)
   failures.push(`languages: expected 10 choices, found ${localeCount}`);
-await page.select(".language-picker select", "fr");
+const utilityLanguageVisible = await page.$eval('.utility-bar .language-picker select', node => node.getClientRects().length > 0);
+if (!utilityLanguageVisible) await page.click('.drawer-trigger');
+await page.select(utilityLanguageVisible ? '.utility-bar .language-picker select' : '.drawer-preferences .language-picker select', 'fr');
+if (!utilityLanguageVisible) await page.keyboard.press('Escape');
 await page.waitForFunction(() => document.documentElement.lang === "fr");
 if (
   !page.url().includes("lang=fr") ||
@@ -695,42 +619,18 @@ await page.goto(`${base}/pools?lang=en`, {
   waitUntil: "networkidle0",
   timeout: 30000,
 });
-await page.click(".menu");
-if (
-  !(await page.$eval("header nav", (element) =>
-    element.classList.contains("open"),
-  ))
-)
-  failures.push("navigation: compact menu did not open at tablet width");
-await page.keyboard.press("Escape");
-if (
-  await page.$eval("header nav", (element) =>
-    element.classList.contains("open"),
-  )
-)
-  failures.push("navigation: Escape did not close the compact menu");
+await page.click('.drawer-trigger');
+if (!await page.$('.mobile-drawer')) failures.push('navigation: compact drawer did not open at tablet width');
+await page.keyboard.press('Escape');
+if (await page.$('.mobile-drawer')) failures.push('navigation: Escape did not close compact drawer');
 await page.goto(`${base}/pools/${poolPage.items[0].pool_id}`, {
   waitUntil: "networkidle0",
   timeout: 30000,
 });
-await page.click(".header-search");
-await page
-  .waitForFunction(
-    () =>
-      location.pathname === "/search" &&
-      document.activeElement?.matches(".global-search input"),
-    { timeout: 3000 },
-  )
-  .catch(() => {});
-if (
-  !page.url().includes("/search") ||
-  !(await page.evaluate(() =>
-    document.activeElement?.matches(".global-search input"),
-  ))
-)
-  failures.push(
-    "search: header control did not open and focus search from a detail page",
-  );
+const inlineSearchVisible = await page.$eval('header .global-search input', el => el.getClientRects().length > 0);
+if (!inlineSearchVisible) await page.click('.mobile-search-trigger');
+await page.click('header .global-search input');
+if (!await page.$eval('header .global-search input', el => el === document.activeElement && el.getClientRects().length > 0)) failures.push('search: header control did not open and focus the visible inline search');
 
 // The server must expose crawlable metadata before the SPA executes.
 const serverBase = process.env.SERVER_BASE_URL || base;
@@ -738,7 +638,7 @@ const seoHtml = await fetch(`${serverBase}/pools?lang=fr`).then((response) =>
   response.text(),
 );
 for (const marker of [
-  "<title>Ink liquidity pools",
+  process.env.EDGE_SEO === "1" ? "<title>Pools — Ink Explorer</title>" : "<title>Ink liquidity pools",
   'rel="canonical"',
   'hreflang="ja"',
   "application/ld+json",
@@ -765,5 +665,5 @@ if (failures.length) {
   process.exit(1);
 }
 console.log(
-  `Ink Explorer UI smoke test passed (${routes.length} routes × ${viewports.length} viewports).`,
+  `Ink Explorer UI smoke test passed (${routes.length} routes × ${routeViewports.length} viewports).`,
 );

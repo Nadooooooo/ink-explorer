@@ -1,0 +1,47 @@
+.api-code { direction: ltr; }
+.api-code-language { display: none; }
+html[dir="rtl"] .api-code > [role="status"] { direction: rtl; text-align: right; }
+
+/* Use a compact code header so the full snippet gets the available width.
+   Copy still returns the original source, without visual line wraps. */
+@media (max-width: 1179px) {
+  .api-code {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+  .api-code-language {
+    display: block;
+    grid-column: 1;
+    grid-row: 1;
+    padding-block-start: 14px;
+    padding-inline-start: 12px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 20px;
+  }
+  .api-code button {
+    position: static;
+    grid-column: 2;
+    grid-row: 1;
+    width: 44px;
+    height: 44px;
+    margin-block-start: 4px;
+    margin-inline-end: 8px;
+  }
+  .api-code pre {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    min-width: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    padding-block: 2px 14px;
+    padding-inline: 12px;
+  }
+  .api-code > [role="status"] { grid-column: 1 / -1; }
+}
+
+@media (pointer: coarse) and (min-width: 1180px) {
+  .api-code button { width: 44px; height: 44px; }
+}

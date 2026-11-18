@@ -1,0 +1,127 @@
+/* Keep a ledger's column order at every size. Only its viewport scrolls. */
+.data-ledger:is(.ledger-catalogue,.transfer-ledger) .ledger-scroll {
+  overflow:auto;
+  overscroll-behavior-x:contain;
+  scrollbar-width:thin;
+  scrollbar-color:var(--accent-border) transparent;
+  scroll-padding-inline:12px;
+}
+.data-ledger:is(.ledger-catalogue,.transfer-ledger) .ledger-scroll:focus-visible { outline:2px solid var(--focus-color); outline-offset:-2px; }
+.data-ledger:is(.ledger-catalogue,.transfer-ledger) table { display:table; width:100%; table-layout:fixed; }
+.data-ledger:is(.ledger-catalogue,.transfer-ledger) thead { display:table-header-group; position:static; width:auto; height:auto; overflow:visible; clip:auto; clip-path:none; }
+.data-ledger:is(.ledger-catalogue,.transfer-ledger) tbody { display:table-row-group; }
+.data-ledger:is(.ledger-catalogue,.transfer-ledger) tr { display:table-row; padding:0; border:0; }
+.data-ledger:is(.ledger-catalogue,.transfer-ledger) .ledger-scroll :is(th,td) { display:table-cell; width:auto; padding:8px 12px; vertical-align:middle; border-bottom:1px solid var(--line); }
+.data-ledger:is(.ledger-catalogue,.transfer-ledger) th { height:44px; white-space:normal; overflow-wrap:anywhere; }
+.data-ledger:is(.ledger-catalogue,.transfer-ledger) tbody tr { height:80px; }
+.data-ledger:is(.ledger-catalogue,.transfer-ledger) tbody tr:last-child td { border-bottom:0; }
+.data-ledger:is(.ledger-catalogue,.transfer-ledger) .cell-label { display:none; }
+.data-ledger:is(.ledger-catalogue,.transfer-ledger) .copy-button { display:grid; width:44px; min-width:44px; height:44px; min-height:44px; flex:0 0 44px; }
+.data-ledger:is(.ledger-catalogue,.transfer-ledger) .copyable > .text-link { display:flex; align-items:center; min-height:44px; font-size:12px; }
+.data-ledger:is(.ledger-catalogue,.transfer-ledger) .cell-value { font-variant-numeric:tabular-nums; }
+.data-ledger:is(.ledger-catalogue,.transfer-ledger) .ledger-reference { display:block; }
+.data-ledger:is(.ledger-catalogue,.transfer-ledger) .ledger-reference > small { margin-top:0; text-align:start; }
+.data-ledger:is(.ledger-catalogue,.transfer-ledger) .ledger-identity { display:flex; flex-wrap:nowrap; }
+.data-ledger:is(.ledger-catalogue,.transfer-ledger) .ledger-l1-result { flex-direction:column; align-items:flex-start; gap:0; }
+.data-ledger:is(.ledger-catalogue,.transfer-ledger) .ledger-cell-rank { font-size:12px; }
+.data-ledger:is(.ledger-catalogue,.transfer-ledger) .ledger-cell-percentage { text-align:end; }
+.data-ledger:is(.ledger-catalogue,.transfer-ledger) .transfer-transaction .cell-value,
+.data-ledger:is(.ledger-catalogue,.transfer-ledger) .transfer-method .cell-value { display:block; }
+.data-ledger:is(.ledger-catalogue,.transfer-ledger) .transfer-transaction small { margin:0; text-align:start; }
+.data-ledger:is(.ledger-catalogue,.transfer-ledger) .transfer-method .method { max-width:100%; }
+.data-ledger:is(.ledger-catalogue,.transfer-ledger) .transfer-block { margin:0; }
+.data-ledger:is(.ledger-catalogue,.transfer-ledger) .nft-transfer-id { min-height:44px; display:flex; align-items:center; }
+
+.ledger-catalogue .ledger-col-rank { width:72px; }
+.ledger-catalogue :is(.ledger-col-reference,.ledger-col-l1) { width:200px; }
+.ledger-catalogue :is(.ledger-col-from,.ledger-col-to,.ledger-col-origin,.ledger-col-target) { width:220px; }
+.ledger-catalogue .ledger-col-address { width:280px; }
+.ledger-catalogue .ledger-col-value { width:180px; }
+.ledger-catalogue :is(.ledger-col-method,.ledger-col-nonce,.ledger-col-gas,.ledger-col-count) { width:150px; }
+.ledger-catalogue .ledger-col-block { width:130px; }
+.ledger-catalogue .ledger-col-percentage { width:120px; }
+.ledger-catalogue .ledger-col-status { width:220px; }
+.ledger-accounts .ledger-catalogue table { min-width:802px; }
+.ledger-internal-txs .ledger-catalogue table { min-width:1100px; }
+.ledger-deposits .ledger-catalogue table { min-width:900px; }
+.ledger-withdrawals .ledger-catalogue table { min-width:1190px; }
+.data-ledger.transfer-ledger table { min-width:1260px; }
+.transfer-ledger .transfer-col-transaction { width:200px; }
+.transfer-ledger .transfer-col-method { width:150px; }
+.transfer-ledger .transfer-col-block { width:120px; }
+.transfer-ledger :is(.transfer-col-from,.transfer-col-to) { width:200px; }
+.transfer-ledger .transfer-col-asset { width:170px; }
+.transfer-ledger .transfer-col-value { width:220px; }
+
+/* Put the bridge total and latest activity together, then the page aggregate. */
+@media(max-width:760px) {
+  .ledger-page .bridge-summary { gap:8px; margin-bottom:12px; }
+  .ledger-page .bridge-summary article { padding:10px 12px; border-radius:12px; }
+  .ledger-page .bridge-summary article:first-child { grid-column:auto; }
+  .ledger-page .bridge-summary article:is(:first-child,:nth-child(2)) { display:block; }
+  .ledger-page .bridge-summary article:is(:first-child,:nth-child(2)) > svg { display:none; }
+  .ledger-page .bridge-summary article:is(:first-child,:nth-child(2)) > div { display:block; }
+  .ledger-page .bridge-summary article:is(:first-child,:nth-child(2)) strong { margin-top:4px; }
+  .ledger-page .bridge-summary article:last-child { grid-column:1 / -1; display:flex; align-items:center; gap:10px; }
+  .ledger-page .bridge-summary article:last-child > div { display:flex; flex:1; align-items:center; justify-content:space-between; gap:12px; }
+  .ledger-page .bridge-summary article:last-child > div > span { max-width:60%; }
+  .ledger-page .bridge-summary article:last-child > div > strong { margin:0; text-align:end; }
+  .ledger-page .bridge-summary strong { font-size:17px; }
+}
+
+/* Numeric column headings follow the same edge as their values. */
+.data-ledger.ledger-catalogue th:is(.ledger-heading-value,.ledger-heading-percentage,.ledger-heading-count,.ledger-heading-gas),
+.data-ledger.transfer-ledger th:last-child { text-align:end; }
+
+.ledger-catalogue > .token-list-controls .ledger-count-compact,
+.cursor-page-compact { display:none; }
+
+/* Preserve the spoken labels while giving narrow phones a stable one-line toolbar. */
+@media(max-width:420px) {
+  .ledger-catalogue > .token-list-controls { grid-template-columns:minmax(0,1fr) 44px auto; gap:8px; }
+  .ledger-catalogue > .token-list-controls .ledger-count-full,
+  .ledger-catalogue > .token-list-controls .cursor-page-full {
+    position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+    overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+  }
+  .ledger-catalogue > .token-list-controls .ledger-count-compact,
+  .ledger-catalogue > .token-list-controls .cursor-page-compact { display:inline; }
+  .ledger-catalogue > .token-list-controls .cursor-pagination > span { min-width:24px; padding-inline:0; }
+  .ledger-catalogue > .token-list-controls .ledger-row-count { white-space:nowrap; overflow-wrap:normal; }
+}
+
+@media(max-width:760px) {
+  .ledger-withdrawals .bridge-summary article:last-child {
+    display:grid; grid-template-columns:20px minmax(0,1fr);
+    align-items:center; column-gap:10px; row-gap:4px;
+  }
+  .ledger-withdrawals .bridge-summary article:last-child > div { display:contents; }
+  .ledger-withdrawals .bridge-summary article:last-child > div > span { grid-column:2; max-width:none; }
+  .ledger-withdrawals .bridge-summary article:last-child > div > strong {
+    grid-column:1/-1; text-align:start; min-width:0;
+  }
+  .ledger-withdrawals .bridge-summary article:last-child .ledger-amount {
+    flex-wrap:nowrap; align-items:baseline; max-width:100%; overflow-x:auto;
+  }
+  .ledger-withdrawals .bridge-summary article:last-child .ledger-amount > strong { white-space:nowrap; }
+}
+
+/* Keep the compact 24h transaction value and its locale suffix together. */
+@media(max-width:359px) {
+  .activity-ledger-page .transaction-summary .metric:first-child > strong {
+    white-space:nowrap; overflow-wrap:normal; flex-wrap:nowrap; flex-shrink:0; font-size:20px;
+  }
+}
+
+/* Keep the exact fee and ETH unit together in compact activity cards. */
+@media(max-width:760px) {
+  .home-activity-panel .compact-tx-row .tx-value { display:contents; }
+  .home-activity-panel .compact-tx-row .tx-value > strong {
+    grid-column:2; grid-row:1; align-self:center; text-align:end;
+  }
+  .home-activity-panel .compact-tx-row .flow { grid-row:2; }
+  .home-activity-panel .compact-tx-row .tx-fee {
+    grid-column:1 / -1; grid-row:3; justify-self:end;
+    max-width:100%; margin:0; white-space:nowrap; overflow-wrap:normal;
+  }
+}

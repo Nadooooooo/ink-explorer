@@ -1,0 +1,35 @@
+{
+  "name": "inkexplorer",
+  "main": "cloudflare/worker.mjs",
+  "compatibility_date": "2026-10-13",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "workers_dev": true,
+  "preview_urls": false,
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": [
+      "/*",
+      "!/assets/*",
+      "!/brand/*",
+      "!/licenses/*",
+      "!/manifest.webmanifest",
+      "!/favicon.ico",
+      "!/theme.js"
+    ],
+    "html_handling": "none",
+    "not_found_handling": "none"
+  },
+  "vars": {
+    "PUBLIC_URL": "https://inkexplorer.xyz"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 0.1
+  },
+  "version_metadata": {
+    "binding": "DEPLOYMENT"
+  }
+}

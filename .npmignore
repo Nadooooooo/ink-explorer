@@ -1,4 +1,11 @@
-node_modules/
+node_modules
+.wrangler/
+.dev.vars
+.dev.vars.*
+*.pem
+*.key
+/runtime/
+__pycache__/
 dist/
 .env
 .env.*

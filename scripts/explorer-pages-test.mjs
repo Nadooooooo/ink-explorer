@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { chromium, firefox, webkit } from "playwright";
 import axe from "axe-core";
 import { mkdir, writeFile } from "node:fs/promises";
+import catalogue from "../src/ink-ecosystem.json" with { type: "json" };
+
+const logoUrls = new Set(catalogue.map(app => app.imageUrl));
+const blockscout = catalogue.find(app => app.id === "blockscout").links;
 
 // These fixtures check navigation, precision and error recovery. They cannot
 // certify index/node agreement, which has its own live reconciliation suite.
@@ -40,7 +44,7 @@ for (const [engine, type] of [
   ["chromium", chromium],
   ["firefox", firefox],
   ["webkit", webkit],
-]) {
+].filter(([name])=>!process.env.EXPLORER_ENGINES||process.env.EXPLORER_ENGINES.split(',').includes(name))) {
   const browser = await type.launch(
     engine === "chromium"
       ? { executablePath: "/usr/bin/google-chrome", args: ["--no-sandbox"] }
@@ -58,6 +62,11 @@ for (const [engine, type] of [
           }),
           page = await context.newPage(),
           errors = [];
+        // The catalogue's real artwork has its own live browser check.
+        await context.route(url => logoUrls.has(url.href), route => route.fulfill({
+          contentType: "image/svg+xml",
+          body: '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"/>',
+        }));
         let failCursor = false,
           failHistory = false,
           legacyGas = false,
@@ -65,14 +74,25 @@ for (const [engine, type] of [
           postCount = 0;
         const chartRequests = new Set();
         page.on("pageerror", (e) => errors.push(e.message));
-        await context.routeWebSocket(/\/api\/live$/, (socket) =>
-          socket.close(),
-        );
+        // Native-page fixtures use a valid scoped live welcome. Live transport
+        // failures are exercised by the independent lifecycle suite. Closing a
+        // socket and returning malformed snapshots here introduced unrelated
+        // polling while WebKit was replacing the document (Playwright #43120).
+        const liveFrame = () => ({
+          protocol: "ink-observer.live.v1", type: "welcome", sequence: 1,
+          sentAt: new Date().toISOString(),
+          network: { chainId: prefix ? 763373 : 57073, expectedChainId: prefix ? 763373 : 57073,
+            online: true, synced: true, stale: false, head: 123 },
+          blocks: [], transactions: [],
+        });
+        await context.routeWebSocket(/\/api\/live$/, socket => socket.send(JSON.stringify(liveFrame())));
         await context.route("**/api/**", async (route) => {
           const request = route.request(),
             url = new URL(request.url()),
             p = url.pathname.replace(/^\/testnet/, "").slice(4);
-          const fulfill = (data) => route.fulfill({ json: data });
+          const fulfill = (data) => route.fulfill({headers:{date:new Date().toUTCString(),'x-ink-data-status':'fresh','x-ink-data-fetched-at':new Date().toISOString()},json:data});
+          if (p === "/live/config") return fulfill({ url: `${base.replace(/^http/, "ws")}${prefix}/api/live` });
+          if (p === "/live/snapshot") return fulfill(liveFrame());
           if (request.method() === "POST") {
             postCount++;
             assert(
@@ -146,7 +166,7 @@ for (const [engine, type] of [
                       priority_fee_wei: "200",
                     },
                   },
-              gas_price_updated_at: "2026-10-01T12:00:00Z",
+              gas_price_updated_at:new Date().toISOString(),
             });
           if (p === "/stats/lines")
             return fulfill({
@@ -158,7 +178,7 @@ for (const [engine, type] of [
                     {
                       id: "accountsGrowth",
                       title: "Number of accounts",
-                      description: "Account count",
+                      description: "Account count", resolutions:["DAY","WEEK"],
                       units: null,
                     },
                   ],
@@ -170,7 +190,7 @@ for (const [engine, type] of [
                     {
                       id: "averageGasPrice",
                       title: "Average gas price",
-                      description: "Gwei history",
+                      description: "Gwei history", resolutions:["DAY","WEEK"],
                       units: "Gwei",
                     },
                     ...(expandedCharts
@@ -178,7 +198,7 @@ for (const [engine, type] of [
                           {
                             id: "txnsSuccessRate",
                             title: "Transaction success rate",
-                            description: "Below the fold",
+                            description: "Below the fold", resolutions:["DAY","WEEK"],
                             units: null,
                           },
                         ]
@@ -189,18 +209,10 @@ for (const [engine, type] of [
             });
           if (p.startsWith("/stats/lines/")) {
             chartRequests.add(p.split("/").at(-1));
-            return fulfill({
-              chart: [
-                {
-                  date: "2026-09-30",
-                  value: p.endsWith("/txnsSuccessRate") ? "0.9" : "1",
-                },
-                {
-                  date: "2026-10-01",
-                  value: p.endsWith("/txnsSuccessRate") ? "0.975" : "2",
-                },
-              ],
-            });
+            const day=86400000,today=Date.parse(new Date().toISOString().slice(0,10)),weekly=url.searchParams.get('resolution')==='WEEK';
+            const start=weekly?today-((new Date(today).getUTCDay()+6)%7)*day-7*day:today-day;
+            const stamp=ms=>new Date(ms).toISOString().slice(0,10);
+            return fulfill({chart:[0,1].map(i=>({date:stamp(start+i*(weekly?7:1)*day),date_to:stamp(start+(i*(weekly?7:1)+(weekly?6:0))*day),value:p.endsWith('/txnsSuccessRate')?(i?'0.975':'0.9'):String(i+1)}))});
           }
           if (p === "/stats/counters")
             return fulfill({
@@ -392,7 +404,7 @@ for (const [engine, type] of [
             if (p.endsWith("/transfers"))
               return failHistory
                 ? route.fulfill({
-                    status: 503,
+                    status: 503,headers:{"retry-after":"1"},
                     json: { error: "Fixture history unavailable" },
                   })
                 : fulfill({ items: [] });
@@ -482,13 +494,16 @@ for (const [engine, type] of [
           return fulfill({ items: [] });
         });
         const visit = async (path) => {
+          console.log(`Visiting ${engine} ${prefix||'mainnet'} ${width}px ${path}`);
           await page.goto(
             `${base}${prefix}${path}${path.includes("?") ? "&" : "?"}lang=${lang}`,
             { waitUntil: "domcontentloaded" },
           );
-          await page.locator("main h1").waitFor();
+          // The initial document also has a heading before React mounts.
+          await page.locator("#ink-startup").waitFor({ state: "detached" });
+          await page.locator("#main-content h1").waitFor();
           await page.waitForFunction(
-            () => !document.querySelector("main .loading"),
+            () => !document.querySelector("#main-content .loading"),
           );
         };
         const check = async (path) => {
@@ -506,7 +521,10 @@ for (const [engine, type] of [
             text: document.querySelector("main").innerText,
           }));
           assert(layout.overflow <= 1, `${path} overflow ${layout.overflow}`);
-          assert.deepEqual(layout.links, []);
+          const officialLinks = path === "/apps"
+            ? [new URL(prefix ? blockscout.testnetWebsite : blockscout.mainnetWebsite).href]
+            : [];
+          assert.deepEqual(layout.links, officialLinks, `${path} upstream explorer links`);
           assert(!layout.text.includes("Page not found"));
           await page.evaluate(axe.source);
           const violations = await page.evaluate(async () =>
@@ -559,38 +577,17 @@ for (const [engine, type] of [
         }
         if (lang === "en") {
           await visit("/accounts");
-          assert.match(
-            await page.locator(".explorer-record").first().innerText(),
-            /1%/,
-          );
-          const amount = page
-            .locator(".explorer-record")
-            .first()
-            .locator('[title*="base units"]');
-          assert.match(await amount.getAttribute("title"), /1\.005/);
-          await page.locator(".pagination button").last().click();
-          await page
-            .locator(".explorer-record-heading")
-            .filter({ hasText: "#3" })
-            .waitFor();
-          await page.locator(".pagination button").nth(1).click();
-          await page
-            .locator(".explorer-record-heading")
-            .filter({ hasText: "#1" })
-            .waitFor();
-          failCursor = true;
-          await page.locator(".pagination button").last().click();
-          await page.locator(".error-state").waitFor();
-          assert.equal(
-            await page.locator(".pagination button").first().isEnabled(),
-            true,
-          );
-          await page.locator(".pagination button").first().click();
-          await page
-            .locator(".explorer-record-heading")
-            .filter({ hasText: "#1" })
-            .waitFor();
-          failCursor = false;
+          const accountRows=page.locator('.ledger-record'),accountPager=page.locator('.token-list-controls .cursor-pagination');
+          await accountRows.first().waitFor();
+          assert.equal(await accountRows.first().locator('.ledger-cell-percentage').innerText(),'N/A','Ethereum supply cannot provide an Ink balance percentage');
+          assert.equal(await accountRows.first().locator('.ledger-amount strong').getAttribute('title'),'1.005');
+          await accountPager.getByRole('button',{name:'Next page',exact:true}).click();
+          await page.locator('.ledger-rank').filter({hasText:'#3'}).waitFor();
+          await accountPager.getByRole('button',{name:'Previous page',exact:true}).click();
+          await page.locator('.ledger-rank').filter({hasText:'#1'}).waitFor();
+          failCursor=true;await accountPager.getByRole('button',{name:'Next page',exact:true}).click();await page.locator('.error-state').waitFor();
+          assert(await accountPager.getByRole('button',{name:'Previous page',exact:true}).isEnabled());
+          await accountPager.getByRole('button',{name:'Previous page',exact:true}).click();await page.locator('.ledger-rank').filter({hasText:'#1'}).waitFor();failCursor=false;
           await visit("/gas-tracker");
           assert.match(await page.locator("main").innerText(), /0\.001000001/);
           assert.match(await page.locator("main").innerText(), /1\.234 s/);
@@ -598,7 +595,7 @@ for (const [engine, type] of [
           await visit("/gas-tracker");
           assert.match(
             await page
-              .locator(".explorer-gas-grid .metric strong")
+              .locator(".gas-estimates article strong")
               .first()
               .innerText(),
             /0\.01\s*Gwei/,
@@ -626,6 +623,9 @@ for (const [engine, type] of [
             /outside-op/,
           );
           await visit(`/tx/${hash}?tab=trace`);
+          // Transaction identity and its related trace resolve independently.
+          // Wait for the trace itself instead of sampling an effect transition.
+          await page.locator(".code-panel pre").waitFor();
           assert.match(await page.locator("main").innerText(), /CALL/);
           await visit(`/tx/${hash}?tab=flows`);
           assert.match(
@@ -633,14 +633,16 @@ for (const [engine, type] of [
             /Reverted — no balance movement/,
           );
           failHistory = true;
-          await visit(`/token/${addr}/instance/7`);
+          await visit(`/token/${addr}/instance/7?tab=transfers`);
           await page.locator(".nft-activity .error-state").waitFor();
           assert.match(await page.locator("h1").innerText(), /Fixture NFT/);
-          failHistory = false;
+          failHistory = false;await page.waitForTimeout(1100);
           await page.locator(".nft-activity .error-state button").click();
           await page.locator(".nft-activity .empty").waitFor();
           await visit("/contract-verification");
           await page.locator(".explorer-form input").first().fill(addr);
+          assert.equal(await page.locator(".explorer-form textarea").first().evaluate(input => input.labels?.[0]?.textContent.trim()), "Standard input JSON");
+          assert.equal(await page.locator('.explorer-form input[type="file"]').first().evaluate(input => input.labels?.[0]?.textContent.trim()), "Source files");
           await page
             .locator(".explorer-form textarea")
             .first()
@@ -681,12 +683,13 @@ for (const [engine, type] of [
           expandedCharts = true;
           await page.setViewportSize({ width: 390, height: 900 });
           await visit("/stats");
+          await page.locator('.stats-category-select select').selectOption('');
           assert(
             !chartRequests.has("txnsSuccessRate"),
             "Off-screen charts should not fetch data before approaching the viewport",
           );
           const deferredChart = page
-            .locator(".explorer-chart")
+            .locator(".stats-chart-card")
             .filter({ hasText: "Transaction success rate" });
           await Promise.all([
             page.waitForResponse((response) =>
@@ -751,6 +754,12 @@ for (const [engine, type] of [
           );
           await visit("/public-tags/submit");
           const tags = page.locator(".explorer-form");
+          const addLabel = tags.getByRole("button", { name: "Add label", exact: true });
+          const extra = tags.locator("fieldset[data-extra-label]");
+          await addLabel.press("Enter");
+          assert.equal(await extra.first().locator("input").first().evaluate(input => input === document.activeElement), true);
+          await extra.first().getByRole("button", { name: "Remove label", exact: true }).press("Enter");
+          assert.equal(await addLabel.evaluate(button => button === document.activeElement), true);
           await tags
             .locator("input[type=email]")
             .fill("fixture@example.invalid");
@@ -789,5 +798,5 @@ await writeFile(
   ),
 );
 console.log(
-  `Native explorer: ${results.length} states, both networks, three engines, no official-explorer destinations.`,
+  `Native explorer: ${results.length} states, both networks, ${process.env.EXPLORER_ENGINES||'chromium,firefox,webkit'}, official explorer destinations checked by route and network.`,
 );

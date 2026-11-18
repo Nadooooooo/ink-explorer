@@ -1,0 +1,10 @@
+.ledger-history-notice { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 14px; border-bottom:1px solid var(--line); background:var(--accent-wash); color:var(--ink); font-size:.8125rem; }
+.ledger-history-notice .info-disclosure { flex:1 1 0; width:auto; min-width:0; }
+.ledger-history-notice .info-visible-label { white-space:normal; text-align:start; }
+.ledger-history-notice .info-disclosure > .info-button { justify-content:flex-start; width:auto; max-width:100%; min-height:44px; }
+.ledger-history-notice > button { flex:0 0 44px; display:grid; place-items:center; width:44px; height:44px; border:1px solid var(--accent-border); border-radius:12px; color:var(--purple-deep); background:var(--surface); cursor:pointer; }
+.ledger-history-notice > button:hover { background:var(--surface-selected); }
+.ledger-history-notice > button:focus-visible { outline:2px solid var(--purple); outline-offset:2px; }
+.ledger-history-notice > button:disabled { cursor:wait; opacity:.65; }
+.ledger-history-notice > button[aria-busy="true"] svg { animation:spin 1.2s linear infinite; }
+@media(prefers-reduced-motion:reduce) { .ledger-history-notice > button[aria-busy="true"] svg { animation:none; } }

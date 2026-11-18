@@ -10,7 +10,7 @@ import {createHash} from 'node:crypto';
 const temp=await mkdtemp(join(tmpdir(),'ink-cache-age-'));
 let status=503, hits=0, oracleHits=0, child, log='';
 const upstream=createServer((req,res)=>{
-  if(req.url==='/blocks/12345'){
+  if(/^\/blocks\/\d+$/.test(req.url)){
     hits++;res.writeHead(status,{'content-type':'application/json'});
     res.end(JSON.stringify(status===200?{height:12345,marker:'fresh'}:{error:'Controlled failure'}));
   }else if(req.url==='/stats'){
@@ -25,6 +25,8 @@ const probe=createServer();await new Promise(resolve=>probe.listen(0,'127.0.0.1'
 const port=probe.address().port;await new Promise(resolve=>probe.close(resolve));
 try{
   await cp('server',join(temp,'server'),{recursive:true});
+ await mkdir(join(temp,'src'),{recursive:true});
+ await cp('src',join(temp,'src'),{recursive:true});await cp('package.json',join(temp,'package.json'));
   await cp('dist',join(temp,'dist'),{recursive:true});
   await symlink(resolve('node_modules'),join(temp,'node_modules'));
   await mkdir(join(temp,'data/upstream-cache'),{recursive:true});
@@ -34,6 +36,8 @@ try{
   await writeFile(clockPath,String(now));
   await writeFile(clockImport,`import {readFileSync} from 'node:fs';\nDate.now=()=>Number(readFileSync(${JSON.stringify(clockPath)},'utf8'));\n`);
   await writeFile(cachePath,JSON.stringify({url,at:originalAt,value:{height:12345,marker:'old'}}));
+  const futureUrl=api+'/blocks/67890';
+  await writeFile(join(temp,'data/upstream-cache',createHash('sha256').update(futureUrl).digest('hex')+'.json'),JSON.stringify({url:futureUrl,at:now+3600000,value:{height:67890,marker:'future'}}));
   const statsUrl=api+'/stats';
   await writeFile(join(temp,'data/upstream-cache',createHash('sha256').update(statsUrl).digest('hex')+'.json'),JSON.stringify({url:statsUrl,at:now,value:{gas_prices:{average:0.01}}}));
   child=spawn(process.execPath,['--import',pathToFileURL(clockImport).href,'server/server.mjs'],{cwd:temp,env:{...process.env,PORT:String(port),HOST:'127.0.0.1',INK_NETWORK:'mainnet',BLOCKSCOUT_API:api,INK_RPC:api,INK_OP_NODE_RPC:api,INK_METRICS_URL:api},stdio:['ignore','pipe','pipe']});
@@ -48,9 +52,25 @@ try{
   assert.equal(oracleHits,1);
   await fetch(base+'/api/explorer/stats?gas_oracle=updated');
   assert.equal(oracleHits,1,'Detailed oracle responses should still share their own cache');
+  const overviewResponse=await fetch(base+'/api/overview');
+  const overview=await overviewResponse.json();
+  assert.equal(overviewResponse.status,200,JSON.stringify(overview));
+  assert.equal(overview.stats.gas_prices.average.wei,'172840','Home gas estimates must retain exact oracle wei instead of rounded legacy values');
+  assert.equal(overviewResponse.headers.get('x-ink-data-status'),'fresh');
+  assert.equal(overviewResponse.headers.get('x-ink-data-fetched-at'),new Date(now).toISOString());
   assert.equal((await fetch(base+'/api/explorer/stats').then(response=>response.json())).gas_prices.average,0.01,'Detailed requests must not overwrite the legacy response');
   const first=await fetch(base+'/api/explorer/blocks/12345');
   assert.equal(first.status,200);assert.equal((await first.json()).marker,'old');
+  assert.equal(first.headers.get('x-ink-data-status'),'stale');
+  assert.equal(first.headers.get('x-ink-data-fetched-at'),new Date(originalAt).toISOString());
+  const [memoryHit,healthy,independent]=await Promise.all([
+    fetch(base+'/api/explorer/blocks/12345'),fetch(base+'/api/health'),fetch(base+'/api/explorer/stats'),
+  ]);
+  assert.equal(memoryHit.headers.get('x-ink-data-status'),'stale','Outer cache hits retain fallback provenance');
+  assert.equal(memoryHit.headers.get('x-ink-data-fetched-at'),first.headers.get('x-ink-data-fetched-at'));
+  assert.equal(healthy.headers.get('x-ink-data-status'),null,'Unrelated live-node health cannot inherit stale index metadata');
+  assert.equal(independent.headers.get('x-ink-data-status'),'fresh','Concurrent independent requests keep their own freshness');
+  assert.equal((await fetch(base+'/api/explorer/blocks/67890')).status,502,'Future-dated snapshots cannot hide an outage');
   // Wait for the asynchronous disk write before checking original provenance.
   await new Promise(r=>setTimeout(r,30));
   assert.equal(JSON.parse(await readFile(cachePath,'utf8')).at,originalAt,'Serving a fallback must not renew its original fetch time');
@@ -60,6 +80,8 @@ try{
   status=200;
   const recovered=await fetch(base+'/api/explorer/blocks/12345');
   assert.equal(recovered.status,200);assert.equal((await recovered.json()).marker,'fresh');
+  assert.equal(recovered.headers.get('x-ink-data-status'),'fresh');
+  assert.equal(recovered.headers.get('x-ink-data-fetched-at'),new Date(now+120000).toISOString());
   await new Promise(r=>setTimeout(r,30));
   assert.equal(JSON.parse(await readFile(cachePath,'utf8')).at,now+120000);
   status=404;await writeFile(clockPath,String(now+140000));
@@ -72,7 +94,7 @@ try{
   assert(hits>0);
   console.log('Upstream cache passed: original snapshot age preserved through outage; 24-hour expiry enforced; recovery, permanent errors and concurrent public responses verified.');
 }finally{
-  if(child){child.kill('SIGTERM');await new Promise(resolve=>child.once('close',resolve));}
+  if(child&&child.exitCode===null&&child.signalCode===null){const closed=new Promise(resolve=>child.once('close',resolve));child.kill('SIGTERM');await closed;}
   upstream.closeAllConnections();await new Promise(resolve=>upstream.close(resolve));
   await rm(temp,{recursive:true,force:true});
 }

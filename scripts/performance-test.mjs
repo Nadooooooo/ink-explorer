@@ -8,6 +8,7 @@ const results = [];
 const cases = [
   { name: "home desktop", width: 1440, path: "/" },
   { name: "analytics desktop", width: 1440, path: "/analytics" },
+  { name: "blocks mobile", width: 390, path: "/blocks" },
   { name: "contracts mobile", width: 390, path: "/contracts" },
   { name: "contracts mobile slow response", width: 390, path: "/contracts", delay: 700 },
   { name: "NFT mobile", width: 390, path: "/token/0x1b35d13a2E2528f192637F14B05f0Dc0e7dEB566/instance/545" },

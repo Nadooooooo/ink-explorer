@@ -1,91 +1,63 @@
-# Running and adapting Ink Explorer
+# Configuration and forking
 
-This repository is an Ink explorer, with Ink names, chain IDs, URLs and some OP Stack checks in the code. It can be forked, but changing a few environment variables does **not** turn it into a generic explorer for every EVM chain. This guide separates the settings you can change at deployment from the source changes needed for another chain.
+Start with the project quick start. Its default Mainnet setup uses public indexers and runs the web server on loopback. The Node server reads `.env` with `npm start`, and values exported by the process environment take precedence. Keep real configuration in your local environment files. [Quick start](../README.md#quick-start) · [Mainnet example](../.env.example)
 
-The code is MIT licensed. `private: true` in `package.json` only prevents accidentally publishing this application as an npm library; it does not make a Git repository private.
+## Run both networks
 
-## Run the Ink explorer locally
-
-Use Node.js 22.12 or newer and npm. The build needs the development dependencies even when your shell has `NODE_ENV=production`.
-
-```bash
-npm ci --include=dev
-cp .env.example .env
-npm run build
-npm start
-```
-
-Open `http://127.0.0.1:4188`. `npm start` reads `.env` if it exists; a variable exported by the shell takes precedence. The sample `PUBLIC_URL` is empty so local canonical URLs use the request host. Set it to your HTTPS origin before publishing.
-
-The public Blockscout endpoints provide indexed blocks, transactions and address pages. The network health panel needs your own OP-Reth and OP Node. If these are absent, their status is unavailable. The browser contract panel may use the configured public RPC for reads and simulation when the local node is not ready.
-
-### Mainnet and Sepolia
-
-The production setup runs two Node processes. The main process listens on `4188`; the Sepolia process listens on loopback `4190`. Requests under `/testnet/` are forwarded to the Sepolia process by the main server. Keep that second port private.
+Keep Mainnet running on port 4188. Use a second worker for Sepolia on loopback port 4190. The main worker forwards `/testnet/` to that port, so both networks share the browser origin.
 
 ```bash
 cp .env.sepolia.example .env.sepolia
-pm2 start ecosystem.config.cjs
+INK_NETWORK=sepolia node --env-file=.env.sepolia server/server.mjs
 ```
 
-The main process reads `.env`, and the Sepolia process reads `.env.sepolia`. Each file must contain URLs and local RPC ports for its own chain. The PM2 config uses its own directory as `cwd`, so a fork can live anywhere. `pm2 startOrReload ecosystem.config.cjs --update-env` applies later changes. You can also run only `npm start` for Mainnet, but `/testnet/` then needs a Sepolia worker on port 4190.
+For other ports, match the main worker's `INK_TESTNET_PORT` to the Sepolia worker's `PORT`. Each worker needs its own chain's upstreams and node URLs. [Sepolia example](../.env.sepolia.example)
 
-The PM2 process names still use `ink-observer` and `ink-observer-sepolia` so existing installations can reload in place. They are service identifiers, not the public project name. A fork can rename them after removing or migrating its old PM2 entries.
+## Choose deployment settings
 
-## Deployment settings
-
-| Setting | Used by | What to set |
-| --- | --- | --- |
-| `HOST`, `PORT` | HTTP server | Bind address and port. Put the main process behind HTTPS in production. |
-| `INK_TESTNET_PORT` | Mainnet proxy | Loopback port of the Sepolia worker; match its `PORT`. |
-| `PUBLIC_URL` | SEO output | The public HTTPS origin, without a path or trailing slash. Use the same origin for both workers. |
-| `INK_PUBLIC_API_ORIGIN` | Static host API function | Public HTTPS gateway, reachable without VPN. |
-| `WALLETCONNECT_PROJECT_ID` | Both API workers | Public Reown project ID; allow the actual site domains in the Reown dashboard. |
-| `VITE_WALLETCONNECT_PROJECT_ID` | Frontend build | Optional build-time override for the public project ID. |
-| `INK_NETWORK` | Server | `sepolia` for the second worker; any other value selects Mainnet. |
-| `BLOCKSCOUT_API` | Server | Blockscout v2 API root for that chain. |
-| `BLOCKSCOUT_STATS_API` | Server | Stats Service API root for that chain. |
-| `CONTRACT_INFO_API` | Server | Contract Info API root for pool data. |
-| `INK_RPC` | Server | Private local execution JSON-RPC. |
-| `INK_OP_NODE_RPC` | Server | Private OP Node JSON-RPC. |
-| `INK_PUBLIC_RPC` | Server | Public fallback for contract reads and simulation. |
-| `INK_METRICS_URL` | Server | Local execution metrics endpoint. The default uses port 9001 or 9101. |
-| `INK_NODE_DATA_DIR` | Server | Optional local node data directory used for disk usage. Leave it empty to omit the disk figure. |
-| `INK_L1_FAILOVER_STATUS` | Server | Optional Mainnet L1 relay readiness URL. |
-
-The API credentials and local RPC addresses belong in `.env` files or process environment variables. These files, `data/upstream-cache` and `data/media-cache` are ignored by Git. Do not make local RPC ports public just to populate the health panel.
-
-## Where to make a change
-
-| Task | Start here |
+| Setting | Purpose |
 | --- | --- |
-| Change browser routes, tables, transaction details or data formatting | `src/App.tsx` |
-| Change network labels, browser wallet chain ID and external explorer/RPC links | `src/network.ts` |
-| Change visible translated labels | `src/i18n.ts`, `src/page-copy.ts`, `src/dynamic-copy.ts` |
-| Change visual tokens and responsive rules | `src/styles.css`, `src/contracts.css`, `docs/DESIGN_SYSTEM.md` |
-| Change wallet identicons or token image routing | `src/EntityMark.tsx`, `src/media.ts` |
-| Change contract ABI forms or wallet behavior | `src/ContractInteraction.tsx`, `src/contract-abi.ts` |
-| Change API sources, caching, health probes or server SEO | `server/server.mjs` |
-| Change allowed contract RPC methods | `server/contract-rpc.mjs` and its security tests |
-| Change Sepolia forwarding | `server/testnet-proxy.mjs`, `ecosystem.config.cjs` |
-| Add an integration check | `scripts/`, then add an npm script in `package.json` |
+| `HOST`, `PORT` | HTTP bind address and port. Use loopback for local setup or a private service network behind the deployment edge. |
+| `INK_NETWORK`, `INK_TESTNET_PORT` | Select `sepolia` for the second worker and link the main proxy to its port. |
+| `PUBLIC_URL` | Canonical public HTTPS origin, without a path. Leave empty for the local request origin. |
+| `INK_PUBLIC_API_ORIGIN` | Public gateway origin for the Vercel server function. |
+| `VITE_PUBLIC_API_ORIGIN` | Optional public browser API origin set before building. The browser normally uses same-origin paths. |
+| `EXPLORER_BROWSER_ORIGIN` | Exact public site origin accepted by separated API workers. |
+| `INK_GATEWAY_PORT`, `INK_GATEWAY_UPSTREAM` | Loopback port and fixed worker URL for the optional standalone API gateway. |
+| `INK_ORIGIN_TOKEN` | Private value checked by the gateway. Configure the site or edge proxy with the same value. |
+| `INK_SITE_ORIGIN_TOKEN_FILE` | Private file containing the gateway credential for the Node site server. Defaults to `runtime/origin-token` inside its checkout. |
+| `INK_SITE_PUBLIC_URL`, `INK_SITE_PORT`, `INK_SITE_PREVIEW_HOSTS` | Public HTTPS origin, local site port (default 4197) and optional comma-separated preview hostnames. |
+| `INK_SITE_VERSION` | Optional deployment identifier returned in `x-ink-version`. The Node site derives its default from the prepared artifact manifest. |
+| `INK_ROLLING_DATA_DIR`, `ROLLING_DATA_DIR` | Set the API reader and the collector, respectively, to the same persistent directory when using rolling metrics. |
+| `BLOCKSCOUT_API`, `BLOCKSCOUT_STATS_API`, `CONTRACT_INFO_API` | Network-specific sources for indexed history, statistics and pool metadata. |
+| `INK_RPC`, `INK_RPC_WS`, `INK_OP_NODE_RPC` | Optional local execution HTTP, execution WebSocket and OP Node endpoints. |
+| `INK_PUBLIC_RPC` | Network-specific public fallback for supported reads and simulations. |
+| `INK_METRICS_URL`, `INK_NODE_DATA_DIR`, `INK_L1_FAILOVER_STATUS` | Optional local metrics, disk usage path and L1 relay readiness. |
+| `WALLETCONNECT_PROJECT_ID`, `VITE_WALLETCONNECT_PROJECT_ID` | Public Reown project ID for optional WalletConnect QR. Apply runtime settings to both workers or supply the build option. |
 
-`src/App.tsx` and `src/styles.css` are large files. Follow the existing section boundaries for a small edit. For a substantial new feature, extract a component and its styles into focused files, keeping `App.tsx` responsible for routing and shared state. The contract interaction panel is already lazy loaded as an example.
+Terminate TLS at the deployment edge and keep node RPC and metrics on private interfaces. A static site needs a separate public HTTPS API gateway that can serve HTTP and WebSocket paths. The project's standalone gateway routes those paths to a fixed worker origin. Put secrets in server-only configuration. Vite variables are embedded in public browser code. [Standalone gateway](../server/public-gateway.mjs) · [API contract](API.md)
 
-## Forking for another chain
+### Hosting with PM2 and Cloudflare Tunnel
 
-1. Confirm that the chain has a compatible Blockscout v2 API and Stats Service, or replace the server adapters. Check `/api/overview`, `/api/explorer/blocks`, `/api/explorer/transactions`, `/api/stats/*` and `/api/contract-info/pools` against your indexer. Pool pages depend on Contract Info and should be removed or replaced if that service has no data for your chain.
-2. Update the chain IDs, names, public RPC and external explorer URLs in `src/network.ts` **and** the corresponding server choices in `server/server.mjs`. The current code has two fixed networks and a `/testnet/` prefix; add an explicit routing design before introducing a third.
-3. Replace Ink-specific page copy in `src/App.tsx`, `src/i18n.ts`, `src/page-copy.ts`, `src/dynamic-copy.ts`, `index.html`, the manifest, SEO descriptions and JSON-LD in `server/server.mjs`. Search for `Ink`, `57073`, `763373`, `inkonchain`, `OP-Reth` and `OP Node`. Review every translation instead of mechanically replacing names inside sentences.
-4. Replace the Ink symbols in `public/brand/` and update the icon and social image paths in `index.html`, `public/manifest.webmanifest` and `server/server.mjs`. Third-party marks are not covered by the code's MIT license.
-5. Adapt the health probes. `optimism_syncStatus`, `opp2p_peerStats`, safe/finalized L2 heads and Optimism deposit/withdrawal pages are OP Stack features. For a different execution or rollup stack, implement truthful probes or remove those panels. Never label a public indexer as a local node.
-6. Review contract writes for the new chain. The browser checks wallet chain ID; the server checks chain ID again before forwarding read/simulation RPC. Keep the server's signing and broadcast ban.
-7. Update `.env` files, PM2 process names, README, security policy, sitemap, licensing and attribution. Replace the Ink addresses, chain IDs and expected labels in `scripts/` so the integration tests exercise your chain. Remove any feature claim that you did not verify.
+The public site runs behind Cloudflare Tunnel. The supplied PM2 configuration reads the Mainnet worker settings from `.env`, the Sepolia worker settings from `.env.sepolia` and the gateway settings from `.env.gateway`. The Node site expects a gateway at `127.0.0.1:4195` and a verified `dist/release-artifacts.json`. When updating an existing release, prepare the new build against the previous build to retain the immutable assets that open tabs still request. [PM2 API and gateway configuration](../ecosystem.production.config.cjs) · [Artifact preparation and verification](../scripts/release-artifacts.mjs)
 
-Wallet marks use [`blo`](https://github.com/bpierre/blo), an MIT-licensed Ethereum blockie library. The image is generated in the browser from a lowercased wallet address, so a given address has the same pixel pattern in the transaction list and transaction detail. It is a visual cue, never proof that two parties are the same person. Token images still come from the indexed metadata and pass through the server media proxy.
+Set service paths and ports for your deployment and pass the intended environment when restarting a process. The systemd templates use `/srv/ink-explorer` for the system service and `~/ink-explorer` for the user service. For split checkouts, supply PM2 config paths through `INK_API_CONFIG`, `INK_GATEWAY_CONFIG`, `INK_ROLLING_CONFIG` and `INK_SITE_CONFIG`. The connector uses `runtime/tunnel-token` under the project by default. Set `INK_TUNNEL_TOKEN_FILE` to select another private file. [System unit](../ops/inkexplorer-public-bootstrap.service) · [User unit](../ops/inkexplorer-public-bootstrap.user.service) · [Deployment history](README.md#historical-records)
 
-## Check a change
+An alternative Cloudflare Worker deployment uses the `API_ORIGIN` binding for the upstream and an `ORIGIN_TOKEN` secret matching the gateway's `INK_ORIGIN_TOKEN`. The historical migration utility targets `inkexplorer.xyz`. It reads the operator's `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_ZONE_ID` and requires a dedicated staging subdomain in `INK_MIGRATION_PREVIEW_HOST` when preparing a migration. The Worker deployment utility uses `wrangler` from the command path, or a JavaScript CLI file selected with `INK_WRANGLER`. [Worker configuration](../wrangler.jsonc) · [Hosting migration](../scripts/migrate-public-hosting.py) · [Worker deployment](../scripts/deploy-cloudflare.py)
 
-For a source change, run `npm run check`, `npm run build`, `npm audit --audit-level=high` and `npm run test:node-readiness`. Start the built server before browser or HTTP integration tests. `npm run test:security` checks API boundaries without a local node. `npm run test:ui`, `npm run test:a11y`, `npm run test:i18n` and `npm run test:responsive` need Chrome and live upstream data. The WebSocket and network live suites need synced local nodes. `npm run test:contracts` creates its own Anvil chain; it never submits a transaction to Ink.
+### Wallet integration
 
-Run a browser check at narrow and wide widths after changing tables, tabs or navigation. For a public deployment, verify canonical URLs, sitemap, chain selector, a real transaction, a contract read, a simulated write and the visible fallback when local nodes are down. The live upstream can change during a test run, so keep deterministic checks separate from chain-state assertions.
+An injected wallet can connect directly in its browser. To enable WalletConnect QR, configure its public project ID and authorize your site's domain in Reown. The wallet owns signing and broadcast. [Wallet and RPC flow](ARCHITECTURE.md#security-decisions)
+
+Source verification asks the user to consent to publishing the source. Public-label proposals stay in a private queue until an operator approves their public fields. The maintainer CLI uses the chain ID as its first argument. Keep the review output on the operator's machine. [Verification and label endpoints](API.md) · [Moderation command](../scripts/moderate-tags.mjs)
+
+## Adapt the explorer for another chain
+
+Ink chain IDs, URLs, copy and OP Stack checks are wired into the source. Review these boundaries when changing networks.
+
+1. Confirm that your indexer supports the required endpoint shapes. Substitute adapters for unsupported Blockscout history, statistics or pool routes. [API reference](API.md)
+2. Update chain IDs, wallet settings and public RPC URLs in the browser and server network definitions. Maintain the URL prefix and process isolation if you support more than one chain. [Browser network definitions](../src/network.ts) · [Server network selection](../server/server.mjs)
+3. Update route metadata, names, descriptions and translations in their shared source modules. Verify canonical and alternate-language links after the change. [Metadata](../src/page-metadata.ts) · [Translations](ARCHITECTURE.md#translations-and-styles)
+4. Replace brand assets and update the asset references in HTML, the manifest and structured data. Review third-party notices before distributing a fork. [Third-party notices](../THIRD_PARTY_NOTICES.md)
+5. Adapt health probes, finality and bridge views to the execution and rollup protocols in use. Preserve the source labels and show unavailable values where an independent observation cannot be verified. [Node readiness](../server/node-readiness.mjs)
+6. Keep chain checks and RPC method boundaries when adapting wallet interactions. Rebuild the test fixtures for the chain IDs, addresses and expected labels you support. [Contract RPC](../server/contract-rpc.mjs) · [Release test protocol](TEST_PROTOCOL.md)
