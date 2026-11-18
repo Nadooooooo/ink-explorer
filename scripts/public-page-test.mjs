@@ -7,6 +7,7 @@ import { after, before, test } from "node:test";
 import handler from "../api/page.mjs";
 import { documentHeaders, renderPage, robotsText, sitemapXml } from "../server/page-document.mjs";
 import { prepareVercel } from "./prepare-vercel.mjs";
+import { assertPublicSitemap } from "./assert-public-sitemap.mjs";
 
 const locales = ["en", "zh", "hi", "es", "fr", "ar", "bn", "pt", "ru", "ja"];
 const catalogues = Object.fromEntries(await Promise.all(locales.map(async language => [language, JSON.parse(await readFile(new URL(`../src/locales/${language}.json`, import.meta.url), "utf8"))])));
@@ -111,15 +112,7 @@ test("robots and sitemaps are not SPA documents and cover both networks and ten 
     assert.equal(sitemap.status, 200);
     assert.equal(sitemap.headers["content-type"], "application/xml; charset=utf-8");
     assert(sitemap.body.startsWith('<?xml version="1.0"'));
-    const locations = [...sitemap.body.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
-    assert.equal(locations.length, 240);
-    assert.equal(new Set(locations).size, locations.length);
-    assert(locations.every((location) => new URL(location).pathname.startsWith(`${prefix}/`)));
-    for (const language of ["zh", "hi", "es", "fr", "ar", "bn", "pt", "ru", "ja"]) {
-      assert.equal(locations.filter((location) => new URL(location).searchParams.get("lang") === language).length, 24);
-    }
-    assert(!locations.some(location => new URL(location).pathname === `${prefix}/stats`));
-    assert(locations.some(location => new URL(location).pathname === `${prefix}/analytics`));
+    assertPublicSitemap(sitemap.body, "https://explorer.example", prefix);
   }
 });
 

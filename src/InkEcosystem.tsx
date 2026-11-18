@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useId, useRef, useState } from "react";
+import { memo, useCallback, useId, useLayoutEffect, useRef, useState } from "react";
 import { ArrowUpRight } from "lucide-react";
 import { ExplorerLink } from "./ExplorerLink";
 import { Field, Page, type ExplorerPageProps } from "./ExplorerPageShell";
@@ -17,6 +17,9 @@ const apps = catalogue
   .sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER));
 const categories = [...new Set(apps.flatMap(app => app.category))].sort();
 const maxSearchLength = 256;
+const reloadDraftKey = "ink-explorer-catalogue-reload";
+const catalogueEntryKey = "inkExplorerCatalogueEntry";
+const draftLifetime = 5 * 60_000;
 
 function readCatalogueFilters() {
   const params = new URLSearchParams(location.search);
@@ -28,6 +31,42 @@ function readCatalogueFilters() {
 }
 
 const listPath = /^(?:\/testnet)?\/apps\/?$/;
+
+function currentEntryId(): string | undefined {
+  const id = history.state?.[catalogueEntryKey];
+  return typeof id === "string" && id ? id : undefined;
+}
+
+function markCatalogueEntry() {
+  const state = history.state;
+  if (currentEntryId() || (state != null && Object.getPrototypeOf(state) !== Object.prototype)) return;
+  try {
+    const id = crypto.getRandomValues(new Uint32Array(4)).join("-");
+    history.replaceState({...state, [catalogueEntryKey]: id}, "");
+  } catch {
+    // A restricted browser can still filter without an entry-specific reload draft.
+  }
+}
+
+function takeReloadedQuery() {
+  try {
+    const saved = sessionStorage.getItem(reloadDraftKey);
+    if (saved === null) return;
+    sessionStorage.removeItem(reloadDraftKey);
+    const [navigation] = performance.getEntriesByType("navigation") as PerformanceNavigationTiming[];
+    // A later SPA visit can share a document originally loaded with Reload.
+    // The resource URL excludes fragments in some browsers.
+    if (navigation?.type !== "reload" || navigation.name.split("#")[0] !== location.href.split("#")[0]) return;
+    const draft = JSON.parse(saved);
+    const entry = currentEntryId();
+    if (!entry || draft?.entry !== entry || draft.href !== location.href
+      || typeof draft.q !== "string" || typeof draft.savedAt !== "number") return;
+    const age = Date.now() - draft.savedAt;
+    if (age >= 0 && age <= draftLifetime) return draft.q.slice(0, maxSearchLength);
+  } catch {
+    // With storage disabled or a damaged draft, the URL supplies the filters.
+  }
+}
 
 function useCatalogueFilters(id?: string) {
   const [filters, setFilters] = useState(readCatalogueFilters);
@@ -46,23 +85,58 @@ function useCatalogueFilters(id?: string) {
     if (url.href !== location.href) history.replaceState(history.state, "", url);
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (id) return;
+    const query = takeReloadedQuery();
+    if (query !== undefined) {
+      const restored = {...readCatalogueFilters(), q: query};
+      pending.current = restored;
+      flush();
+      setFilters(restored);
+    }
     const restore = () => {
       window.clearTimeout(timer.current);
       pending.current = null;
       if (listPath.test(location.pathname)) setFilters(readCatalogueFilters());
     };
+    let departingForAnotherDocument = false;
+    const trackNavigation = (event: NavigateEvent) => {
+      if (event.navigationType === "reload" || !event.destination.sameDocument) {
+        departingForAnotherDocument = event.navigationType !== "reload";
+      }
+    };
+    const beforeHide = (event: PageTransitionEvent) => {
+      if (!pending.current || !listPath.test(location.pathname)) return;
+      // Reload can already have captured the URL before replaceState runs.
+      // A cached document keeps its own state when Back restores it.
+      const entry = currentEntryId();
+      if (!event.persisted && !departingForAnotherDocument && entry) {
+        try {
+          sessionStorage.setItem(reloadDraftKey, JSON.stringify({
+            entry, href: location.href, q: pending.current.q, savedAt: Date.now(),
+          }));
+          // WebKit can discard the entry state if its URL changes during reload.
+          // The matching document will commit the query after reading the draft.
+          window.clearTimeout(timer.current);
+          return;
+        } catch { /* Keep the normal URL update if the tab cannot store a draft. */ }
+      }
+      flush();
+    };
     window.addEventListener("popstate", restore);
-    window.addEventListener("pagehide", flush);
+    window.addEventListener("pagehide", beforeHide);
+    window.navigation?.addEventListener("navigate", trackNavigation);
     return () => {
       window.clearTimeout(timer.current);
       window.removeEventListener("popstate", restore);
-      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("pagehide", beforeHide);
+      window.navigation?.removeEventListener("navigate", trackNavigation);
     };
   }, [id, flush]);
 
   function changeFilter(key: keyof typeof filters, value: string) {
+    // Mark the entry before a reload can capture it, once for the whole editing session.
+    markCatalogueEntry();
     const next = {...(pending.current ?? filters), [key]: value};
     pending.current = next;
     setFilters(next);

@@ -1,4 +1,5 @@
 import http from 'node:http';
+import {assertPublicSitemap} from './assert-public-sitemap.mjs';
 import {AbiCoder} from 'ethers';
 import assert from 'node:assert/strict';import {readFile,writeFile,mkdir}from'node:fs/promises';import {createHash}from'node:crypto';import WebSocket from 'ws';
 const base=process.env.BASE_URL||'http://127.0.0.1:4197',out=process.env.MIGRATION_TEST_OUTPUT||'reports/server-migration/local-boundary',publicMode=process.env.MIGRATION_PUBLIC==='1',primary=process.env.MIGRATION_HOST||'inkexplorer.xyz';await mkdir(out,{recursive:true});
@@ -20,7 +21,12 @@ for(const prefix of['','/testnet']){
   if(method==='eth_chainId')assert.equal(BigInt(j.result),BigInt(chainId));else assert.equal(AbiCoder.defaultAbiCoder().decode(['string'],j.result)[0],'Wrapped Ether');
   assert.equal(r.headers.get('cache-control'),'no-store');return {chainId,method};
  });
- await check('sitemap '+prefix,async()=>{const r=await get(prefix+'/sitemap.xml'),xml=await r.text();assert.equal(r.status,200);assert.equal((xml.match(/<loc>/g)||[]).length,240);assert(!xml.includes(`${prefix}/stats<`)&&!xml.includes(`${prefix}/stats?lang=`));assert(!xml.includes('localhost')&&!xml.includes('migration-check'));return {};});
+ await check('sitemap '+prefix,async()=>{
+  const response=await get(prefix+'/sitemap.xml');
+  assert.equal(response.status,200);
+  assert.match(response.headers.get('content-type')||'',/^application\/xml/);
+  return {locations:assertPublicSitemap(await response.text(),'https://inkexplorer.xyz',prefix)};
+ });
  for(const path of ['/api/health','/api/live/snapshot'])await check(prefix+path,async()=>{const r=await get(prefix+path),j=await r.json();assert.equal(r.status,200);assert.equal(r.headers.get('cache-control'),'no-store');if(path.endsWith('snapshot')){assert.equal(j.network.chainId,prefix?763373:57073);assert(Date.now()-Date.parse(j.sentAt)<15000);}return {};});
  await check('WebSocket '+prefix,()=>new Promise((resolve,reject)=>{const ws=new WebSocket(base.replace(/^http/,'ws')+prefix+'/api/live'),heads=new Set();let count=0;const started=Date.now(),timer=setTimeout(()=>{ws.terminate();reject(Error('No sustained live connection'));},25000);ws.on('message',buffer=>{try{const frame=JSON.parse(buffer.toString());if(frame.protocol!=='ink-observer.live.v1')return;assert.equal(frame.network.chainId,prefix?763373:57073);heads.add(frame.block.height);count++;if(Date.now()-started>=12000&&heads.size>=2){clearTimeout(timer);ws.close();resolve({frames:count,heads:heads.size,observationMs:Date.now()-started});}}catch(e){clearTimeout(timer);ws.terminate();reject(e);}});ws.on('error',e=>{clearTimeout(timer);reject(e);});ws.on('close',()=>{if(Date.now()-started<12000){clearTimeout(timer);reject(Error('Live connection closed early'));}}); }));
 }

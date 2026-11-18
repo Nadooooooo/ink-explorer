@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { assertPublicSitemap } from "./assert-public-sitemap.mjs";
 import { readFile } from "node:fs/promises";
 import { registerHooks } from "node:module";
 import http from 'node:http';
@@ -96,9 +97,7 @@ test("edge HTML, missing routes, localization and sitemaps use the canonical dom
     const sitemap = await handleRequest(request(prefix + "/sitemap.xml"), env);
     assert.match(sitemap.headers.get("content-type"), /application\/xml/);
     const sitemapText = await sitemap.text();
-    assert.equal((sitemapText.match(/<loc>/g) || []).length, 240);
-    assert(!sitemapText.includes(`${prefix}/stats<`) && !sitemapText.includes(`${prefix}/stats?lang=`));
-    assert(!sitemapText.includes("verified-contracts"));
+    assertPublicSitemap(sitemapText, "https://inkexplorer.xyz", prefix);
     assert.equal((await handleRequest(request(prefix + "/not-a-route"), env)).status, 404);
     assert.match((await handleRequest(request(prefix + "/search?q=x"), env)).headers.get("x-robots-tag"), /noindex/);
   }

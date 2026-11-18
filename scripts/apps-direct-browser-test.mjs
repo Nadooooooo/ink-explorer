@@ -36,6 +36,21 @@ const waitForCards = (page, count) => page.waitForFunction(
   count,
 );
 
+async function reloadDuringInput(page, search, committed, key) {
+  await search.evaluate((input, previous) => {
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+    document.addEventListener('input', event => {
+      if (event.target !== input || document.activeElement !== input
+        || new URL(location.href).searchParams.get('q') !== previous) {
+        throw Error('Immediate reload must start while the focused edit is still pending');
+      }
+      location.reload();
+    }, {once: true});
+  }, committed);
+  await Promise.all([page.waitForNavigation({waitUntil: 'domcontentloaded'}), search.press(key)]);
+}
+
 async function runNetwork(browser, engine, prefix) {
   const context = await browser.newContext({viewport: {width: 390, height: 900}, locale: 'en'});
   const page = await context.newPage();
@@ -214,6 +229,62 @@ async function runNetwork(browser, engine, prefix) {
     assert.equal(await search.inputValue(), '');
     assert.equal(await category.inputValue(), '');
 
+    // Reload in the same input event as the final real keystroke. There is no
+    // blur or timer opportunity to publish the new value before navigation.
+    await search.fill('Concer');
+    await page.waitForFunction(() => new URL(location.href).searchParams.get('q') === 'Concer');
+    await reloadDuringInput(page, search, 'Concer', 'o');
+    await page.locator('#ink-startup').waitFor({state: 'detached'});
+    await waitForCards(page, 1);
+    assert.equal(await search.inputValue(), 'Concero', 'Reload must keep the final pending keystroke');
+    assert.equal(new URL(page.url()).searchParams.get('q'), 'Concero');
+    assert.equal(await cards.locator('h2').innerText(), 'Concero');
+    assert.equal(await page.evaluate(() => sessionStorage.getItem('ink-explorer-catalogue-reload')), null);
+
+    // A saved edit belongs to its history entry. A separate visit to the same
+    // URL may reload before its first copy of the catalogue JavaScript runs.
+    const entryUrl = base + listPath + '?lang=en&q=Concer';
+    const awayUrl = base + '/catalogue-entry-test-away';
+    const inertOnce = url => page.route(address => address.href === url,
+      route => route.fulfill({ contentType: 'text/html', body: '<p id="scripts-pending">Waiting for scripts</p>' }), {times: 1});
+    await page.goto(entryUrl, { waitUntil: 'domcontentloaded' });
+    await page.locator('#ink-startup').waitFor({state: 'detached'});
+    await search.waitFor();
+    await page.evaluate(() => history.replaceState({callerData: 'keep this'}, ''));
+    await inertOnce(entryUrl);
+    await reloadDuringInput(page, search, 'Concer', 'o');
+    await page.locator('#scripts-pending').waitFor();
+    const draftKey = 'ink-explorer-catalogue-reload';
+    const originalDraft = await page.evaluate(key => JSON.parse(sessionStorage.getItem(key)), draftKey);
+    assert.equal(originalDraft?.q, 'Concero');
+    assert.equal(await page.evaluate(() => history.state?.callerData), 'keep this');
+    await inertOnce(awayUrl);
+    await page.goto(awayUrl, { waitUntil: 'domcontentloaded' });
+    await page.locator('#scripts-pending').waitFor();
+    // The inert document creates a fresh browser history entry for the exact
+    // URL, without an intervening app mount that could consume the tab draft.
+    await page.evaluate(url => history.pushState({}, '', url), entryUrl);
+    assert.equal(page.url(), entryUrl);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('#ink-startup').waitFor({state: 'detached'});
+    await search.waitFor();
+    assert.equal(await search.inputValue(), 'Concer', 'A new history entry cannot consume another entry’s draft');
+    assert.equal(new URL(page.url()).searchParams.get('q'), 'Concer');
+    assert.equal(await page.evaluate(key => sessionStorage.getItem(key), draftKey), null);
+
+    await search.fill('Conc');
+    await page.waitForFunction(() => new URL(location.href).searchParams.get('q') === 'Conc');
+    await page.evaluate(([key, saved]) => {
+      sessionStorage.setItem(key, JSON.stringify({...saved, href: location.href,
+        entry: history.state.inkExplorerCatalogueEntry, savedAt: Date.now() - 24 * 60 * 60_000}));
+    }, [draftKey, originalDraft]);
+    await page.reload({waitUntil: 'domcontentloaded'});
+    await page.locator('#ink-startup').waitFor({state: 'detached'});
+    await search.waitFor();
+    assert.equal(new URL(page.url()).searchParams.get('q'), 'Conc', 'An expired draft cannot overwrite the URL');
+    assert.equal(await search.inputValue(), 'Conc');
+    assert.equal(await page.evaluate(key => sessionStorage.getItem(key), draftKey), null);
+
     brokenLogo = 'https://inkonchain.com/featured-apps/icons/concero.webp';
     await goto(listPath + '/ecosystem-concero');
     await heading.getByText('Concero', {exact: true}).waitFor();
@@ -275,7 +346,7 @@ async function runNetwork(browser, engine, prefix) {
     assert.deepEqual(requests, Array(3).fill(prefix + '/api/dapps'));
     Object.assign(row, {
       passed: true, count, widths, blocked, requests,
-      checks: ['catalogue fields and network-specific links', 'interactive search and categories',
+      checks: ['catalogue fields and network-specific links', 'interactive search and categories', 'pending edit survives immediate reload', 'draft entry identity and expiration',
         'successful and unavailable logos', 'official app detail, social links and return',
         'legacy full request, failure, retry, stale cache and cancellation', 'responsive widths'],
     });

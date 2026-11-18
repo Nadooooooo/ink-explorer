@@ -655,7 +655,7 @@ const sitemap = await fetch(`${serverBase}/sitemap.xml`).then((response) =>
 if (
   !robots.includes("Sitemap:") ||
   !sitemap.includes("/pools") ||
-  !sitemap.includes("lang=ar")
+  !sitemap.includes("/apps/ecosystem-concero?lang=ar</loc>")
 )
   failures.push("SEO: robots or multilingual sitemap is incomplete");
 await browser.close();

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { assertPublicSitemap } from "./assert-public-sitemap.mjs";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -101,12 +102,8 @@ for (const [prefix, chainId] of [["", 57073], ["/testnet", 763373]]) {
     const { response, bytes } = await get(`${prefix}/sitemap.xml`);
     assert.equal(response.status, 200);
     assert.match(response.headers.get("content-type") || "", /^application\/xml/);
-    const locations = [...String(bytes).matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
-    assert.equal(locations.length, 240);
-    assert.equal(new Set(locations).size, locations.length);
-    assert(locations.every((location) => location.startsWith(`${canonicalOrigin}${prefix}/`)));
-    assert(locations.every(location => new URL(location).pathname !== `${prefix}/stats`));
-    return { status: response.status, locations: locations.length };
+    const locations = assertPublicSitemap(String(bytes), canonicalOrigin, prefix);
+    return { status: response.status, locations };
   });
   await check(`network ${chainId}`, async () => {
     const { response, bytes } = await get(`${prefix}/api/network`);

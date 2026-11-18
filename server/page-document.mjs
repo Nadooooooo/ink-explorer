@@ -1,5 +1,8 @@
 import { canonicalExplorerPath, pageStructuredData } from "../src/page-seo.ts";
 import { defaultPageMetadata, notFoundPageCopy } from "../src/page-metadata.ts";
+import { ecosystemAppId } from "../src/ink-ecosystem-route.ts";
+import ecosystemIndex from "../src/ink-ecosystem-index.json" with { type: "json" };
+import localeMeta from "../src/locales/meta.json" with { type: "json" };
 import { themeBootstrapHash } from "./theme-bootstrap-policy.mjs";
 import { replaceStartupShell } from "./startup-shell.mjs";
 
@@ -11,18 +14,7 @@ export const documentHeaders = {
   "content-security-policy": `default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; frame-src https://verify.walletconnect.org https://secure.walletconnect.org https://verify.walletconnect.com https://secure.walletconnect.com; script-src 'self' '${themeBootstrapHash}'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://inkonchain.com/featured-apps/icons/ https://cdn.sanity.io/images/51n36hrp/facade/a925939f448a3a410f4f32334165623ad4cccba1-512x512.svg; connect-src 'self' ws: wss: https://*.walletconnect.com https://*.walletconnect.org https://*.reown.com https://rpc-gel.inkonchain.com https://rpc-gel-sepolia.inkonchain.com; form-action 'self'`,
 };
 
-const supportedLanguages = [
-  "en",
-  "zh",
-  "hi",
-  "es",
-  "fr",
-  "ar",
-  "bn",
-  "pt",
-  "ru",
-  "ja",
-];
+const supportedLanguages = localeMeta.locales;
 const sitemapPaths = [
   "/",
   "/blocks",
@@ -124,7 +116,10 @@ export function robotsText(origin, basePath = "") {
 }
 
 export function sitemapXml(origin, basePath = "") {
-  const entries = sitemapPaths
+  const appPaths = ecosystemIndex
+    .filter(app => basePath !== "/testnet" || app.network === "Both")
+    .map(app => `/apps/${ecosystemAppId(app.id)}`);
+  const entries = [...sitemapPaths, ...appPaths]
     .flatMap((route) =>
       supportedLanguages.map(
         (language) =>
