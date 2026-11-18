@@ -7,17 +7,9 @@ unavailable browser as a passing check.
 
 ## Run the complete campaign
 
-Build and run a separate review instance with its own HTTP ports and cache
-folders. Keep the production checkout and service unchanged. Start both Mainnet
-and Sepolia workers, with `INK_TESTNET_PORT` pointing to the review Sepolia port.
-Install the Playwright Firefox and WebKit engines and their system libraries.
-
-```bash
-BASE_URL=http://127.0.0.1:4298 npm run test:release
-```
-
-For a fresh local copy, exclude production build/cache folders and environment
-files. Install dependencies and build **inside that copy**. For example:
+Use a separate review directory for the build, worker caches and reports.
+The following commands use five loopback ports. Prepare the source and all
+three browser engines inside the review copy.
 
 ```bash
 SOURCE_WORKDIR=$(pwd)
@@ -33,18 +25,26 @@ npm exec -- playwright-core install --with-deps chromium firefox webkit
 npm run build
 ```
 
-Run these workers from the review directory in two terminals:
+Run each of these five commands in its own terminal from that directory. The
+functional tests use the API workers through port 4488. The performance tests
+use the prerendered documents and compressed assets through port 4490.
 
 ```bash
-HOST=127.0.0.1 PORT=4298 INK_NETWORK=mainnet INK_TESTNET_PORT=4299 node server/server.mjs
-HOST=127.0.0.1 PORT=4299 INK_NETWORK=sepolia node server/server.mjs
+HOST=127.0.0.1 PORT=4480 INK_NETWORK=mainnet INK_TESTNET_PORT=4481 PUBLIC_URL=http://127.0.0.1:4488 EXPLORER_BROWSER_ORIGIN=http://127.0.0.1:4488 node server/server.mjs
+HOST=127.0.0.1 PORT=4481 INK_NETWORK=sepolia PUBLIC_URL=http://127.0.0.1:4488 EXPLORER_BROWSER_ORIGIN=http://127.0.0.1:4488 node server/server.mjs
+REVIEW_PORT=4488 REVIEW_UPSTREAM=http://127.0.0.1:4480 node scripts/review-http-proxy.mjs
+REVIEW_RENDERER_PORT=4491 REVIEW_RENDERER_ORIGIN=http://127.0.0.1:4490 REVIEW_UPSTREAM=http://127.0.0.1:4480 node scripts/review-renderer.mjs
+REVIEW_PORT=4490 REVIEW_UPSTREAM=http://127.0.0.1:4491 node scripts/review-http-proxy.mjs
 ```
 
-Then execute the campaign from that same directory in a third terminal. The
-local Sepolia execution/rollup RPCs must be available for `node-testnet`; override
-`INK_RPC`, `INK_OP_NODE_RPC`, `INK_PUBLIC_RPC` and `INK_METRICS_URL` explicitly if
-the standard local ports are different. Do not supply public signing keys.
-The default cache paths are relative to the review copy, isolated from production.
+Run the campaign from another terminal in the same directory. The
+`node-testnet` suite requires a Sepolia execution node and rollup RPC.
+If their ports differ from the defaults, configure `INK_RPC`, `INK_OP_NODE_RPC`,
+`INK_PUBLIC_RPC` and `INK_METRICS_URL` for the relevant worker and test.
+
+```bash
+BASE_URL=http://127.0.0.1:4488 LIGHTHOUSE_BASE_URL=http://127.0.0.1:4490 npm run test:release
+```
 
 The runner executes every suite sequentially, records each command's exit code,
 timeout and log, and continues after failures. It runs mobile and chart checks

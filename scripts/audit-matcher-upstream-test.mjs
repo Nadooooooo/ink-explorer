@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
 import {readFileSync} from "node:fs";
-import {verifyMatcherLock, verifyUpstreamAdvisories} from "./audit-matcher-upstream.mjs";
+import {readOsvAdvisories, verifyMatcherLock, verifyUpstreamAdvisories} from "./audit-matcher-upstream.mjs";
 
 const lock = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
 const npmRecord = {
@@ -47,4 +47,19 @@ test("either feed can surface a new high-severity upstream advisory", () => {
   assert.throws(() => check([npmRecord], [osvRecord, {...osvRecord, id: "new", database_specific: {severity: "CRITICAL"}}]), /OSV advisory/);
   assert.throws(() => check([npmRecord], [osvRecord, {id: "unrated"}]), /severity/);
   check([npmRecord, {url: "https://example.test/other", severity: "low"}], [osvRecord]);
+});
+
+test("OSV pagination checks later advisories and rejects malformed continuations", async () => {
+  const critical = {...osvRecord, id: "later", database_specific: {severity: "CRITICAL"}};
+  const pages = new Map([
+    [undefined, {vulns: [osvRecord], next_page_token: "second"}],
+    ["second", {next_page_token: "third"}],
+    ["third", {vulns: [critical]}],
+  ]);
+  const all = await readOsvAdvisories(token => pages.get(token));
+  assert.deepEqual(all.vulns, [osvRecord, critical]);
+  assert.throws(() => verifyUpstreamAdvisories({picomatch: [npmRecord]}, all), /OSV advisory/);
+  await assert.rejects(readOsvAdvisories(() => ({next_page_token: "repeated"})), /Repeated/);
+  await assert.rejects(readOsvAdvisories(() => ({next_page_token: 9})), /Malformed/);
+  await assert.rejects(readOsvAdvisories(() => ({})), /Malformed/);
 });

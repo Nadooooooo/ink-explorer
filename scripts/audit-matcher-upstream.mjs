@@ -71,12 +71,31 @@ async function query(url, body) {
   }
 }
 
+export async function readOsvAdvisories(readPage) {
+  const vulns = [];
+  const seenTokens = new Set();
+  let token;
+  do {
+    const page = await readPage(token);
+    token = page.next_page_token;
+    assert(token === undefined || typeof token === "string", "Malformed OSV pagination token");
+    // OSV can return only a continuation token when a page takes too long.
+    assert(Array.isArray(page.vulns) || (page.vulns === undefined && token), "Malformed OSV advisory page");
+    if (page.vulns) vulns.push(...page.vulns);
+    assert(!seenTokens.has(token), "Repeated OSV pagination token");
+    if (token) seenTokens.add(token);
+  } while (token);
+  return {vulns};
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const lock = JSON.parse(await readFile(new URL("../package-lock.json", import.meta.url), "utf8"));
   verifyMatcherLock(lock);
   const [npm, osv] = await Promise.all([
     query("https://registry.npmjs.org/-/npm/v1/security/advisories/bulk", {picomatch: [upstreamVersion]}),
-    query("https://api.osv.dev/v1/query", {package: {name: "picomatch", ecosystem: "npm"}, version: upstreamVersion}),
+    readOsvAdvisories(pageToken => query("https://api.osv.dev/v1/query", {
+      package: {name: "picomatch", ecosystem: "npm"}, version: upstreamVersion, page_token: pageToken,
+    })),
   ]);
   verifyUpstreamAdvisories(npm, osv);
   console.log(`Verified the locked ${forkName}@${forkVersion} and the current npm and OSV records for picomatch@${upstreamVersion}.`);
