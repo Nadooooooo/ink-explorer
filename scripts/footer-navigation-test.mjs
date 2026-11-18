@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';import {chromium,firefox,webkit} from 'playwright';import {mkdir,writeFile,readFile} from 'node:fs/promises';import {createRequire} from 'node:module';
+import assert from 'node:assert/strict';import {chromium,firefox,webkit} from 'playwright-core';import {mkdir,writeFile,readFile} from 'node:fs/promises';import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url),base=process.env.BASE_URL||'http://127.0.0.1:4319',out=process.env.FOOTER_NAV_OUTPUT||'reports/footer/navigation',results=[];await mkdir(out,{recursive:true});
 for(const engine of(process.env.FOOTER_NAV_ENGINES||'chromium,firefox,webkit').split(',')){
  const browser=await({chromium,firefox,webkit})[engine].launch(engine==='chromium'?{args:['--no-sandbox']}:{});

@@ -10,12 +10,12 @@ Use Node.js 24 for the validated setup. Node.js 22 is supported from 22.19 onwar
 
 ```bash
 npm ci --include=dev
-npm exec -- playwright install chromium
+npm exec -- playwright-core install chromium
 npm run build
 HOST=127.0.0.1 npm start
 ```
 
-Open `http://127.0.0.1:4188`. On Linux, use `npm exec -- playwright install --with-deps chromium` at the browser installation step if Chromium needs system libraries. Some browser tests and Lighthouse use Google Chrome at `/usr/bin/google-chrome`. [Test requirements](docs/TEST_PROTOCOL.md)
+Open `http://127.0.0.1:4188`. On Linux, use `npm exec -- playwright-core install --with-deps chromium` at the browser installation step if Chromium needs system libraries. Some browser tests and Lighthouse use Google Chrome at `/usr/bin/google-chrome`. [Test requirements](docs/TEST_PROTOCOL.md)
 
 The build generates the browser language catalogues and prerenders localized page shells. The server reads `.env` if the file exists. Use the checked-in examples to configure a second worker for Sepolia, a public HTTPS origin or optional OP-Reth and OP Node endpoints. Public indexers provide historical data by default. [Configuration and Sepolia setup](docs/FORKING.md)
 

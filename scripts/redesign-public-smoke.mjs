@@ -1,4 +1,4 @@
-import{chromium}from'playwright';import{mkdir,writeFile}from'node:fs/promises';import assert from'node:assert/strict';
+import{chromium}from'playwright-core';import{mkdir,writeFile}from'node:fs/promises';import assert from'node:assert/strict';
 const base=process.env.BASE_URL||'https://inkexplorer.xyz',out='reports/redesign/public-browser',results=[];await mkdir(out,{recursive:true});const browser=await chromium.launch({args:['--no-sandbox']});
 try{for(const prefix of ['', '/testnet'])for(const width of [390,1440]){
  const context=await browser.newContext({viewport:{width,height:900},colorScheme:width===390?'dark':'light'});const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));

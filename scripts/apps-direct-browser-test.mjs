@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {mkdir, realpath, writeFile} from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {chromium, firefox, webkit} from 'playwright';
+import {chromium, firefox, webkit} from 'playwright-core';
 import {createServer} from 'vite';
 import catalogue from '../src/ink-ecosystem.json' with {type: 'json'};
 

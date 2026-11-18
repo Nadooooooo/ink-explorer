@@ -1,4 +1,4 @@
-import{chromium}from'playwright';import{mkdir,writeFile}from'node:fs/promises';const out='reports/ergonomics/placements';await mkdir(out,{recursive:true});const browser=await chromium.launch({args:['--no-sandbox']}),results=[];
+import{chromium}from'playwright-core';import{mkdir,writeFile}from'node:fs/promises';const out='reports/ergonomics/placements';await mkdir(out,{recursive:true});const browser=await chromium.launch({args:['--no-sandbox']}),results=[];
 for(const[version,base]of[['before','http://127.0.0.1:4310'],['after',process.env.BASE_URL||'http://127.0.0.1:4312']])for(const width of[320,390,1440]){
  const page=await browser.newPage({viewport:{width,height:900},hasTouch:width<500,colorScheme:'dark'}),row={version,width};
  await page.goto(base+'/?lang=fr',{waitUntil:'domcontentloaded'});await page.locator('.home-chart-slot .interactive-chart').waitFor();await page.locator('.compact-tx-row').first().waitFor();await page.evaluate(()=>document.fonts.ready);row.firstTransactionY=await page.locator('.compact-tx-row').first().evaluate(el=>el.getBoundingClientRect().top+scrollY);await page.screenshot({path:`${out}/${version}-${width}-home.png`});

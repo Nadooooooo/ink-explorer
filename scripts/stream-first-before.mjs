@@ -1,4 +1,4 @@
-import {chromium}from'playwright';import{mkdir,writeFile}from'node:fs/promises';
+import {chromium}from'playwright-core';import{mkdir,writeFile}from'node:fs/promises';
 const out='reports/stream-first/before';await mkdir(out,{recursive:true});const browser=await chromium.launch({args:['--no-sandbox']}),results=[];
 try{for(const prefix of ['', '/testnet'])for(const path of ['/blocks','/txs']){
  const c=await browser.newContext({viewport:{width:390,height:900}}),p=await c.newPage(),hash='0x'+'a'.repeat(64),address='0x'+'a'.repeat(40),chainId=prefix?763373:57073;let release;const held=new Promise(r=>release=r);

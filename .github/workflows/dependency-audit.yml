@@ -1,0 +1,26 @@
+name: Scheduled dependency audit
+
+on:
+  schedule:
+    - cron: '17 8 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        id: node
+        with:
+          node-version: 24
+      - run: npm audit --package-lock-only --include=dev --audit-level=high
+      - name: Check upstream parser advisories
+        if: ${{ !cancelled() && steps.node.outcome == 'success' }}
+        run: npm run test:matcher-audit

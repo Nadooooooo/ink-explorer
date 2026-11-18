@@ -1,4 +1,4 @@
-import assert from'node:assert/strict';import{chromium,firefox,webkit}from'playwright';import{mkdir,readFile,writeFile}from'node:fs/promises';
+import assert from'node:assert/strict';import{chromium,firefox,webkit}from'playwright-core';import{mkdir,readFile,writeFile}from'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',out=process.env.LEDGER_OUTPUT||'reports/ledger-ergonomics/browser';await mkdir(out,{recursive:true});const axe=await readFile('node_modules/axe-core/axe.min.js','utf8'),results=[];
 const address=n=>'0x'+n.toString(16).padStart(40,'0'),hash=n=>'0x'+n.toString(16).padStart(64,'0'),huge='9007199254740993123456789';
 const entity=(n,extra={})=>({hash:address(n),is_contract:true,is_verified:true,proxy_type:'eip1967',name:'Ink bridge contract with a long readable name',...extra});

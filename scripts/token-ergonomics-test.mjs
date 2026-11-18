@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';import{chromium,firefox,webkit}from'playwright';import{mkdir,writeFile,readFile}from'node:fs/promises';
+import assert from 'node:assert/strict';import{chromium,firefox,webkit}from'playwright-core';import{mkdir,writeFile,readFile}from'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',out=process.env.TOKEN_OUTPUT||'reports/token-ergonomics/browser';await mkdir(out,{recursive:true});const axe=await readFile('node_modules/axe-core/axe.min.js','utf8'),results=[];
 const A='0x'+'a'.repeat(40),B='0x'+'b'.repeat(40),wallet='0x'+'c'.repeat(40),hash='0x'+'1'.repeat(64);
 const token=(id=A)=>({address_hash:id,type:id===B?'ERC-721':'ERC-20',name:id===B?'Collection B':'Wrapped Example Token',symbol:id===B?'COLL':'EXAMPLE',icon_url:'https://invalid.example/logo.png',decimals:id===B?null:'18',total_supply:'1000000000000000001',holders_count:'101',exchange_rate:'0.000000001',circulating_market_cap:'2000000',volume_24h:'0'});

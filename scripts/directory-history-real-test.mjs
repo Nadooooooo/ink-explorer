@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { chromium, webkit } from 'playwright';
+import { chromium, webkit } from 'playwright-core';
 import { mkdir, writeFile } from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4324',out=process.env.DIRECTORY_REAL_OUTPUT||'reports/directory-history/real';
 await mkdir(out,{recursive:true});const results=[];

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',out=process.env.DENSITY_OUTPUT||'reports/mobile-density/browser';
 const baseline=process.env.DENSITY_BASELINE==='1',engines=(process.env.DENSITY_ENGINES||'chromium,firefox,webkit').split(','),widths=(process.env.DENSITY_WIDTHS||'320,390,760,768,1440').split(',').map(Number);

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 import {mkdir,writeFile,readFile} from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',out=process.env.DETAIL_OUTPUT||'reports/detail-ergonomics/browser';await mkdir(out,{recursive:true});
 const axe=await readFile('node_modules/axe-core/axe.min.js','utf8'),results=[];

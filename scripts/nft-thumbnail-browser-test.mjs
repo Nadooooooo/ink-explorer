@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {createServer} from 'vite';
 import react from '@vitejs/plugin-react';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 import {mkdir,writeFile} from 'node:fs/promises';
 
 // Mount the real transfer thumbnail with incomplete indexer records. These

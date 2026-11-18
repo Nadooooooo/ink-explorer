@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import{chromium,firefox,webkit}from'playwright';
+import{chromium,firefox,webkit}from'playwright-core';
 import{mkdir,writeFile,readFile}from'node:fs/promises';
 import axe from'axe-core';
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',out=process.env.STREAM_FIRST_OUTPUT||'reports/stream-first/browser';await mkdir(out,{recursive:true});const results=[];

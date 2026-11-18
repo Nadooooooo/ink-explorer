@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { chromium } from 'playwright';
+import { chromium } from 'playwright-core';
 import { preview } from 'vite';
 
 // Capture the actual UI before chain data arrives. No build-time blockchain

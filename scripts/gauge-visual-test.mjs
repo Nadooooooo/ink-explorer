@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { chromium, firefox, webkit } from 'playwright';
+import { chromium, firefox, webkit } from 'playwright-core';
 import { mkdir, writeFile } from 'node:fs/promises';
 
 // Exercise the production component through live frames, then inspect painted SVG

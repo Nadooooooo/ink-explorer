@@ -1,4 +1,4 @@
-import assert from'node:assert/strict';import{chromium,firefox,webkit}from'playwright';import{mkdir,readFile,writeFile}from'node:fs/promises';
+import assert from'node:assert/strict';import{chromium,firefox,webkit}from'playwright-core';import{mkdir,readFile,writeFile}from'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4311',out=process.env.COLUMN_OUTPUT||'reports/ledger-layout/columns',baseline=process.env.COLUMN_BASELINE==='1';await mkdir(out,{recursive:true});
 const sources=JSON.parse(await readFile(process.env.ACTIVITY_SOURCES||'reports/ledger-layout/sources.json')),results=[];
 for(const engine of(process.env.COLUMN_ENGINES||'chromium,firefox,webkit').split(',')){

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFile,mkdir,writeFile} from 'node:fs/promises';
 import {registerHooks} from 'node:module';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 import axe from 'axe-core';
 registerHooks({resolve(s,c,n){try{return n(s,c)}catch(e){if(s.startsWith('./')&&c.parentURL?.includes('/src/')&&!/\.[a-z]+$/.test(s))return n(s+'.ts',c);throw e;}}});
 const {handleRequest}=await import('../cloudflare/worker.mjs');

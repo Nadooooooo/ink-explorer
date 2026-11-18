@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import axe from 'axe-core';
 const base=process.env.BASE_URL||'http://127.0.0.1:4214',out=process.env.ROLLING_BROWSER_OUTPUT||'reports/rolling-metrics/browser',results=[];

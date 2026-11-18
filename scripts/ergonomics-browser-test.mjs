@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium,firefox,webkit}from'playwright';
+import {chromium,firefox,webkit}from'playwright-core';
 import{mkdir,writeFile}from'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4312',out=process.env.ERGONOMICS_OUTPUT||'reports/ergonomics/interactions';await mkdir(out,{recursive:true});const results=[];
 for(const engine of(process.env.ERGONOMICS_ENGINES||'chromium,firefox,webkit').split(',')){

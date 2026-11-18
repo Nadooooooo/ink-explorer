@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import * as playwright from 'playwright';
+import * as playwright from 'playwright-core';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',out=process.env.ACTIVITY_CONTROLS_OUTPUT||'reports/activity-controls/browser';
 const sources=JSON.parse(await readFile(process.env.ACTIVITY_SOURCES||'reports/activity-controls/sources.json'));

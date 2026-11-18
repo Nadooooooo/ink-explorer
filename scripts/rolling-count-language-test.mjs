@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium,firefox} from 'playwright';
+import {chromium,firefox} from 'playwright-core';
 import {mkdir,writeFile} from 'node:fs/promises';
 const out='reports/rolling-metrics/languages';await mkdir(out,{recursive:true});const results=[];
 for(const engine of [chromium,firefox]){

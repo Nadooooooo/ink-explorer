@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 // certify a release. Process groups keep timed-out browser children contained.
 const suites = [
   ['check',['run','check'],120], ['build',['run','build'],180], ['dependencies',['audit','--include=dev','--audit-level=high'],120],
+  ['upstream-matcher',['run','test:matcher-audit'],120],
   ['data',['run','test:data'],120], ['block-indexing-data',['run','test:block-indexing-data'],120], ['block-indexing-server',['run','test:block-indexing-server'],180], ['block-indexing-browser',['run','test:block-indexing-browser'],900], ['startup',['run','test:startup'],360], ['platform',['run','test:platform'],240], ['lifecycle',['run','test:lifecycle'],480], ['navigation',['run','test:navigation'],700], ['seo',['run','test:seo'],120], ['seo-browser',['run','test:seo-browser'],180], ['search',['run','test:search'],120], ['search-browser',['run','test:search-browser'],300], ['pool-identity',['run','test:pool-identity'],120], ['pool-detail',['run','test:pool-detail'],300], ['node-readiness',['run','test:node-readiness'],120],
   ['upstream-cache',['run','test:upstream-cache'],120], ['security',['run','test:security'],120], ['integrity',['run','test:integrity'],180],
   ['data-freshness',['run','test:data-freshness'],600],

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium,webkit} from 'playwright';
+import {chromium,webkit} from 'playwright-core';
 import {mkdir,writeFile} from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4324',out=process.env.DIRECTORY_UPDATES_OUTPUT||'reports/directory-history/updates';await mkdir(out,{recursive:true});const results=[];
 const hash=n=>'0x'+n.toString(16).padStart(64,'0'),address=n=>'0x'+n.toString(16).padStart(40,'0');

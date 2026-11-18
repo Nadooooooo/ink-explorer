@@ -1,4 +1,4 @@
-import { chromium } from 'playwright';
+import { chromium } from 'playwright-core';
 import { mkdir,writeFile } from 'node:fs/promises';
 const output=process.env.ERGONOMICS_OUTPUT||'reports/ergonomics/before';await mkdir(output,{recursive:true});
 const browser=await chromium.launch({executablePath:'/usr/bin/google-chrome',args:['--no-sandbox']});

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',out=process.env.FILTER_DIALOG_OUTPUT||'reports/filters/dialog';await mkdir(out,{recursive:true});
 const locales=['en','fr','es','pt','zh','ja','ru','ar','hi','bn'],results=[],axe=await readFile('node_modules/axe-core/axe.min.js','utf8');

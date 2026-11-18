@@ -1,4 +1,4 @@
-import {firefox} from 'playwright';
+import {firefox} from 'playwright-core';
 import {mkdir,writeFile} from 'node:fs/promises';
 const base=process.env.BASE_URL||'https://inkexplorer.xyz',out=process.env.TEXT_OUTPUT||'reports/text-layout/baseline';await mkdir(out,{recursive:true});
 const b=await firefox.launch({firefoxUserPrefs:{'font.minimum-size.x-western':24}}),results=[];

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 import {readFile,mkdir,writeFile} from 'node:fs/promises';
 const base=process.env.BASE_URL||'https://inkexplorer.xyz',output=process.env.FILTER_BROWSER_OUTPUT||'reports/filter-integrity/public-browser';
 const samples=JSON.parse(await readFile('reports/filter-integrity/before-real.json','utf8')),results=[];await mkdir(output,{recursive:true});

@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';import {chromium,webkit}from'playwright';import{execFile}from'node:child_process';import{promisify}from'node:util';const run=promisify(execFile);import{mkdir,writeFile}from'node:fs/promises';
+import assert from 'node:assert/strict';import {chromium,webkit}from'playwright-core';import{execFile}from'node:child_process';import{promisify}from'node:util';const run=promisify(execFile);import{mkdir,writeFile}from'node:fs/promises';
 const out='reports/server-migration/local-reconnect';await mkdir(out,{recursive:true});const results=[];
 for(const[engine,launcher]of Object.entries({chromium,webkit})){
  const browser=await launcher.launch(engine==='chromium'?{args:['--no-sandbox']}:{});

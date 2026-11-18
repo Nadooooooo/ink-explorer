@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
-import {chromium} from 'playwright';
+import {chromium} from 'playwright-core';
 const origin='https://inkexplorer.xyz',template=await readFile('dist/index.html','utf8'),manifest=[];
 const browser=await chromium.launch({args:['--no-sandbox']});
 await mkdir('dist/snapshots/records',{recursive:true});

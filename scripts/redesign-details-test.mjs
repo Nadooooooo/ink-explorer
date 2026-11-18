@@ -1,4 +1,4 @@
-import{chromium}from'playwright';import{readFile,mkdir,writeFile}from'node:fs/promises';
+import{chromium}from'playwright-core';import{readFile,mkdir,writeFile}from'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',output='reports/redesign/details';await mkdir(output,{recursive:true});const axe=await readFile('node_modules/axe-core/axe.min.js','utf8'),results=[];
 const browser=await chromium.launch({args:['--no-sandbox']});
 try{for(const prefix of ['', '/testnet']){

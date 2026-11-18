@@ -4,7 +4,7 @@ import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {createServer} from 'vite';
 import react from '@vitejs/plugin-react';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 
 // Exercise the real recovery hook and the same React-child name rendering used
 // by NftItem. The server can return arbitrary collection-controlled metadata.

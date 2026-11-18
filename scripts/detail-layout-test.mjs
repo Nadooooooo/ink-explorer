@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';import{chromium}from'playwright';import{readFile,writeFile,mkdir}from'node:fs/promises';
+import assert from 'node:assert/strict';import{chromium}from'playwright-core';import{readFile,writeFile,mkdir}from'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',out=process.env.DETAIL_LAYOUT_OUTPUT||'reports/detail-ergonomics/layout',data=JSON.parse(await readFile('reports/detail-ergonomics/comparison/results.json','utf8'));await mkdir(out,{recursive:true});
 const browser=await chromium.launch({args:['--no-sandbox']}),results=[];
 try{for(const locale of['en','fr','ar','es','pt','zh','ja','ru','hi','bn'])for(const width of[320,768,1440]){

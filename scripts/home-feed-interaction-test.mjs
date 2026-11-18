@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium, firefox, webkit} from 'playwright';
+import {chromium, firefox, webkit} from 'playwright-core';
 import {WebSocketServer} from 'ws';
 import {mkdir, writeFile} from 'node:fs/promises';
 

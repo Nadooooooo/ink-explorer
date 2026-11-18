@@ -1,5 +1,5 @@
 import {ledgerColumnPaint} from './ledger-column-paint.mjs';
-import assert from 'node:assert/strict';import {chromium,firefox,webkit} from 'playwright';import {mkdir,writeFile} from 'node:fs/promises';
+import assert from 'node:assert/strict';import {chromium,firefox,webkit} from 'playwright-core';import {mkdir,writeFile} from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4317',out=process.env.ADDRESS_ACTIVITY_REAL_OUTPUT||'reports/address-activity/real';await mkdir(out,{recursive:true});const results=[];
 const system='0x4200000000000000000000000000000000000015',addressOf=v=>typeof v==='string'?v:v?.hash;
 async function rpc(port,method,params){const r=await fetch(`http://127.0.0.1:${port}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params}),signal:AbortSignal.timeout(10000)}),j=await r.json();assert(r.ok&&!j.error);return j.result;}

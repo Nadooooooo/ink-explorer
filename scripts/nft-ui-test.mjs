@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';import {chromium} from 'playwright';import {mkdir,writeFile,readFile} from 'node:fs/promises';import {createRequire} from 'node:module';
+import assert from 'node:assert/strict';import {chromium} from 'playwright-core';import {mkdir,writeFile,readFile} from 'node:fs/promises';import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url),base=process.env.BASE_URL||'http://127.0.0.1:4318',out=process.env.NFT_UI_OUTPUT||'reports/nft-details/interactions',results=[],contract='0x'+'a'.repeat(40),owner='0x'+'b'.repeat(40),id=(2n**256n-1n).toString();await mkdir(out,{recursive:true});const browser=await chromium.launch({args:['--no-sandbox']});
 try{for(const width of[320,768,1440]){
  const context=await browser.newContext({viewport:{width,height:1000},permissions:['clipboard-read','clipboard-write']}),page=await context.newPage(),row={width,passed:false},errors=[];let failed=true,image='ready';page.setDefaultTimeout(12000);page.on('pageerror',e=>errors.push(e.message));

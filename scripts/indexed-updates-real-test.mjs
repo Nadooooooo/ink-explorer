@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';import{chromium}from'playwright';import{mkdir,writeFile}from'node:fs/promises';
+import assert from 'node:assert/strict';import{chromium}from'playwright-core';import{mkdir,writeFile}from'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',out=process.env.INDEXED_REAL_OUTPUT||'reports/indexed-updates/real-updates';await mkdir(out,{recursive:true});const browser=await chromium.launch({args:['--no-sandbox']}),results=[];
 try{for(const prefix of['','/testnet'])for(const[route,endpoint,selector]of[['internal-txs','internal-transactions','.ledger-record'],['token-transfers','token-transfers','.transfer-record']]){
  const p=await browser.newPage({viewport:{width:390,height:844}}),r={prefix,route,passed:false};p.setDefaultTimeout(25000);let number=0;const responses=[];p.on('response',res=>{if(new URL(res.url()).pathname===prefix+'/api/explorer/'+endpoint)responses.push(res);});

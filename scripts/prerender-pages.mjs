@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
-import {chromium} from 'playwright';
+import {chromium} from 'playwright-core';
 import {initialPageRoutes,initialPageKey} from '../server/page-snapshots.mjs';
 import {startupCopy} from '../server/startup-shell.mjs';
 import {prerenderEcosystemDetails} from './prerender-ecosystem-details.mjs';

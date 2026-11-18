@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {documentHeaders,renderPage} from '../server/page-document.mjs';
 import {themeBootstrapHash} from '../server/theme-bootstrap-policy.mjs';

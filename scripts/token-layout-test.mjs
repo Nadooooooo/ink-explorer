@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';import{chromium}from'playwright';import{mkdir,writeFile}from'node:fs/promises';const base=process.env.BASE_URL||'http://127.0.0.1:4310',out=process.env.TOKEN_LAYOUT_OUTPUT||'reports/token-ergonomics/layout';await mkdir(out,{recursive:true});const b=await chromium.launch({args:['--no-sandbox']}),results=[];
+import assert from 'node:assert/strict';import{chromium}from'playwright-core';import{mkdir,writeFile}from'node:fs/promises';const base=process.env.BASE_URL||'http://127.0.0.1:4310',out=process.env.TOKEN_LAYOUT_OUTPUT||'reports/token-ergonomics/layout';await mkdir(out,{recursive:true});const b=await chromium.launch({args:['--no-sandbox']}),results=[];
 try{for(const locale of['en','fr','ar','es','pt','zh','ja','ru','hi','bn'])for(const width of[320,1440]){
  const page=await b.newPage({viewport:{width,height:1000},colorScheme:width===320?'light':'dark'}),row={locale,width,passed:false};page.setDefaultTimeout(15000);
  try{

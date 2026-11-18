@@ -1,6 +1,6 @@
 import { navigateBlocks } from './navigation-actions.mjs';
 import assert from 'node:assert/strict';
-import { chromium } from 'playwright';
+import { chromium } from 'playwright-core';
 
 const base = process.env.BASE_URL || 'http://127.0.0.1:4188';
 const address = '0x' + '1'.repeat(40), hash = '0x' + '2'.repeat(64), hash2 = '0x' + '3'.repeat(64);

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium} from 'playwright';
+import {chromium} from 'playwright-core';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {formatChainAmount} from '../src/explorer-data.ts';
 import {tokenUsd} from '../src/token-data.ts';

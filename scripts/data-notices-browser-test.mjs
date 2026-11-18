@@ -1,4 +1,4 @@
-import assert from'node:assert/strict';import{chromium,firefox,webkit}from'playwright';import{mkdir,readFile,writeFile}from'node:fs/promises';
+import assert from'node:assert/strict';import{chromium,firefox,webkit}from'playwright-core';import{mkdir,readFile,writeFile}from'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',out=process.env.NOTICE_OUTPUT||'reports/data-notices/browser';await mkdir(out,{recursive:true});const axe=await readFile('node_modules/axe-core/axe.min.js','utf8'),results=[];
 const engines=(process.env.NOTICE_ENGINES||'chromium,firefox,webkit').split(','),locales=process.env.NOTICE_LOCALES?.split(','),widths=(process.env.NOTICE_WIDTHS||'320,768,1440').split(',').map(Number),date='2026-10-16T12:34:56.000Z';
 const addr=n=>'0x'+n.toString(16).padStart(40,'0'),hash=n=>'0x'+n.toString(16).padStart(64,'0');

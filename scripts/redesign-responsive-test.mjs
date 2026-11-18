@@ -1,4 +1,4 @@
-import{chromium,firefox,webkit}from'playwright';
+import{chromium,firefox,webkit}from'playwright-core';
 import{mkdir,writeFile,readFile}from'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',output=process.env.RESPONSIVE_OUTPUT||'reports/redesign/responsive';
 const locales=['en','fr','es','pt','zh','ja','ru','ar','hi','bn'],widths=[320,390,768,1024,1440,1920,2560];

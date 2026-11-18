@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { chromium, firefox, webkit } from 'playwright';
+import { chromium, firefox, webkit } from 'playwright-core';
 import { mkdir, writeFile } from 'node:fs/promises';
 import axe from 'axe-core';
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',out=process.env.NETWORK_ARRIVAL_OUTPUT||'reports/network-arrival/browser';

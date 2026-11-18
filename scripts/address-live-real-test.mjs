@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 const base=process.env.BASE_URL||'http://127.0.0.1:4315',out=process.env.ADDRESS_REAL_OUTPUT||'reports/address-live/real',id='0x4200000000000000000000000000000000000006';
 await mkdir(out,{recursive:true});const results=[];
 async function rpc(port,method,params){const r=await fetch(`http://127.0.0.1:${port}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params}),signal:AbortSignal.timeout(10000)}),d=await r.json();assert(r.ok&&!d.error);return d.result;}

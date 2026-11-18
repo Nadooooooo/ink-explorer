@@ -1,0 +1,42 @@
+name: Verify public deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_version:
+        description: Deployed site identifier to verify
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: github.repository == 'Nadooooooo/ink-explorer'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BASE_URL: https://inkexplorer.xyz
+      EXPECTED_SITE_VERSION: ${{ inputs.expected_version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --include=dev --no-audit
+      - run: npm exec -- playwright-core install --with-deps chromium
+      - run: npm run build
+      - name: Verify the public release identifier
+        if: env.EXPECTED_SITE_VERSION != ''
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const response = await fetch(new URL('/__site/health', process.env.BASE_URL), {signal: AbortSignal.timeout(15000)});
+          assert.equal(response.status, 200);
+          assert.equal((await response.json()).version, process.env.EXPECTED_SITE_VERSION);
+          NODE
+      - run: npm run test:post-deploy

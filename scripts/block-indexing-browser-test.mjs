@@ -2,7 +2,7 @@ import { headerSearch } from './navigation-actions.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { chromium, firefox, webkit } from 'playwright';
+import { chromium, firefox, webkit } from 'playwright-core';
 import axe from 'axe-core';
 
 const base = process.env.BASE_URL || 'http://127.0.0.1:4298';

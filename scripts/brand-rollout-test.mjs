@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium} from 'playwright';
+import {chromium} from 'playwright-core';
 import {readFile,mkdir,writeFile} from 'node:fs/promises';
 import {homePageTitles,homeGuideCopy,homeDataCopy} from '../src/home-guide-copy.ts';
 

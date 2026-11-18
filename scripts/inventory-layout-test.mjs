@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 import {mkdir,writeFile} from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4317',out=process.env.INVENTORY_LAYOUT_OUTPUT||'reports/account-inventory/layout',large=process.env.INVENTORY_FONT_MIN==='24',results=[];
 const account='0x'+'a'.repeat(40),token='0x'+'b'.repeat(40),locales=large?['en','fr','ar']:['en','fr','ar','zh','hi','bn','es','pt','ru','ja'];

@@ -1,4 +1,4 @@
-import{chromium}from'playwright';import assert from'node:assert/strict';import{mkdir,writeFile}from'node:fs/promises';
+import{chromium}from'playwright-core';import assert from'node:assert/strict';import{mkdir,writeFile}from'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',results=[],hash='0x'+'f'.repeat(64),txHash='0x'+'e'.repeat(64),height=90000000;
 const browser=await chromium.launch({args:['--no-sandbox']});try{for(const prefix of ['', '/testnet']){
  const chainId=prefix?763373:57073;const original=await fetch(base+prefix+'/api/overview').then(r=>r.json());

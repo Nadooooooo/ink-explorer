@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {headerSearch,navigateBlocks} from './navigation-actions.mjs';
-import { chromium, firefox, webkit } from 'playwright';
+import { chromium, firefox, webkit } from 'playwright-core';
 import { mkdir,writeFile } from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4298', output=process.env.SEARCH_REVIEW_DIR||'reports/search';
 await mkdir(output,{recursive:true});

@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';import{chromium,firefox,webkit}from'playwright';import{mkdir,readFile,writeFile}from'node:fs/promises';
+import assert from 'node:assert/strict';import{chromium,firefox,webkit}from'playwright-core';import{mkdir,readFile,writeFile}from'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',out=process.env.TRANSFER_OUTPUT||'reports/transfer-ergonomics/browser';await mkdir(out,{recursive:true});const axe=await readFile('node_modules/axe-core/axe.min.js','utf8'),results=[];
 const a=n=>'0x'+n.toString(16).padStart(40,'0'),h=n=>'0x'+n.toString(16).padStart(64,'0'),A=a(100),B=a(101),C=a(102),account=a(1),large='900719925474099312345',quantity='900719925474099399999';
 const entityKinds=[{is_contract:true},{is_contract:true,is_verified:true},{is_contract:true,proxy_type:'eip1967'},{is_contract:true,is_verified:true,proxy_type:'eip1967'}];

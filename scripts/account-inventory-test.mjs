@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 import {mkdir,writeFile} from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4317',out=process.env.INVENTORY_OUTPUT||'reports/account-inventory/browser',baseline=process.env.INVENTORY_BASELINE==='1',results=[];
 const account='0x'+'a'.repeat(40),other='0x'+'b'.repeat(40),token='0x'+'1'.repeat(40),second='0x'+'2'.repeat(40),third='0x'+'3'.repeat(40);

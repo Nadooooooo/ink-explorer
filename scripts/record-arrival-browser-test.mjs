@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFile,mkdir,writeFile} from 'node:fs/promises';
 import {registerHooks} from 'node:module';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 import axe from 'axe-core';
 // Firefox keeps FontFaceSet.status="loading" until the held module finishes,
 // even when every requested font has loaded. Observe the individual font faces.

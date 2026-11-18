@@ -1,4 +1,4 @@
-import {chromium} from 'playwright';
+import {chromium} from 'playwright-core';
 import {mkdir,writeFile}from'node:fs/promises';
 const base=process.env.BASE_URL||'https://inkexplorer.xyz',out=process.env.LEDGER_RACE_OUTPUT||'reports/network-arrival/ledger-race-audit';
 await mkdir(out,{recursive:true});const results=[];const browser=await chromium.launch({args:['--no-sandbox']});

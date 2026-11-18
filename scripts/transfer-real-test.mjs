@@ -1,4 +1,4 @@
-import assert from'node:assert/strict';import{chromium}from'playwright';import{mkdir,writeFile}from'node:fs/promises';
+import assert from'node:assert/strict';import{chromium}from'playwright-core';import{mkdir,writeFile}from'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',out=process.env.TRANSFER_REAL_OUTPUT||'reports/transfer-ergonomics/real';await mkdir(out,{recursive:true});const b=await chromium.launch({args:['--no-sandbox']}),results=[];
 try{for(const prefix of['','/testnet'])for(const standard of['ERC-20','ERC-721','ERC-1155']){
 const discovery=await(await fetch(base+prefix+'/api/explorer/token-transfers?type='+standard)).json();assert(discovery.items?.length>0);const id=discovery.items[0].token.address_hash;

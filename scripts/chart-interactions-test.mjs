@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',output=process.env.CHART_REVIEW_DIR||'screenshots/chart-interactions',engines=(process.env.CHART_BROWSERS||'chromium').split(','),results=[];
 await mkdir(output,{recursive:true});
 const ids=['activeAccounts','newAccounts','accountsGrowth'],titles=['Active accounts','New accounts','Number of accounts'];

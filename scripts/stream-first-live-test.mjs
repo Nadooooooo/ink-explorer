@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium,firefox,webkit}from'playwright';
+import {chromium,firefox,webkit}from'playwright-core';
 import {mkdir,writeFile}from'node:fs/promises';
 const base=process.env.BASE_URL,out=process.env.STREAM_LIVE_OUTPUT||'reports/stream-first/live';
 assert(base?.startsWith('https://'),'An explicit public HTTPS origin is required');await mkdir(out,{recursive:true});const results=[];

@@ -1,4 +1,4 @@
-import {chromium} from 'playwright';
+import {chromium} from 'playwright-core';
 import {mkdir,writeFile,readFile} from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',out='reports/polish/extra-states';await mkdir(out,{recursive:true});
 const pools=await fetch(base+'/api/contract-info/pools').then(r=>r.json());

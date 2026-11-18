@@ -1,4 +1,4 @@
-import {chromium} from 'playwright';
+import {chromium} from 'playwright-core';
 import {mkdir,writeFile,readFile} from 'node:fs/promises';
 const base=process.env.BASE_URL || 'http://127.0.0.1:4310';
 const axe=await readFile(new URL('../node_modules/axe-core/axe.min.js',import.meta.url),'utf8');

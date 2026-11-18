@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { chromium } from 'playwright';
+import { chromium } from 'playwright-core';
 import { WebSocketServer } from 'ws';
 import { mkdir, writeFile } from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4201',results=[];

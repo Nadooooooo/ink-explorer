@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
-import { chromium, firefox, webkit } from "playwright";
+import { chromium, firefox, webkit } from "playwright-core";
 import axe from "axe-core";
 const base = process.env.BASE_URL || "http://127.0.0.1:4188";
 const checks = [];

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {registerHooks} from 'node:module';
-import {chromium} from 'playwright';
+import {chromium} from 'playwright-core';
 registerHooks({resolve(s,c,n){try{return n(s,c)}catch(e){if(s.startsWith('./')&&c.parentURL?.includes('/src/')&&!/\.[a-z]+$/.test(s))return n(s+'.ts',c);throw e;}}});
 const {handleRequest}=await import('../cloudflare/worker.mjs');
 const base=process.env.BASE_URL||'http://127.0.0.1:4214',publicSite=base.startsWith('https:'),out=process.env.IME_OUTPUT||'reports/search-ime/browser';

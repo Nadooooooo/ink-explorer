@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';import {chromium,firefox,webkit} from 'playwright';import {mkdir,writeFile} from 'node:fs/promises';
+import assert from 'node:assert/strict';import {chromium,firefox,webkit} from 'playwright-core';import {mkdir,writeFile} from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4319',baseline=process.env.FOOTER_BASELINE==='1',large=process.env.FOOTER_FONT_MIN==='24',engine=large?'firefox':process.env.FOOTER_ENGINE||'chromium',out=process.env.FOOTER_OUTPUT||'reports/footer/layout',results=[];
 const locales=baseline?['en','fr']:['en','fr','ar','zh','hi','bn','es','pt','ru','ja'];await mkdir(out,{recursive:true});const browser=await({chromium,firefox,webkit})[engine].launch(large?{firefoxUserPrefs:Object.fromEntries(['x-western','x-cyrillic','x-unicode','ar','ja','zh-CN','zh-HK','zh-TW','x-devanagari','x-beng'].map(group=>['font.minimum-size.'+group,24]))}:engine==='chromium'?{args:['--no-sandbox']}:{});
 try{for(const locale of locales)for(const width of baseline?[320]:large?[320,390]:[320,390,768,1440]){

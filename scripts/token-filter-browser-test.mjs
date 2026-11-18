@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium,webkit} from 'playwright';
+import {chromium,webkit} from 'playwright-core';
 import {mkdir,writeFile,readFile} from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4325',output=process.env.TOKEN_FILTER_BROWSER_OUTPUT||'reports/token-filter/browser';
 await mkdir(output,{recursive:true});const results=[];

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 import {DatabaseSync} from 'node:sqlite';
 import {access,mkdir,writeFile} from 'node:fs/promises';
 import {resolve,join} from 'node:path';

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 import {createServer} from 'vite';
 import {mkdir,readFile,realpath,writeFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';

@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';import {chromium,firefox,webkit} from 'playwright';import {mkdir,writeFile} from 'node:fs/promises';
+import assert from 'node:assert/strict';import {chromium,firefox,webkit} from 'playwright-core';import {mkdir,writeFile} from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4318',out=process.env.NFT_OUTPUT||'reports/nft-details/browser',results=[];
 const contract='0x'+'a'.repeat(40),other='0x'+'d'.repeat(40),owner='0x'+'b'.repeat(40),newOwner='0x'+'c'.repeat(40);
 await mkdir(out,{recursive:true});

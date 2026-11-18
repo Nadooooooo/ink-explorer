@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 import {mkdir,writeFile} from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4316',out=process.env.HOLDER_OUTPUT||'reports/holder-snapshots/browser',baseline=process.env.HOLDER_BASELINE==='1',results=[];
 const token='0x'+'a'.repeat(40),otherToken='0x'+'b'.repeat(40),a='0x'+'1'.repeat(40),b='0x'+'2'.repeat(40),c='0x'+'3'.repeat(40);

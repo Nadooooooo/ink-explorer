@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';import {chromium} from 'playwright';import {mkdir,writeFile} from 'node:fs/promises';import {formatChainAmount} from '../src/explorer-data.ts';
+import assert from 'node:assert/strict';import {chromium} from 'playwright-core';import {mkdir,writeFile} from 'node:fs/promises';import {formatChainAmount} from '../src/explorer-data.ts';
 const base=process.env.BASE_URL||'http://127.0.0.1:4318',out=process.env.NFT_HISTORY_OUTPUT||'reports/nft-details/history',results=[];
 const fixtures={'':{contract:'0x92808d029fDEaAeb589305E280Dd0E6A10BfD016',id:'4750997'},'/testnet':{contract:'0x7f36fc4aC0821b6A5b05a83cFB5ba61DfcC1F6bb',id:'41564'}};
 await mkdir(out,{recursive:true});const browser=await chromium.launch({executablePath:'/usr/bin/google-chrome',args:['--no-sandbox'],ignoreDefaultArgs:['--disable-back-forward-cache']});

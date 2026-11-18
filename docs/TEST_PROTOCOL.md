@@ -29,7 +29,7 @@ rsync -a --exclude=.git --exclude=node_modules --exclude=dist --exclude=data \
   "$SOURCE_WORKDIR/" "$REVIEW_WORKDIR/"
 cd "$REVIEW_WORKDIR"
 npm ci --include=dev
-npm exec -- playwright install --with-deps chromium firefox webkit
+npm exec -- playwright-core install --with-deps chromium firefox webkit
 npm run build
 ```
 
@@ -84,6 +84,8 @@ BASE_URL=https://your-explorer.example npm run test:post-deploy
 BASE_URL=https://your-explorer.example npm run test:networks
 ```
 
+Maintainers can run the same public HTTP checks from a GitHub-hosted runner using **Verify public deployment** in Actions. Select the deployed revision and enter its site identifier to verify the live version, assets and both networks from outside the hosting network. [Public verification workflow](../.github/workflows/public-verification.yml)
+
 `test:post-deploy` verifies the deployed entry asset names and SHA-256 hashes,
 raw document metadata on both networks, locales, 404s, robots/sitemaps and live
 node readiness. It asserts that QR configuration is absent for the current scope.
@@ -104,7 +106,7 @@ do not publish without authorization.
 | Requirement | Evidence | Gate |
 | --- | --- | --- |
 | Type safety and production packaging | `check`, `build` logs | Both exit 0 |
-| Dependency integrity | `dependencies` audit | No high or critical advisory |
+| Dependency integrity | `dependencies` and `upstream-matcher` | Standard npm audit passes, every matcher matches the reviewed archive, and the original parser has no unreviewed high or critical advisory |
 | Pending, included, successful and reverted transactions | `data`, `integrity`, real EVM `contracts` | Distinct states; no success claim based only on inclusion |
 | Finality | `data`, `integrity`, `network-live`, `node-testnet` | Safe/finalized only from a ready node on the expected chain; compare finalized hash with public reference |
 | Execution and L1 fees | `data`, `integrity` | Exact wei arithmetic; missing/estimated fees remain unknown |

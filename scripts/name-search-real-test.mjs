@@ -1,4 +1,4 @@
-import {chromium,webkit} from 'playwright';
+import {chromium,webkit} from 'playwright-core';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4322',out=process.env.NAMES_REAL_OUTPUT||'reports/name-search/real-final',results=[];await mkdir(out,{recursive:true});

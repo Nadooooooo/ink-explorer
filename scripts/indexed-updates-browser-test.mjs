@@ -1,4 +1,4 @@
-import assert from'node:assert/strict';import{chromium,firefox,webkit}from'playwright';import{mkdir,readFile,writeFile}from'node:fs/promises';
+import assert from'node:assert/strict';import{chromium,firefox,webkit}from'playwright-core';import{mkdir,readFile,writeFile}from'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',out=process.env.INDEXED_OUTPUT||'reports/indexed-updates/browser';await mkdir(out,{recursive:true});const axe=await readFile('node_modules/axe-core/axe.min.js','utf8'),results=[];
 const filtered=process.env.INDEXED_FILTERED==='1';
 const paths={accounts:'addresses','internal-txs':'internal-transactions',deposits:'optimism/deposits',withdrawals:'optimism/withdrawals','token-transfers':filtered?'advanced-filters':'token-transfers'};

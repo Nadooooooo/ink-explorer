@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 import {WebSocketServer} from 'ws';
 import {mkdir,writeFile} from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',out=process.env.TOUCH_RACE_OUTPUT||'reports/activity-controls/touch-race',baseline=process.env.COPY_RACE_BASELINE==='1',results=[];

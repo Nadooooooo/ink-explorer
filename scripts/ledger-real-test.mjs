@@ -1,4 +1,4 @@
-import assert from'node:assert/strict';import{chromium}from'playwright';import{mkdir,writeFile}from'node:fs/promises';
+import assert from'node:assert/strict';import{chromium}from'playwright-core';import{mkdir,writeFile}from'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',out=process.env.LEDGER_REAL_OUTPUT||'reports/ledger-ergonomics/real';await mkdir(out,{recursive:true});const browser=await chromium.launch({args:['--no-sandbox']}),results=[],paths={accounts:'addresses','internal-txs':'internal-transactions',deposits:'optimism/deposits',withdrawals:'optimism/withdrawals'};
 try{for(const prefix of['','/testnet'])for(const width of[390,1440])for(const[route,endpoint]of Object.entries(paths)){
  const p=await browser.newPage({viewport:{width,height:1000},colorScheme:width===390?'light':'dark'}),r={prefix,width,route,passed:false},errors=[];p.on('pageerror',e=>errors.push(e.message));p.setDefaultTimeout(25000);const response=()=>p.waitForResponse(r=>new URL(r.url()).pathname===prefix+'/api/explorer/'+endpoint);

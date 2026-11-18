@@ -1,4 +1,4 @@
-import assert from'node:assert/strict';import{chromium}from'playwright';import{mkdir,writeFile}from'node:fs/promises';
+import assert from'node:assert/strict';import{chromium}from'playwright-core';import{mkdir,writeFile}from'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4311',out=process.env.TOUCH_OUTPUT||'reports/placement/touch';await mkdir(out,{recursive:true});const b=await chromium.launch({args:['--no-sandbox']}),results=[];
 try{for(const prefix of['','/testnet'])for(const route of['txs','blocks']){
  const c=await b.newContext({viewport:{width:390,height:900},isMobile:true,hasTouch:true,colorScheme:'dark',acceptDownloads:true}),p=await c.newPage(),r={prefix,route,passed:false};try{await p.goto(base+prefix+'/'+route,{waitUntil:'domcontentloaded'});await p.locator('.ledger-viewport .full-tx-row,.ledger-viewport .block-row').first().waitFor({timeout:30000});const view=p.locator('.ledger-viewport'),cd=await c.newCDPSession(p),y=(await view.boundingBox()).y+110;

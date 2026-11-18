@@ -1,7 +1,7 @@
 import {waitRecordPaint} from './wait-record-paint.mjs';
 import assert from 'node:assert/strict';
 import {readFile,mkdir,writeFile} from 'node:fs/promises';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 // Inspect the actual intermediate paint; FontFaceSet.ready in Firefox waits
 // for the deliberately held module, unlike individual loaded font faces.
 process.env.PW_TEST_SCREENSHOT_NO_FONTS_READY='1';

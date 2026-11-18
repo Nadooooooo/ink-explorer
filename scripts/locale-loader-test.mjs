@@ -1,4 +1,4 @@
-import{chromium,firefox,webkit}from'playwright';import assert from'node:assert/strict';import{mkdir,writeFile}from'node:fs/promises';import{registerHooks}from'node:module';
+import{chromium,firefox,webkit}from'playwright-core';import assert from'node:assert/strict';import{mkdir,writeFile}from'node:fs/promises';import{registerHooks}from'node:module';
 registerHooks({resolve(s,c,n){try{return n(s,c)}catch(e){if(s.startsWith('.')&&!/\.[a-z]+$/.test(s))return n(s+'.ts',c);throw e}}});
 const{message,locales}=await import('../src/i18n.ts');
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',results=[];await mkdir('reports/redesign/locales',{recursive:true});

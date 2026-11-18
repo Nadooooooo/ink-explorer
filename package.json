@@ -30,6 +30,7 @@
     "test:charts": "node scripts/chart-interactions-current-test.mjs && node scripts/chart-integrity-browser-test.mjs && node --test scripts/chart-data-test.mjs scripts/chart-scale-test.mjs",
     "test:ui": "node --import ./scripts/ui-observe.mjs scripts/smoke-test.mjs",
     "test:security": "node scripts/security-test.mjs",
+    "test:matcher-audit": "node --test scripts/audit-matcher-upstream-test.mjs && node scripts/audit-matcher-upstream.mjs",
     "test:identicons": "node scripts/identicon-test.mjs",
     "test:content": "node scripts/content-quality-test.mjs",
     "test:performance": "node scripts/performance-test.mjs",
@@ -140,7 +141,7 @@
     "axe-core": "4.13.0",
     "es-module-lexer": "3.0.2",
     "lighthouse": "13.5.0",
-    "playwright": "1.63.0",
+    "playwright-core": "1.63.0",
     "puppeteer-core": "25.16.0",
     "solc": "0.8.37",
     "typescript": "7.0.2",
@@ -155,6 +156,10 @@
     "viem": "2.57.2",
     "zod": "4.6.7",
     "follow-redirects": "1.16.3",
-    "fast-uri": "3.1.9"
+    "fast-uri": "3.1.9",
+    "picomatch": "npm:@ryotsu/picomatch@4.0.7-a",
+    "valtio": {
+      "use-sync-external-store": "1.7.0"
+    }
   }
 }

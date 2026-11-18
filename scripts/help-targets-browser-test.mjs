@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 import {mkdir,writeFile} from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',out=process.env.HELP_TARGET_OUTPUT||'reports/touch-help/browser',baseline=process.env.HELP_TARGET_BASELINE==='1',results=[];
 const widths=(process.env.HELP_TARGET_WIDTHS||'320,768,1440').split(',').map(Number),engines=(process.env.HELP_TARGET_ENGINES||'chromium,firefox,webkit').split(',');

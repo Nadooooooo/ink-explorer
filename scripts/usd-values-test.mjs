@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 import {mkdir,writeFile} from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4311',out=process.env.USD_OUTPUT||'reports/usd-values/browser',baseline=process.env.USD_BASELINE==='1',results=[];
 const address='0x'+'1'.repeat(40),token='0x'+'2'.repeat(40),pool='0x'+'a'.repeat(64);

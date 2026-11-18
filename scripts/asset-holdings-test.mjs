@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { chromium } from 'playwright';
+import { chromium } from 'playwright-core';
 const base = process.env.BASE_URL || 'http://127.0.0.1:4188';
 const address = '0x4200000000000000000000000000000000000006';
 const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--no-sandbox'] });

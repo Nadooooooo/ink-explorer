@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium,webkit} from 'playwright';
+import {chromium,webkit} from 'playwright-core';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import axe from 'axe-core';
 const base=process.env.BASE_URL||'http://127.0.0.1:4212',out=process.env.MARKET_SCOPE_OUTPUT||'reports/market-scope/browser';

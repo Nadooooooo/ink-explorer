@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 import {mkdir,writeFile} from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4311',out=process.env.POOL_OUTPUT||'reports/pool-freshness/browser',results=[];
 const address=n=>'0x'+n.toString(16).padStart(40,'0'),singleton='0x'+'a'.repeat(64);

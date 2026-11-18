@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';import {chromium,firefox,webkit} from 'playwright';import {mkdir,writeFile,readFile} from 'node:fs/promises';
+import assert from 'node:assert/strict';import {chromium,firefox,webkit} from 'playwright-core';import {mkdir,writeFile,readFile} from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4318',out=process.env.NFT_LAYOUT_OUTPUT||'reports/nft-details/layout',large=process.env.NFT_FONT_MIN==='24',engine=large?'firefox':process.env.NFT_LAYOUT_ENGINE||'chromium',results=[];
 const contract='0x'+'a'.repeat(40),owner='0x'+'b'.repeat(40),id=(2n**256n-1n).toString(),locales=large?['en','fr','ar']:['en','fr','ar','zh','hi','bn','es','pt','ru','ja'];
 await mkdir(out,{recursive:true});const browser=await({chromium,firefox,webkit})[engine].launch(large?{firefoxUserPrefs:{'font.minimum-size.x-western':24}}:engine==='chromium'?{args:['--no-sandbox']}:{});

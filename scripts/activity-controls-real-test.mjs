@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium} from 'playwright';
+import {chromium} from 'playwright-core';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',out=process.env.ACTIVITY_REAL_OUTPUT||'reports/activity-controls/real',sources=JSON.parse(await readFile(process.env.ACTIVITY_SOURCES||'reports/activity-controls/sources.json')),results=[];
 await mkdir(out,{recursive:true});const browser=await chromium.launch({args:['--no-sandbox']});

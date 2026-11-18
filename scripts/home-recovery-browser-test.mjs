@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';import{readFile,writeFile,mkdir}from'node:fs/promises';import{registerHooks}from'node:module';import{chromium,firefox,webkit}from'playwright';import axe from'axe-core';
+import assert from 'node:assert/strict';import{readFile,writeFile,mkdir}from'node:fs/promises';import{registerHooks}from'node:module';import{chromium,firefox,webkit}from'playwright-core';import axe from'axe-core';
 registerHooks({resolve(s,c,n){try{return n(s,c)}catch(e){if(s.startsWith('./')&&c.parentURL?.includes('/src/')&&!/\.[a-z]+$/.test(s))return n(s+'.ts',c);throw e;}}});
 const{handleRequest}=await import('../cloudflare/worker.mjs');const base=process.env.BASE_URL||'http://127.0.0.1:4214',publicSite=base.startsWith('https:'),out=process.env.RECOVERY_OUTPUT||'reports/arrival-seo/home-recovery';await mkdir(out,{recursive:true});const template=await readFile('dist/index.html','utf8'),entry=template.match(/<script type="module"[^>]+src="([^"]+)"/)[1],results=[];
 const env={PUBLIC_URL:base,ASSETS:{async fetch(r){try{return new Response(await readFile('dist'+new URL(r.url).pathname));}catch{return new Response('Missing',{status:404});}}}};

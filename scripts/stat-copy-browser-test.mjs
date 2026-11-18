@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 import {readFile,mkdir,writeFile} from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',out=process.env.STAT_COPY_OUTPUT||'reports/stat-copy/browser';
 const sources=JSON.parse(await readFile('reports/stat-copy/sources.json','utf8')),axe=await readFile('node_modules/axe-core/axe.min.js','utf8'),results=[];

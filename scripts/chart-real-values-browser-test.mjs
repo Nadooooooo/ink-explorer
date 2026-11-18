@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';import{chromium}from'playwright';import{mkdir,readFile,writeFile}from'node:fs/promises';
+import assert from 'node:assert/strict';import{chromium}from'playwright-core';import{mkdir,readFile,writeFile}from'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',out=process.env.CHART_REAL_OUTPUT||'reports/chart-integrity/real-browser',results=[],browser=await chromium.launch({args:['--no-sandbox']});await mkdir(out,{recursive:true});const axe=await readFile('node_modules/axe-core/axe.min.js','utf8');
 const number=(n,locale,digits=9)=>new Intl.NumberFormat(locale,n>0&&n<10**-digits?{notation:'scientific',maximumFractionDigits:3}:{maximumFractionDigits:digits}).format(n);
 try{for(const prefix of['','/testnet'])for(const width of(process.env.CHART_REAL_WIDTHS||'320,1440').split(',').map(Number))for(const metric of(process.env.CHART_REAL_METRICS||'newTxns,newAccounts,averageTxnFee,networkUtilization,averageBlockSize').split(',')){

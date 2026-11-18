@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import * as playwright from 'playwright';
+import * as playwright from 'playwright-core';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 const freshHeaders=()=>({date:new Date().toUTCString(),'x-ink-data-status':'fresh','x-ink-data-fetched-at':new Date().toISOString()});
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',out=process.env.CHART_LAYOUT_OUTPUT||'reports/chart-layout/browser';

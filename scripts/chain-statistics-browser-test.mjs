@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium, webkit} from 'playwright';
+import {chromium, webkit} from 'playwright-core';
 import {mkdir, readFile, writeFile} from 'node:fs/promises';
 import axe from 'axe-core';
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 async function selectRange(card,period){await card.scrollIntoViewIfNeeded();await card.locator('select').selectOption(period);}
 const freshHeaders=()=>({date:new Date().toUTCString(),'x-ink-data-status':'fresh','x-ink-data-fetched-at':new Date().toISOString()});
 const base=process.env.BASE_URL||'http://127.0.0.1:4188',out=process.env.CHART_REVIEW_DIR||'screenshots/chart-interactions';

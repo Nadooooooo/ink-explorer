@@ -20,7 +20,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci --include=dev --no-audit
-      - run: npm exec -- playwright install --with-deps chromium
+      - run: npm exec -- playwright-core install --with-deps chromium
       - run: npm run check
       - run: npm run build
       - run: npm run test:data
@@ -54,3 +54,6 @@ jobs:
       - name: Audit dependencies
         if: ${{ !cancelled() && steps.node.outcome == 'success' }}
         run: npm audit --package-lock-only --include=dev --audit-level=high
+      - name: Check upstream matcher advisories
+        if: ${{ !cancelled() && steps.node.outcome == 'success' }}
+        run: npm run test:matcher-audit

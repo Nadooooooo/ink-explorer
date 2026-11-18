@@ -1,4 +1,4 @@
-import {firefox} from 'playwright';
+import {firefox} from 'playwright-core';
 for(const size of [0,24]){
  const b=await firefox.launch({firefoxUserPrefs:{'font.minimum-size.x-western':size}}),p=await b.newPage();
  await p.setContent('<span style="font:12px sans-serif">Readable address labels</span>');

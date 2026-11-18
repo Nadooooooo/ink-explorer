@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';import {chromium} from 'playwright';import {mkdir,writeFile} from 'node:fs/promises';
+import assert from 'node:assert/strict';import {chromium} from 'playwright-core';import {mkdir,writeFile} from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4319',out=process.env.ADDRESS_ACTIVITY_RUNTIME_OUTPUT||'reports/activity-stability/runtime',duration=12000;await mkdir(out,{recursive:true});const results=[];const browser=await chromium.launch({args:['--no-sandbox']});
 try{for(const[width,locale]of [[390,'fr'],[1440,'ar']]){
  const context=await browser.newContext({viewport:{width,height:1000},...(process.env.INK_RELEASE_VERSION?{extraHTTPHeaders:{'Cloudflare-Workers-Version-Overrides':`inkexplorer="${process.env.INK_RELEASE_VERSION}"`}}:{})}),page=await context.newPage(),errors=[];let documents=0;page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.isNavigationRequest()&&r.frame()===page.mainFrame())documents++;});const row={width,locale,cpuThrottle:4,observationMs:duration};

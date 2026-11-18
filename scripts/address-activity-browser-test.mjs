@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';import {chromium,firefox,webkit} from 'playwright';import {mkdir,writeFile} from 'node:fs/promises';import axe from 'axe-core';
+import assert from 'node:assert/strict';import {chromium,firefox,webkit} from 'playwright-core';import {mkdir,writeFile} from 'node:fs/promises';import axe from 'axe-core';
 const base=process.env.BASE_URL||'http://127.0.0.1:4317',out=process.env.ADDRESS_ACTIVITY_OUTPUT||'reports/address-activity/browser';await mkdir(out,{recursive:true});const results=[];
 const address='0x4200000000000000000000000000000000000006',other='0x'+'b'.repeat(40),target='0x'+'c'.repeat(40),h=n=>'0x'+BigInt(n).toString(16).padStart(64,'0');
 for(const[engine,launcher]of Object.entries({chromium,firefox,webkit}).filter(([name])=>!process.env.ADDRESS_ACTIVITY_ENGINES||process.env.ADDRESS_ACTIVITY_ENGINES.split(',').includes(name))){

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { chromium, firefox, webkit } from "playwright";
+import { chromium, firefox, webkit } from "playwright-core";
 import axe from "axe-core";
 import { mkdir, writeFile } from "node:fs/promises";
 import catalogue from "../src/ink-ecosystem.json" with { type: "json" };

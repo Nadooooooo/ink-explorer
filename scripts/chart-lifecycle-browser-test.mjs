@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 import {mkdir,writeFile} from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',out=process.env.CHART_LIFECYCLE_OUTPUT||'reports/chart-lifecycle/browser',baseline=process.env.CHART_LIFECYCLE_BASELINE==='1',results=[];
 const day=86400000,stamp=value=>new Date(value).toISOString().slice(0,10),info={id:'newTxns',title:'New transactions',description:'New transactions per interval',units:null,resolutions:['DAY','WEEK']};

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium} from 'playwright';
+import {chromium} from 'playwright-core';
 import {mkdir,writeFile} from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4311',out=process.env.POOL_INTEGRITY_OUTPUT||'reports/pool-freshness/integrity',results=[];
 const id=n=>'0x'+n.toString(16).padStart(64,'0');

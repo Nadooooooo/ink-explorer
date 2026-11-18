@@ -4,7 +4,7 @@ registerHooks({resolve(s,c,n){try{return n(s,c)}catch(e){if(s.startsWith('./')&&
 const {recordSourceMaxAge,validRecordArrival}=await import('../src/record-arrival.ts');
 import assert from 'node:assert/strict';
 import {readFile,mkdir,writeFile} from 'node:fs/promises';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 process.env.PW_TEST_SCREENSHOT_NO_FONTS_READY='1';
 const base=process.env.BASE_URL||'https://inkexplorer.xyz',out=process.env.PROFILE_LIVE_OUTPUT||'reports/profile-arrival/real';await mkdir(out,{recursive:true});
 const entry=(await readFile('dist/index.html','utf8')).match(/<script type="module"[^>]+src="([^"]+)"/)[1],id='0x4200000000000000000000000000000000000006',results=[];

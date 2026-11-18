@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium} from 'playwright';
+import {chromium} from 'playwright-core';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {formatChainAmount} from '../src/explorer-data.ts';
 const base=process.env.BASE_URL||'http://127.0.0.1:4317',out=process.env.INVENTORY_HISTORY_OUTPUT||'reports/account-inventory/history',results=[];

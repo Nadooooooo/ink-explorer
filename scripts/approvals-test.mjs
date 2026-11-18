@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import solc from "solc";
 import { ContractFactory, JsonRpcProvider, zeroPadValue, id } from "ethers";
-import { chromium, firefox, webkit } from "playwright";
+import { chromium, firefox, webkit } from "playwright-core";
 import { createApprovals, decodeApproval, validateApproval } from "../server/approvals.mjs";
 import { walletCopy } from "../src/wallet-copy.ts";
 import { revokeData, approvalAmount } from "../src/approval-data.ts";

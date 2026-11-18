@@ -4,7 +4,7 @@ import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {createServer} from 'vite';
 import react from '@vitejs/plugin-react';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 
 const root=resolve(import.meta.dirname,'..');
 const output=process.env.NFT_DETAIL_MEDIA_OUTPUT||resolve(root,'reports/nft-detail-media');

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium} from 'playwright';
+import {chromium} from 'playwright-core';
 import {mkdir,writeFile} from 'node:fs/promises';
 const base=process.env.BASE_URL;if(!base)throw new Error('BASE_URL is required');
 const out=process.env.HOME_VISUAL_OUTPUT||'reports/home-loading/public-visual';await mkdir(out,{recursive:true});const results=[];

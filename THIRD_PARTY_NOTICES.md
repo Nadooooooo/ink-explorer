@@ -12,3 +12,5 @@ The MIT license in `LICENSE` covers this project's code and documentation. It do
 - Blockscout, Contract Info, Ink RPC and NFT media are external data sources with their own terms. A running instance can fetch and cache additional token logos and NFT images on demand.
 
 The Ink symbol identifies the covered chain. The explorer is independent and does not imply affiliation with Ink, Kraken or Blockscout. Replace the symbol when publishing a fork for another chain.
+
+The dependency tree includes the MIT-licensed `@ryotsu/picomatch@4.0.7-a` fork of picomatch. Its npm archive contains the upstream copyright and license. The security policy records the exact revision and the additional upstream advisory check. [License](https://github.com/ryotsu-kankichi/secured-picomatch/blob/3ab5a7627d480259e3d9ca67fbc14c125d374f0e/LICENSE) · [Security policy](SECURITY.md#dependency-verification)

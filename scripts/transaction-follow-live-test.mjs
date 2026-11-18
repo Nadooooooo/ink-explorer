@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 const base=process.env.BASE_URL||'https://inkexplorer.xyz',out=process.env.TX_FOLLOW_LIVE_OUTPUT||'reports/transaction-follow/real';await mkdir(out,{recursive:true});
 const headers=process.env.INK_RELEASE_VERSION?{'Cloudflare-Workers-Version-Overrides':`inkexplorer="${process.env.INK_RELEASE_VERSION}"`}:{},results=[];
 async function rpc(port,method,params){const r=await fetch('http://127.0.0.1:'+port,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id:1,jsonrpc:'2.0',method,params}),signal:AbortSignal.timeout(10000)});assert.equal(r.status,200);const data=await r.json();assert(!data.error);return data.result;}

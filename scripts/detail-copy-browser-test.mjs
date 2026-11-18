@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4310',out=process.env.DETAIL_COPY_OUTPUT||'reports/contract-controls/copy',sources=JSON.parse(await readFile(process.env.DETAIL_SOURCES||'reports/contract-controls/sources.json')),results=[];
 const widths=(process.env.DETAIL_WIDTHS||'320,768,1440').split(',').map(Number),engines=(process.env.DETAIL_ENGINES||'chromium,firefox,webkit').split(',');

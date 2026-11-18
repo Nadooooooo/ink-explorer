@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { chromium, firefox } from 'playwright';
+import { chromium, firefox } from 'playwright-core';
 import { mkdir, writeFile } from 'node:fs/promises';
 const base=process.env.BASE_URL||'http://127.0.0.1:4324',out=process.env.DIRECTORY_LAYOUT_OUTPUT||'reports/directory-history/layout';await mkdir(out,{recursive:true});const results=[];
 const locales=['en','zh','hi','es','fr','ar','bn','pt','ru','ja'];

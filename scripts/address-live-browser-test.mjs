@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright-core';
 import axe from 'axe-core';
 const base=process.env.BASE_URL||'http://127.0.0.1:4315',out=process.env.ADDRESS_LIVE_OUTPUT||'reports/address-live/browser';
 await mkdir(out,{recursive:true});const results=[],id='0x'+'1'.repeat(40),other='0x'+'2'.repeat(40);
