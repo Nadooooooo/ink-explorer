@@ -64,7 +64,7 @@
     "test:explorer-pages": "node --experimental-strip-types --test scripts/apps-resource-test.mjs scripts/dapps-response-test.mjs scripts/page-prerender-test.mjs && node scripts/apps-direct-browser-test.mjs && node scripts/statistics-direct-browser-test.mjs && node scripts/explorer-pages-test.mjs",
     "tags:review": "node scripts/moderate-tags.mjs",
     "test:approvals": "node --experimental-strip-types scripts/approvals-test.mjs",
-    "test:public-proxy": "node --experimental-strip-types --test scripts/public-proxy-test.mjs scripts/public-page-test.mjs scripts/wallet-relay-test.mjs scripts/review-http-proxy-test.mjs scripts/public-rpc-test.mjs",
+    "test:public-proxy": "node --experimental-strip-types --test scripts/public-proxy-test.mjs scripts/public-page-test.mjs scripts/wallet-relay-test.mjs scripts/review-http-proxy-test.mjs scripts/public-rpc-test.mjs scripts/public-service-startup-test.mjs",
     "test:wallet-discovery": "node --experimental-strip-types --test scripts/wallet-discovery-test.mjs",
     "test:wallet-discovery-browser": "node scripts/wallet-discovery-browser-test.mjs",
     "test:platform": "node scripts/platform-resilience-test.mjs && node scripts/profile-copy-focus-test.mjs",
