@@ -12,5 +12,5 @@ export function ResultCountStatus({ count, t }: { count: number; t: (key: string
     return () => clearTimeout(timer);
   }, [message]);
 
-  return <span className="sr-only" role="status" aria-atomic="true">{announcement}</span>;
+  return <span className="sr-only" role="status" aria-atomic="true" data-result-count="">{announcement}</span>;
 }

@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {readFile} from 'node:fs/promises';
 import {registerHooks} from 'node:module';
+import {chromium} from 'playwright-core';
+import {installSnapshotCapture} from './prerender-dom.mjs';
 import summariesFr from '../src/ink-ecosystem-fr.json' with {type:'json'};
 import catalogue from '../src/ink-ecosystem.json' with {type:'json'};
 import {ecosystemAppId} from '../src/ink-ecosystem-route.ts';
@@ -148,4 +150,40 @@ test('missing, malformed and mismatched snapshots retain the independent fallbac
  }
  assert.equal(initialPageSnapshot(new URL('https://inkexplorer.xyz/no-such-route'),'mainnet','en'),null);
  const missing=await handleRequest(new Request('https://inkexplorer.xyz/no-such-route'),env);assert.equal(missing.status,404);
+});
+
+test('snapshot cloning preserves native relationships independently of React renders and live timers', async () => {
+ const browser = await chromium.launch({args: ['--no-sandbox']});
+ try {
+  const page = await browser.newPage();
+  await page.evaluate(installSnapshotCapture);
+  const copies = await page.evaluate(() => ['_r_3_', '_r_a_'].map((token, index) => {
+   const root = document.createElement('section');
+   root.innerHTML = `<h1 id="title">Title</h1><label for="${token}-field">Name</label>
+    <input id="${token}-field" list="${token}-values" aria-labelledby="title ${token}-note">
+    <datalist id="${token}-values"></datalist><span id="${token}-note">Help</span>
+    <a href="#${token}-note">Help</a><a href="https://example.test/#_r_3_">Source</a>
+    <svg><defs><linearGradient id="${token}-paint"></linearGradient></defs><rect fill="url(#${token}-paint)"></rect><use xlink:href="#${token}-paint"></use></svg>
+    <span data-result-count="" role="status">${index ? 'Records: 67' : ''}</span><p role="status">Loading</p>`;
+   const copy = globalThis.cloneForInkSnapshot(root);
+   document.body.replaceChildren(copy);
+   const input = copy.querySelector('input');
+   const refs = input.getAttribute('aria-labelledby').split(' ');
+   return {
+    html: copy.innerHTML,
+    linked: copy.querySelector('label').htmlFor === input.id && input.list === copy.querySelector('datalist')
+      && refs.every(id => copy.querySelector('#'+id)) && copy.querySelector('a').getAttribute('href') === '#'+refs[1]
+      && copy.querySelector('rect').getAttribute('fill') === 'url(#'+copy.querySelector('linearGradient').id+')'
+      && copy.querySelector('use').getAttributeNS('http://www.w3.org/1999/xlink','href') === '#'+copy.querySelector('linearGradient').id,
+    liveText: root.querySelector('[data-result-count]').textContent,
+   };
+  }));
+  assert.equal(copies[0].html, copies[1].html);
+  assert(copies.every(copy => copy.linked));
+  assert.deepEqual(copies.map(copy => copy.liveText), ['', 'Records: 67']);
+  assert(copies[0].html.includes('https://example.test/#_r_3_'));
+  assert(copies[0].html.includes('<p role="status">Loading</p>'));
+ } finally {
+  await browser.close();
+ }
 });

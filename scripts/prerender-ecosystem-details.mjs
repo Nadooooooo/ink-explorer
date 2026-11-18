@@ -29,9 +29,10 @@ export async function prerenderEcosystemDetails(page, network, language, catalog
       const main = root.querySelector("#main-content");
       main.dataset.initialPage = route;
       main.removeAttribute("aria-busy");
-      const html = main.outerHTML;
+      const captured = globalThis.cloneForInkSnapshot(root);
+      const html = captured.querySelector('#main-content').outerHTML;
       if (!shell) {
-        const [before, after] = root.innerHTML.split(html);
+        const [before, after] = captured.innerHTML.split(html);
         if (!before || !after) throw new Error("App navigation shell is incomplete");
         const styles = [...document.querySelectorAll('link[rel="stylesheet"]')].map(link => new URL(link.href).pathname);
         shell = { network, language, before, after, styles };

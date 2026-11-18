@@ -4,6 +4,7 @@ import {chromium} from 'playwright-core';
 import {initialPageRoutes,initialPageKey} from '../server/page-snapshots.mjs';
 import {startupCopy} from '../server/startup-shell.mjs';
 import {prerenderEcosystemDetails} from './prerender-ecosystem-details.mjs';
+import {installSnapshotCapture} from './prerender-dom.mjs';
 import ecosystem from '../src/ink-ecosystem.json' with { type: 'json' };
 
 const ecosystemLogos = new Set(ecosystem.map(app => app.imageUrl));
@@ -16,6 +17,7 @@ const jobs=['mainnet','sepolia'].flatMap(network=>languages.map(language=>({netw
 try{await Promise.all(Array.from({length:3},async()=>{while(nextJob<jobs.length){
  const {network,language}=jobs[nextJob++];
  const context=await browser.newContext({viewport:{width:1440,height:900},locale:language,colorScheme:'light'});
+ await context.addInitScript(installSnapshotCapture);
  const errors=[];let chainResponses=0;
  // Use the canonical URL in API documentation, while fulfilling all files from
  // this build. Never contact the public site or an upstream during capture.
@@ -58,9 +60,9 @@ try{await Promise.all(Array.from({length:3},async()=>{while(nextJob<jobs.length)
    // and must not accept input that would be lost during its first commit.
    for(const field of root.querySelectorAll('button,input,select,textarea'))if(!field.closest('.global-search')&&!field.matches('.mobile-search-trigger'))field.disabled=true;
    const styles=[...document.querySelectorAll('link[rel="stylesheet"]')].map(e=>new URL(e.href).pathname);
-   const html=root.innerHTML,clone=root.cloneNode(true),neutralMain=clone.querySelector('#main-content');
-   const heading=document.createElement('div');heading.className='stats-heading';heading.append(main.querySelector('h1').cloneNode(true));
-   const loading=main.querySelector('.ledger-skeleton,.loading');
+   const clone=globalThis.cloneForInkSnapshot(root),html=clone.innerHTML,neutralMain=clone.querySelector('#main-content');
+   const heading=document.createElement('div');heading.className='stats-heading';heading.append(neutralMain.querySelector('h1').cloneNode(true));
+   const loading=neutralMain.querySelector('.ledger-skeleton,.loading');
    neutralMain.replaceChildren(heading);
    if(loading)neutralMain.append(loading.cloneNode(true));
    else { const status=document.createElement('div');status.className='loading';status.setAttribute('role','status');const text=document.createElement('span');text.textContent=loadingLabel;status.append(document.createElement('i'),text);neutralMain.append(status); }
