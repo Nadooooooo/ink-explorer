@@ -5,7 +5,8 @@ import { ExplorerDirectory } from "./ExplorerDirectory";
 import Statistics from "./Statistics";
 import GasTracker from "./GasTracker";
 import { ExplorerLink } from "./ExplorerLink";
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { Download } from "lucide-react";
 import { formatUnits, parseUnits } from "ethers";
 import { API, network, externalDestination } from "./network";
@@ -1098,6 +1099,41 @@ function Domain(props: ExplorerPageProps) {
   );
 }
 
+const CompilerVersionSelect = memo(function CompilerVersionSelect({ versions, value, disabled, onChange }: {
+  versions: readonly string[];
+  value: string;
+  disabled: boolean;
+  onChange: (version: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const options = useMemo(
+    () => expanded ? versions.map(version => <option key={version}>{version}</option>) : null,
+    [expanded, versions],
+  );
+  // Build-info can identify a compiler absent from the advertised catalogue.
+  const showCurrentVersion = value !== "" && (!expanded || !versions.includes(value));
+  const showVersions = () => {
+    // The browser can open its native picker in the default action of this event.
+    // Commit all options before then and keep the same select throughout.
+    if (!expanded) flushSync(() => setExpanded(true));
+  };
+  return (
+    <select
+      required
+      value={value}
+      disabled={disabled}
+      onChange={event => onChange(event.currentTarget.value)}
+      onFocus={showVersions}
+      onPointerDown={showVersions}
+      onKeyDown={showVersions}
+      onClick={showVersions}
+    >
+      {options}
+      {showCurrentVersion && <option value={value}>{value}</option>}
+    </select>
+  );
+});
+
 function Verification(props: ExplorerPageProps) {
   const config = useData(
     props,
@@ -1139,15 +1175,14 @@ function Verification(props: ExplorerPageProps) {
     ].includes(method),
     isMulti = ["multi-part", "vyper-multi-part"].includes(method),
     isSourcify = method === "sourcify";
-  const inputLanguage = method.startsWith("vyper")
-    ? "Vyper"
-    : (() => {
-        try {
-          return JSON.parse(source).language;
-        } catch {
-          return "Solidity";
-        }
-      })();
+  const inputLanguage = useMemo(() => {
+    if (method.startsWith("vyper")) return "Vyper";
+    try {
+      return JSON.parse(source).language;
+    } catch {
+      return "Solidity";
+    }
+  }, [method, source]);
   const compilers: string[] =
     inputLanguage === "Vyper"
       ? config.data?.vyper_compiler_versions || []
@@ -1442,16 +1477,13 @@ function Verification(props: ExplorerPageProps) {
               <div className="explorer-form-grid">
                 <label>
                   {props.t("Compiler version")}
-                  <select
+                  <CompilerVersionSelect
+                    key={inputLanguage === "Vyper" ? "Vyper" : "Solidity"}
+                    versions={compilers}
                     value={compiler || compilers[0] || ""}
-                    onChange={(e) => setCompiler(e.target.value)}
-                    required
+                    onChange={setCompiler}
                     disabled={busy}
-                  >
-                    {compilers.map((version) => (
-                      <option key={version}>{version}</option>
-                    ))}
-                  </select>
+                  />
                 </label>
                 <label>
                   {props.t("License")}

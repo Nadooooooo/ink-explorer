@@ -3,6 +3,7 @@ import { chromium, firefox, webkit } from "playwright-core";
 import axe from "axe-core";
 import { mkdir, writeFile } from "node:fs/promises";
 import catalogue from "../src/ink-ecosystem.json" with { type: "json" };
+import { checkCompilerVersionPicker } from "./compiler-version-picker-test.mjs";
 
 const logoUrls = new Set(catalogue.map(app => app.imageUrl));
 const blockscout = catalogue.find(app => app.id === "blockscout").links;
@@ -51,6 +52,7 @@ for (const [engine, type] of [
       : {},
   );
   try {
+    await checkCompilerVersionPicker(browser, base);
     for (const prefix of ["", "/testnet"])
       for (const [width, lang] of [
         [320, "ar"],
@@ -101,6 +103,7 @@ for (const [engine, type] of [
             );
             const body = request.postDataJSON();
             assert.equal(body.consent, true);
+            if (p === "/verification/submit") assert.equal(body.compiler_version, "v0.8.36+commit.8a079791");
             return fulfill(
               p === "/verification/submit"
                 ? {
