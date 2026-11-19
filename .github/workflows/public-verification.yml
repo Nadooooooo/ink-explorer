@@ -15,6 +15,10 @@ jobs:
   verify:
     if: github.repository == 'Nadooooooo/ink-explorer'
     runs-on: ubuntu-latest
+    container:
+      # Match playwright-core in package-lock.json for the prerender build.
+      image: mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
+      options: --shm-size=1g
     timeout-minutes: 15
     env:
       BASE_URL: https://inkexplorer.xyz
@@ -28,7 +32,6 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci --include=dev --no-audit
-      - run: npm exec -- playwright-core install --with-deps chromium
       - run: npm run build
       - name: Verify the public release identifier
         if: env.EXPECTED_SITE_VERSION != ''

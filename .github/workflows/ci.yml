@@ -10,6 +10,10 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container:
+      # Match playwright-core in package-lock.json for the prerender build.
+      image: mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
+      options: --shm-size=1g
     steps:
       - uses: actions/checkout@v7
         with:
@@ -20,7 +24,6 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci --include=dev --no-audit
-      - run: npm exec -- playwright-core install --with-deps chromium
       - run: npm run check
       - run: npm run build
       - run: npm run test:data
@@ -32,6 +35,7 @@ jobs:
       - run: npm run test:seo
       - run: npm run test:wallet-discovery
       - name: Test server security boundary
+        shell: bash
         run: |
           HOST=127.0.0.1 node server/server.mjs &
           server_pid=$!
