@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
+import { createInterface } from "node:readline";
+import { BINARY_NAME, PLATFORM_SPECIFIC_PACKAGE_NAME } from "@foundry-rs/anvil/const.mjs";
 import solc from "solc";
 import { ContractFactory, JsonRpcProvider, zeroPadValue, id } from "ethers";
 import { chromium, firefox, webkit } from "playwright-core";
@@ -10,13 +13,65 @@ import { revokeData, approvalAmount } from "../src/approval-data.ts";
 
 const checks = [], check = (name, condition) => { assert(condition, name); checks.push(name); console.log(`PASS ${name}`); };
 const base = process.env.BASE_URL || "http://127.0.0.1:4298";
-let anvil = spawn("node_modules/.bin/anvil", ["--host", "127.0.0.1", "--port", "18548", "--chain-id", "57073", "--silent"], { stdio: "ignore" });
-const rpcUrl = "http://127.0.0.1:18548";
-let rpc = new JsonRpcProvider(rpcUrl, 57073, { staticNetwork: true, batchMaxCount: 1 });
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+function anvilExecutable() {
+  // Own the native process so closing the test also closes its listener.
+  const requireAnvil = createRequire(import.meta.resolve("@foundry-rs/anvil/package.json"));
+  const name = BINARY_NAME("anvil");
+  try {
+    return requireAnvil.resolve(`${PLATFORM_SPECIFIC_PACKAGE_NAME("anvil")}/bin/${name}`);
+  } catch (error) {
+    if (error.code !== "MODULE_NOT_FOUND") throw error;
+    // Foundry's postinstall puts the executable here when the optional package is absent.
+    return requireAnvil.resolve(`./${name}`);
+  }
+}
+
+async function startAnvil(chainId) {
+  // Let the OS assign the port. Only Anvil's advertised loopback address is used.
+  const child = spawn(anvilExecutable(), ["--host", "127.0.0.1", "--port", "0", "--chain-id", String(chainId), "--color", "never"],
+    { stdio: ["ignore", "pipe", "ignore"] });
+  const closed = new Promise(resolve => child.once("close", (code, signal) => resolve(signal || `code ${code}`)));
+  const lines = createInterface({ input: child.stdout });
+  const listening = new Promise(resolve => lines.on("line", line => {
+    const match = /^Listening on (127\.0\.0\.1:\d+)$/.exec(line);
+    if (match) resolve(`http://${match[1]}`);
+  }));
+  let timer, rpc;
+  const failed = new Promise((_, reject) => {
+    child.once("error", reject);
+    closed.then(reason => reject(new Error(`Anvil exited before chain ${chainId} was ready (${reason})`)));
+    timer = setTimeout(() => reject(new Error(`Timed out starting Anvil chain ${chainId}`)), 10_000);
+  });
+  const stop = async () => {
+    rpc?.destroy();
+    child.kill("SIGTERM");
+    const forceStop = setTimeout(() => child.kill("SIGKILL"), 2000);
+    await closed;
+    clearTimeout(forceStop);
+  };
+  try {
+    const rpcUrl = await Promise.race([listening, failed]);
+    rpc = new JsonRpcProvider(rpcUrl, chainId, { staticNetwork: true, batchMaxCount: 1 });
+    const actual = await Promise.race([rpc.send("eth_chainId", []), failed]);
+    assert.equal(Number(actual), chainId, "The isolated Anvil node must serve the requested chain");
+    return { chainId, rpcUrl, rpc, stop };
+  } catch (error) {
+    await stop();
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    lines.close();
+    child.stdout.resume();
+  }
+}
+
+let evm;
 let browser;
 try {
-  for (let i = 0; ; i++) { try { await rpc.send("eth_chainId", []); break; } catch (e) { if (i > 40) throw e; await wait(150); } }
+  evm = await startAnvil(57073);
+  let { rpc, rpcUrl } = evm;
   let signer = await rpc.getSigner(0);
   const owner = (await signer.getAddress()).toLowerCase(), spender = (await (await rpc.getSigner(1)).getAddress()).toLowerCase();
   const source = await readFile("scripts/fixtures/Approvals.sol", "utf8");
@@ -79,12 +134,10 @@ try {
     [chromium, "fr", 390, "", 57073], [firefox, "en", 1440, "", 57073], [webkit, "ar", 320, "", 57073],
     [chromium, "fr", 390, "/testnet", 763373], [firefox, "en", 1440, "/testnet", 763373], [webkit, "ar", 320, "/testnet", 763373],
   ]) {
-    if (Number(await rpc.send("eth_chainId", [])) !== testChain) {
-      await rpc.destroy();
-      const exited = new Promise(resolve => anvil.once("exit", resolve)); anvil.kill("SIGTERM"); await exited;
-      anvil = spawn("node_modules/.bin/anvil", ["--host", "127.0.0.1", "--port", "18548", "--chain-id", String(testChain), "--silent"], { stdio: "ignore" });
-      rpc = new JsonRpcProvider(rpcUrl, testChain, { staticNetwork: true, batchMaxCount: 1 });
-      for (let attempt = 0; ; attempt++) { try { await rpc.send("eth_chainId", []); break; } catch (e) { if (attempt > 40) throw e; await wait(150); } }
+    if (evm.chainId !== testChain) {
+      await evm.stop();
+      evm = await startAnvil(testChain);
+      ({ rpc, rpcUrl } = evm);
       signer = await rpc.getSigner(0);
       const fresh = [];
       for (const name of ["Approval20", "Approval721", "Approval1155"]) {
@@ -213,6 +266,10 @@ try {
     await browser.close(); browser = undefined;
   }
 } finally {
-  await browser?.close(); await rpc.destroy(); anvil.kill("SIGTERM");
-  await mkdir("reports/approvals", { recursive: true }); await writeFile("reports/approvals/results.json", JSON.stringify({ checks, publicTransactions: 0 }, null, 2));
+  try {
+    await browser?.close();
+  } finally {
+    await evm?.stop();
+    await mkdir("reports/approvals", { recursive: true }); await writeFile("reports/approvals/results.json", JSON.stringify({ checks, publicTransactions: 0 }, null, 2));
+  }
 }
