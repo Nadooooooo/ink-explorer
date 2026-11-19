@@ -10,6 +10,21 @@ import { ecosystemAppId } from "../src/ink-ecosystem-route.ts";
 import { defaultPageMetadata, explorerPageMetadata } from "../src/page-metadata.ts";
 import { parseExplorerPath, pageStructuredData, canonicalExplorerPath, updatePageMetadata } from "../src/page-seo.ts";
 
+test("installable shortcuts offer a scalable mark and correctly sized PNG fallbacks", () => {
+  const manifest = JSON.parse(readFileSync(new URL("../public/manifest.webmanifest", import.meta.url), "utf8"));
+  const vector = manifest.icons.find(icon => icon.type === "image/svg+xml" && icon.sizes === "any");
+  assert.equal(vector?.src, "/brand/block-lens/app-icon.svg");
+  for (const size of [192, 512]) {
+    const icon = manifest.icons.find(item => item.type === "image/png" && item.sizes === `${size}x${size}`);
+    assert(icon?.purpose.split(" ").includes("any"));
+    if (size === 512) assert(icon.purpose.split(" ").includes("maskable"));
+    const png = readFileSync(new URL("../public" + icon.src, import.meta.url));
+    assert.equal(png.toString("ascii", 1, 4), "PNG");
+    assert.equal(png.readUInt32BE(16), size);
+    assert.equal(png.readUInt32BE(20), size);
+  }
+});
+
 test("route validation distinguishes real pages from malformed detail and extra segments", () => {
   const address = "0x" + "a".repeat(40);
   const hash = "0x" + "b".repeat(64);

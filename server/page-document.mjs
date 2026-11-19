@@ -1,4 +1,4 @@
-import { canonicalExplorerPath, pageStructuredData, socialPageMetadata } from "../src/page-seo.ts";
+import { canonicalExplorerPath, pageStructuredData, parseExplorerPath, socialPageMetadata, usesExplorerTools } from "../src/page-seo.ts";
 import { defaultPageMetadata, notFoundPageCopy } from "../src/page-metadata.ts";
 import { ecosystemAppId } from "../src/ink-ecosystem-route.ts";
 import ecosystemIndex from "../src/ink-ecosystem-index.json" with { type: "json" };
@@ -86,6 +86,13 @@ export function renderPage(template, requestUrl, { origin, basePath = "", metada
     .join("");
   let html = template
     .toString("utf8")
+    .replace(/<!-- ink-tool-scripts: ([^>]*?) -->/, (_, files) => {
+      if (!usesExplorerTools(parseExplorerPath(requestUrl.pathname, basePath)?.name ?? "")) return "";
+      const scripts = [...new Set(files.split(" "))].filter(path => /^\/assets\/[a-zA-Z0-9_-]+\.js$/.test(path));
+      // Prefetch warms the HTTP cache where supported. A failed script preload
+      // can survive a reload in WebKit and block the later native import.
+      return scripts.map(path => `<link rel="prefetch" as="script" crossorigin="anonymous" href="${path}" />`).join("");
+    })
     .replace(
       /<html lang="[^"]+"(?: dir="[^"]+")?>/,
       `<html lang="${language}" dir="${language === "ar" ? "rtl" : "ltr"}"${forceNoindex ? ' data-robots-policy="noindex"' : ""}>`,

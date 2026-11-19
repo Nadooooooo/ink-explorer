@@ -8,6 +8,7 @@ import handler from "../api/page.mjs";
 import { documentHeaders, renderPage, robotsText, sitemapXml } from "../server/page-document.mjs";
 import { prepareVercel } from "./prepare-vercel.mjs";
 import { assertPublicSitemap } from "./assert-public-sitemap.mjs";
+import { explorerToolPrefetchMarker } from "./explorer-tool-prefetch.mjs";
 
 const locales = ["en", "zh", "hi", "es", "fr", "ar", "bn", "pt", "ru", "ja"];
 const catalogues = Object.fromEntries(await Promise.all(locales.map(async language => [language, JSON.parse(await readFile(new URL(`../src/locales/${language}.json`, import.meta.url), "utf8"))])));
@@ -17,6 +18,36 @@ const originalDirectory = process.cwd();
 const originalPublicUrl = process.env.PUBLIC_URL;
 const template = '<!doctype html><html lang="en"><head><title>Ink Explorer</title><meta name="description" content="Explorer" /><script type="module" src="/assets/app-fixture.js"></script></head><body><div id="root"><!-- ink-startup:start --><!-- ink-startup:end --></div></body></html>';
 let directory;
+
+test("tool documents prefetch only the route chunk and its additional static dependencies", () => {
+  const file = name => `assets/${name}-fixture.js`;
+  const chunk = (name, imports, options = {}) => ({ type: "chunk", fileName: file(name), moduleIds: [], imports: imports.map(file), ...options });
+  const chunks = [
+    chunk("entry", ["common"], { isEntry: true }),
+    chunk("common", []),
+    chunk("tools", ["entry", "units", "common"], { moduleIds: ["/project/src/ExplorerPages.tsx"], dynamicImports: [file("wallet")] }),
+    chunk("units", ["common", "tools", "math"]),
+    chunk("math", []),
+    chunk("wallet", []),
+  ];
+  const marker = explorerToolPrefetchMarker(Object.fromEntries(chunks.map(asset => [asset.fileName, asset])));
+  const expected = ["tools", "units", "math"].map(name => "/" + file(name));
+  const input = template.replace("</head>", marker + "</head>");
+  const hash = "0x" + "8".repeat(64);
+  for (const basePath of ["", "/testnet"]) {
+    const routes = ["/batches", "/batches/22", "/dispute-games", "/gas-tracker", "/name-services", "/name-services/domains/demo.ink", "/contract-verification", "/public-tags/submit", `/op/${hash}`];
+    const others = ["/", "/accounts", "/ops", "/blocks", "/apps", `/tx/${hash}`, "/op/bad", "/contract-verification/invalid"];
+    for (const route of [...routes, ...others]) {
+      const url = new URL(route + "?lang=ar", "https://explorer.example");
+      const { body } = renderPage(input, url, { origin: url.origin, basePath });
+      const html = body.toString();
+      assert(!html.includes("ink-tool-scripts"), "Build metadata must be consumed on every route");
+      assert(!html.includes("modulepreload") && !/rel="preload"[^>]+as="script"/.test(html), "Failed hints must allow a later native module retry in WebKit");
+      const hints = [...html.matchAll(/<link rel="prefetch" as="script" crossorigin="anonymous" href="([^"]+)" \/>/g)].map(match => match[1]);
+      assert.deepEqual(hints, routes.includes(route) ? expected : [], route);
+    }
+  }
+});
 
 before(async () => {
   directory = await mkdtemp(path.join(os.tmpdir(), "ink-public-pages-"));

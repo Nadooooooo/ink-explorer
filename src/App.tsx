@@ -115,7 +115,7 @@ import { logoUrl, thumbnailUrl } from "./media";
 import {useNftArtwork,nftArtwork} from "./useNftArtwork";
 import {NftMedia} from "./NftMedia";
 import { CopyableValue } from "./CopyableValue";
-import { canonicalDocumentOrigin, parseExplorerPath, updatePageMetadata } from "./page-seo";
+import { canonicalDocumentOrigin, parseExplorerPath, updatePageMetadata, usesExplorerTools } from "./page-seo";
 import { explorerPageMetadata } from "./page-metadata";
 import { ExplorerDirectory } from "./ExplorerDirectory";
 import Apps from "./Apps";
@@ -4662,7 +4662,7 @@ export default function App() {
   else if (["deposits", "withdrawals", "ops"].includes(view.name)) content = <AdvancedPage key={view.name} initialMode={view.name === "ops" ? "userops" : view.name} />;
   else if (view.name === "apps") content = <Apps key={`${view.name}/${view.id || ""}`} {...explorerProps(view.name, view.id, contentLive)} />;
   else if (view.name === "stats") content = <Statistics key={`${view.name}/${view.id || ""}`} {...explorerProps(view.name, view.id, contentLive)} />;
-  else if (["accounts", "batches", "dispute-games", "gas-tracker", "name-services", "contract-verification", "public-tags", "op"].includes(view.name)) content = <Suspense fallback={<div className="explorer-route-loading"><Loading /></div>}><ExplorerPages key={`${view.name}/${view.id || ""}`} {...explorerProps(view.name, view.id, contentLive)} /></Suspense>;
+  else if (usesExplorerTools(view.name)) content = <Suspense fallback={<div className="explorer-route-loading"><Loading /></div>}><ExplorerPages key={`${view.name}/${view.id || ""}`} {...explorerProps(view.name, view.id, contentLive)} /></Suspense>;
   else if (view.name === "developers") content = <Suspense fallback={<Loading/>}><ApiDocs t={t}/></Suspense>;
   else if (view.name === "network") content = <NetworkPage live={contentLive!} />;
   else

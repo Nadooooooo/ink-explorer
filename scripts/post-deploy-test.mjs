@@ -24,6 +24,7 @@ const brandResources = {
   "/brand/block-lens/wordmark.svg": "image/svg+xml",
   "/brand/block-lens/share.png": "image/png",
   "/brand/block-lens/apple-touch-icon.png": "image/png",
+  "/brand/block-lens/app-icon.svg": "image/svg+xml",
   "/brand/block-lens/icon-192.png": "image/png",
   "/brand/block-lens/icon-512.png": "image/png",
   "/brand/block-lens/x-profile.png": "image/png",

@@ -3,6 +3,16 @@ import type { Locale } from "./i18n";
 
 export type ExplorerRoute = { name: string; id?: string; tokenId?: string; query?: string };
 
+// These routes mount the shared tools module on their first render. Optional
+// address and transaction tabs also use it after the visitor opens a tab.
+const explorerToolRoutes = new Set([
+  "batches", "dispute-games", "gas-tracker", "name-services", "contract-verification", "public-tags", "op",
+]);
+
+export function usesExplorerTools(routeName: string) {
+  return explorerToolRoutes.has(routeName);
+}
+
 const shareImagePath = "/brand/block-lens/share.png";
 
 // The artwork is shared across networks. Its text alternative follows the page language.

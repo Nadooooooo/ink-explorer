@@ -4,6 +4,7 @@ import {readFileSync} from "node:fs";
 import {createHash} from "node:crypto";
 import {themeBootstrapHash} from "./server/theme-bootstrap-policy.mjs";
 import {replaceStartupShell} from "./server/startup-shell.mjs";
+import { explorerToolPrefetchMarker } from "./scripts/explorer-tool-prefetch.mjs";
 
 function embedThemeBootstrap(html:string) {
   const script=readFileSync(new URL("./public/theme.js",import.meta.url),"utf8");
@@ -15,7 +16,16 @@ function embedThemeBootstrap(html:string) {
 }
 
 export default defineConfig({
-  plugins: [{name:"early-theme",transformIndexHtml:{order:"pre",handler:embedThemeBootstrap}}, { name:"browser-locale-catalogue", enforce:"pre", resolveId(source,importer) { if(source === "./i18n" && importer?.includes("/src/")) return new URL("./src/i18n-browser.ts",import.meta.url).pathname; } },react()],
+  plugins: [{name:"early-theme",transformIndexHtml:{order:"pre",handler:embedThemeBootstrap}}, {
+    name: "explorer-tool-script-hints",
+    apply: "build",
+    transformIndexHtml: {
+      order: "post",
+      handler(html, { bundle }) {
+        return bundle ? html.replace("</head>", explorerToolPrefetchMarker(bundle) + "</head>") : html;
+      },
+    },
+  }, { name:"browser-locale-catalogue", enforce:"pre", resolveId(source,importer) { if(source === "./i18n" && importer?.includes("/src/")) return new URL("./src/i18n-browser.ts",import.meta.url).pathname; } },react()],
   // Keep fonts and small images cacheable and compatible with the strict CSP.
   // Failed modulepreloads can poison WebKit's resource cache across reloads
   // (WebKit #270357). Native module imports still cache successful chunks and

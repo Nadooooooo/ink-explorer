@@ -40,7 +40,7 @@ try {
   }
 
   for (const [size, name] of [[180, 'apple-touch-icon.png'], [192, 'icon-192.png'], [512, 'icon-512.png']]) {
-    await writeFile(new URL(name, brand), await rasterize(new URL('app-icon.svg', source), size));
+    await writeFile(new URL(name, brand), await rasterize(new URL('app-icon.svg', brand), size));
   }
   const frames = [];
   for (const size of [16, 32, 48]) {
