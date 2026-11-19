@@ -21,9 +21,9 @@ export function LedgerScroll({ children, label, className }: { children: ReactNo
     if (!element) return;
     const measure = () => setOverflow(element.scrollWidth > element.clientWidth + 1);
     const observer = new ResizeObserver(measure);
+    // observe() delivers an initial size after layout, including for a new child.
     observer.observe(element);
     if (element.firstElementChild) observer.observe(element.firstElementChild);
-    measure();
     return () => observer.disconnect();
   }, [children]);
   return <div ref={ref} className={className} role="region" aria-label={label} tabIndex={overflow ? 0 : undefined}

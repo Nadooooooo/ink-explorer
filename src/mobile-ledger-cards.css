@@ -145,6 +145,19 @@
   .failure-label { font-size:12px; }
 }
 
+@media screen and (max-width:1339px) {
+  /* The list starts with its header. Keep the first four cards eager and let
+     taller forked records take their natural height. The fallback is the
+     standard card's content box, before its 24px padding and 1px border. */
+  .activity-ledger-blocks .block-list > .block-row:nth-child(n+6):not(:has(.forked-block-icon)) {
+    content-visibility:auto;
+    contain-intrinsic-block-size:auto var(--block-card-content-height,157px);
+  }
+}
+@media screen and (min-width:761px) and (max-width:1339px) {
+  .activity-ledger-blocks .block-list { --block-card-content-height:154px; }
+}
+
 @media (min-width:760px) and (max-width:1339px) {
   .activity-ledger-page .ledger-viewport :is(.tx-list,.block-list),
   .data-ledger.transfer-ledger .ledger-scroll tbody {
