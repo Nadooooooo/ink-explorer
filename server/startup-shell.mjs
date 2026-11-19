@@ -21,7 +21,9 @@ body:has(#ink-startup){margin:0}
 [data-theme=dark] #ink-startup{--start-bg:#0f0f0f;--start-text:#fafafa;--start-muted:#b8b8b8;--start-accent:#9e70ff;--start-button:#0f0f0f}
 @media(prefers-color-scheme:dark){html:not([data-theme=light]) #ink-startup{--start-bg:#0f0f0f;--start-text:#fafafa;--start-muted:#b8b8b8;--start-accent:#9e70ff;--start-button:#0f0f0f}}
 #ink-startup .startup-brand{display:flex;align-items:center;gap:12px;font-size:1.25rem;font-weight:750;letter-spacing:-.02em}
-#ink-startup .startup-brand img{inline-size:40px;block-size:40px}
+#ink-startup .startup-brand img{inline-size:168px;block-size:54px}
+[data-theme=dark] #ink-startup .startup-brand img{filter:brightness(0) invert(1)}
+@media(prefers-color-scheme:dark){html:not([data-theme=light]) #ink-startup .startup-brand img{filter:brightness(0) invert(1)}}
 #ink-startup :is(h1,.startup-status){margin:32px 0 0;font-size:1.25rem;line-height:1.5;font-weight:600;max-inline-size:28rem}
 #ink-startup p{margin:16px 0 24px;color:var(--start-muted);max-inline-size:28rem}
 #ink-startup .startup-recovery{max-inline-size:28rem}
@@ -44,13 +46,13 @@ export function startupShell(language = 'en', initialContent = '') {
   const heading=initialContent?`<p class="startup-status" role="status">${loading}</p>`:`<h1 role="status">${loading}</h1>`;
   // Google supports data-nosnippet on div, span and section. Keep the main/aside
   // landmarks, and scope the supported wrapper to recovery copy only.
-  return `<!-- ink-startup:start -->${initialContent}<style>${css}</style><${tag} id="ink-startup"${initialContent ? ' class="startup-embedded" hidden' : ''}><div class="startup-copy" data-nosnippet><div class="startup-brand"><img src="/brand/ink-symbol.svg" width="40" height="40" alt="" />Ink Explorer</div>${heading}<div class="startup-recovery" hidden><p>${help}</p><a id="ink-startup-reload" href="">${reload}</a></div><noscript><style>#ink-startup :is(h1,.startup-status),#ink-startup .startup-recovery{display:none}#ink-startup.startup-embedded[hidden]{display:grid;position:static;inline-size:calc(100% - 32px);margin:16px auto}.header-search-field{display:block!important}.mobile-search-trigger{display:none!important}</style><p>${noScript}</p></noscript></div></${tag}><!-- ink-startup:end -->`;
+  return `<!-- ink-startup:start -->${initialContent}<style>${css}</style><${tag} id="ink-startup"${initialContent ? ' class="startup-embedded" hidden' : ''}><div class="startup-copy" data-nosnippet><div class="startup-brand"><img src="/brand/block-lens/wordmark.svg" width="168" height="54" alt="Ink Explorer" /></div>${heading}<div class="startup-recovery" hidden><p>${help}</p><a id="ink-startup-reload" href="">${reload}</a></div><noscript><style>#ink-startup :is(h1,.startup-status),#ink-startup .startup-recovery{display:none}#ink-startup.startup-embedded[hidden]{display:grid;position:static;inline-size:calc(100% - 32px);margin:16px auto}.header-search-field{display:block!important}.mobile-search-trigger{display:none!important}</style><p>${noScript}</p></noscript></div></${tag}><!-- ink-startup:end -->`;
 }
 
 function notFoundShell(language, basePath) {
   const [heading, description, returnHome] = notFoundPageCopy(language).map(escape);
   const home = `${basePath}/${language === 'en' ? '' : '?lang=' + encodeURIComponent(language)}`;
-  return `<!-- ink-startup:start --><style>${css}</style><main id="ink-startup" aria-labelledby="ink-not-found-title"><div class="startup-brand"><img src="/brand/ink-symbol.svg" width="40" height="40" alt="" />Ink Explorer</div><h1 id="ink-not-found-title">${heading}</h1><p>${description}</p><a href="${escape(home)}">${returnHome}</a></main><!-- ink-startup:end -->`;
+  return `<!-- ink-startup:start --><style>${css}</style><main id="ink-startup" aria-labelledby="ink-not-found-title"><div class="startup-brand"><img src="/brand/block-lens/wordmark.svg" width="168" height="54" alt="Ink Explorer" /></div><h1 id="ink-not-found-title">${heading}</h1><p>${description}</p><a href="${escape(home)}">${returnHome}</a></main><!-- ink-startup:end -->`;
 }
 
 export function replaceStartupShell(html, language = 'en', initialContent = '', { notFound = false, basePath = '' } = {}) {

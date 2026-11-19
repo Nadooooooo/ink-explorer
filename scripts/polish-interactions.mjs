@@ -14,7 +14,9 @@ for(const [engine,launcher]of Object.entries({chromium,firefox,webkit}).filter((
    await visit('/');await page.locator('.compact-tx-row').first().waitFor();
    await bounded(page.locator('.network-picker'));
    const header=await page.locator('.brand').first().boundingBox(),network=await page.locator('.network-picker').boundingBox();
-   assert.ok(Math.min(header.x+header.width,network.x+network.width)-Math.max(header.x,network.x)<=1,'Brand/network overlap');
+   const overlapX=Math.min(header.x+header.width,network.x+network.width)-Math.max(header.x,network.x);
+   const overlapY=Math.min(header.y+header.height,network.y+network.height)-Math.max(header.y,network.y);
+   assert.ok(overlapX<=1 || overlapY<=1,'Brand/network overlap');
    const search=page.locator('.global-search input');assert.ok(await search.evaluate(el=>parseFloat(getComputedStyle(el).fontSize)>=16));
    await search.tap();await search.fill('WETH');await page.locator('.search-submit').tap();await page.waitForURL(/search|token/);
    await visit('/');await page.locator('.utilization-metric .info-button').tap();await bounded(page.locator('.info-floating'));

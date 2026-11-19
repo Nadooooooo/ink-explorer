@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400" role="img">
+  <title id="title">Ink Explorer</title>
+  <defs>
+    <linearGradient id="brand-gradient" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#9B70FF" />
+      <stop offset=".42" stop-color="#6F32FF" />
+      <stop offset="1" stop-color="#3910AD" />
+    </linearGradient>
+    <radialGradient id="white-halo">
+      <stop stop-color="#FFFFFF" stop-opacity=".7" />
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0" />
+    </radialGradient>
+    <filter id="shadow" x="-40%" y="-60%" width="180%" height="220%">
+      <feDropShadow dx="0" dy="18" stdDeviation="36" flood-color="#431578" flood-opacity=".08" />
+    </filter>
+  </defs>
+  <rect width="400" height="400" fill="#F7F4FD" />
+  <rect width="400" height="400" fill="url(#brand-gradient)" />
+  <ellipse cx="80" cy="40" rx="320" ry="280" fill="url(#white-halo)" opacity=".5" />
+  <!-- Keep the sign inside the safe circle used by adaptive launchers. -->
+  <g filter="url(#shadow)" transform="translate(16 16) scale(.92)">
+    <svg x="58.599999999999994" y="68" width="268" height="268" viewBox="0 0 100 100" fill="none">
+      <g stroke="#4C17C9" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M50 12L16 46Q12 50 16 54L46 84Q50 88 54 84L84 54Q88 50 84 46L65 27" />
+        <path d="M70 70L91 91" />
+      </g>
+      <path d="M48 36Q50 34 52 36L64 48Q66 50 64 52L52 64Q50 66 48 64L36 52Q34 50 36 48Z" fill="#4C17C9" />
+    </svg>
+    <svg x="56.599999999999994" y="62" width="268" height="268" viewBox="0 0 100 100" fill="none">
+      <g stroke="#FFFFFF" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M50 12L16 46Q12 50 16 54L46 84Q50 88 54 84L84 54Q88 50 84 46L65 27" />
+        <path d="M70 70L91 91" />
+      </g>
+      <path d="M48 36Q50 34 52 36L64 48Q66 50 64 52L52 64Q50 66 48 64L36 52Q34 50 36 48Z" fill="#FFFFFF" />
+    </svg>
+  </g>
+</svg>

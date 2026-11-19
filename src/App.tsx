@@ -518,8 +518,7 @@ function Brand() {
       to={"/"}
       aria-label={t("explorerHome")}
     >
-      <img fetchPriority="high" src="/brand/ink-wordmark.svg" width="100" height="33" alt="" aria-hidden="true" />
-      <span>EXPLORER</span>
+      <img src="/brand/block-lens/wordmark.svg" width="168" height="54" alt="" />
     </ExplorerLink>
   );
 }

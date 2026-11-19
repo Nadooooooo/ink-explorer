@@ -45,7 +45,6 @@ main { padding-top: 28px; }
 .connection-state.online { color:var(--green); }
 .connection-state.offline { color:var(--muted); }
 header.app-header { height:80px; padding:0 max(20px,calc((100vw - var(--content)) / 2)); gap:28px; border:0; border-bottom:1px solid var(--line); background:var(--paper); box-shadow:none; z-index:30; }
-.app-header .brand { width:100px; }
 .app-header nav.desktop-navigation { display:flex; height:100%; margin:0; align-items:center; gap:4px; }
 .desktop-navigation > .nav-group { position:relative; }
 .app-header .desktop-navigation :is(button,a.explorer-link) { min-height:44px; padding:0 12px; color:var(--muted); gap:6px; border-radius:10px; font-size:12px; font-weight:600; }
@@ -198,7 +197,6 @@ header.app-header { height:80px; padding:0 max(20px,calc((100vw - var(--content)
   .utility-settings { gap:0; }.utility-settings .connection-state { display:none; }
   .utility-bar .network-picker { height:30px; }.utility-bar .network-picker select { max-width:112px; font-size:10px; }
   header.app-header { position:relative; height:auto; min-height:126px; padding:10px 16px 14px; display:flex; flex-wrap:wrap; gap:10px; }
-  .app-header .brand { width:100px; }.app-header .brand img { width:86px; height:28px; }.app-header .brand > span { font-size:7px; margin-left:27px; }
   .header-search-field { flex:1 1 100%; min-width:0; order:4; }
   .header-search-field .global-search { height:46px; }
   .global-search input { font-size:12px; }
@@ -255,7 +253,7 @@ header.app-header { height:80px; padding:0 max(20px,calc((100vw - var(--content)
 .site-footer .brand img { filter:none; }
 .site-footer :is(p,small,span,a) { color:var(--muted); }
 .site-footer .footer-status { color:var(--green); }
-.site-footer > div > p,.site-footer > div > span,.site-footer .brand > span,.site-footer > div > a,.site-footer > div > :is(button,a.explorer-link) { color:var(--muted); }
+.site-footer > div > p,.site-footer > div > span,.site-footer > div > a,.site-footer > div > :is(button,a.explorer-link) { color:var(--muted); }
 :root[data-theme="dark"] .site-footer .brand img { filter:brightness(0) invert(1); }
 @media (max-width:760px) {
   .tx-row.compact-tx-row { grid-template-columns:minmax(155px,1fr) minmax(75px,.6fr); }

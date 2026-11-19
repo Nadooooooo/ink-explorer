@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { renderPage } from "../server/page-document.mjs";
+import languages from "../src/locales/meta.json" with { type: "json" };
 import catalogue from "../src/ink-ecosystem.json" with { type: "json" };
 import summariesFr from "../src/ink-ecosystem-fr.json" with { type: "json" };
 import index from "../src/ink-ecosystem-index.json" with { type: "json" };
@@ -35,6 +38,57 @@ test("structured data relates each locale and network page to its own website", 
   assert.equal(graph[1].url, "https://inkexplorer.xyz/testnet/blocks?lang=fr");
   assert.equal(graph[1].inLanguage, "fr");
   assert.equal(graph[1].isPartOf["@id"], graph[0]["@id"]);
+  assert.equal(graph[0].image, "https://inkexplorer.xyz/brand/block-lens/share.png");
+  assert.equal(graph[0].publisher["@id"], graph[2]["@id"]);
+  assert.equal(graph[2].logo, "https://inkexplorer.xyz/brand/block-lens/icon-512.png");
+});
+
+test("robots receive the large sharing card before JavaScript on both networks in all ten languages", () => {
+  const template = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const origin = "https://explorer.example";
+  const alts = new Set();
+  for (const locale of languages.locales) for (const basePath of ["", "/testnet"]) {
+    const request = new URL(`/block/42?lang=${locale}&ref=social`, "https://preview.example");
+    const description = "Fees & transfers for block 42";
+    const { body, status } = renderPage(template, request, { origin, basePath, metadata: ["Block 42", description] });
+    const html = body.toString();
+    const tags = [...html.matchAll(/<meta (?:property|name)="((?:og|twitter):[^"]+)" content="([^"]*)"/g)]
+      .map(([, key, value]) => [key, value]);
+    const meta = new Map(tags);
+    const title = basePath ? "Block 42 · Ink Sepolia" : "Block 42";
+    assert.equal(status, 200);
+    assert.equal(meta.size, tags.length, "Each social tag must occur once");
+    assert.equal(meta.get("og:title"), title);
+    assert.equal(meta.get("twitter:title"), title);
+    assert.equal(meta.get("og:description"), "Fees &amp; transfers for block 42");
+    assert.equal(meta.get("twitter:description"), meta.get("og:description"));
+    assert.equal(meta.get("og:url"), `${origin}${basePath}/block/42${locale === "en" ? "" : `?lang=${locale}`}`);
+    assert.equal(meta.get("og:image"), origin + "/brand/block-lens/share.png");
+    assert.equal(meta.get("twitter:image"), meta.get("og:image"));
+    assert.equal(meta.get("og:image:type"), "image/png");
+    assert.equal(meta.get("og:image:width"), "1200");
+    assert.equal(meta.get("og:image:height"), "630");
+    assert.equal(meta.get("twitter:card"), "summary_large_image");
+    assert.match(meta.get("og:locale"), new RegExp(`^${locale}_[A-Z]{2}$`));
+    const alt = meta.get("og:image:alt");
+    assert(alt.includes("Ink Explorer") && alt.includes("Block Lens"));
+    assert.equal(meta.get("twitter:image:alt"), alt);
+    alts.add(alt);
+  }
+  assert.equal(alts.size, languages.locales.length);
+});
+
+test("page and sharing markup preserve literal dollar sequences and escape HTML in publisher copy", () => {
+  const template = '<html lang="en"><head><title></title><meta name="description" content="" /></head></html>';
+  const url = new URL("/apps/example", "https://explorer.example");
+  const text = "A $& <Ink> $$";
+  const html = renderPage(template, url, { origin: url.origin, metadata: [text, text] }).body.toString();
+  assert(html.includes("<title>A $&amp; &lt;Ink&gt; $$</title>"));
+  for (const attribute of ['name="description"', 'property="og:title"', 'name="twitter:description"']) {
+    assert(html.includes(`<meta ${attribute} content="A $&amp; &lt;Ink&gt; $$"`));
+  }
+  const schema = JSON.parse(html.match(/<script id="ink-page-schema" type="application\/ld\+json">([^<]+)<\/script>/)[1]);
+  assert.equal(schema["@graph"][1].name, text);
 });
 
 test("block routes accept exactly the numeric identifier range used for record arrivals", () => {

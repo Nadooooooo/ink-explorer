@@ -65,9 +65,15 @@ for(const profile of profiles){
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'Page overflows');
         await inspect(page,'.app-header .brand');
         assert(await page.locator('.app-header .brand').evaluate(e=>{
-          const img=e.querySelector('img').getBoundingClientRect(),caption=e.querySelector('span').getBoundingClientRect();
-          return caption.top>=img.bottom-1;
-        }),'Brand caption overlaps logo');
+          const image=e.querySelector('img');
+          const logo=image.getBoundingClientRect(), link=e.getBoundingClientRect();
+          if(!image.complete || !image.naturalWidth || logo.width<150 || Math.abs(logo.width/logo.height-image.naturalWidth/image.naturalHeight)>0.05) return false;
+          if(logo.left<link.left-1 || logo.right>link.right+1 || logo.top<link.top-1 || logo.bottom>link.bottom+1) return false;
+          return [...e.parentElement.children].filter(sibling=>sibling!==e).every(sibling=>{
+            const box=sibling.getBoundingClientRect();
+            return !box.width || !box.height || box.right<=link.left+1 || box.left>=link.right-1 || box.bottom<=link.top+1 || box.top>=link.bottom-1;
+          });
+        }),'Brand must load at a legible size, retain its proportions and clear adjacent header controls');
         if(route===''){
           await page.locator('.signal-main .chart-axis').waitFor();
           await inspect(page,'.home-overview .utilization-metric .info-button,.home-overview .section-title h2,.home-overview .chart-heading-actions,.home-overview .chart-axis',true);

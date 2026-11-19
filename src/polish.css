@@ -308,7 +308,6 @@ header.app-header { box-shadow:0 4px 18px #00000005; }
   .utility-settings .network-picker { position:absolute; inset-inline-end:16px; top:calc(100% + 12px); z-index:35; height:44px; width:144px; }
   .utility-bar .network-picker select { max-width:none; width:100%; min-height:44px; font-size:16px; background-color:var(--surface-field); border:1px solid var(--line); border-radius:12px; padding:0 7px; }
   header.app-header { min-height:132px; gap:8px; padding:12px 16px 16px; }
-  .app-header .brand { width:88px; flex:0 0 88px; }
   .drawer-trigger { width:40px; height:44px; border-radius:12px; background:var(--accent-wash); color:var(--purple-deep); }
   .header-search-field .global-search { height:52px; min-height:52px; padding-inline-start:14px; gap:10px; border-radius:16px; }
   .global-search input { font-size:16px; min-height:44px; }
@@ -462,7 +461,6 @@ header.app-header { box-shadow:0 4px 18px #00000005; }
 @media (max-width:359px) {
   .stats-counters article > strong { font-size:17px; }
   .transaction-summary .metric > strong > span { font-size:16px; }
-  .app-header .brand { width:80px; flex-basis:80px; }
   .utility-settings .network-picker { width:144px; }
   .home-overview .metric { padding:12px; }.home-overview .metric-top { gap:6px; }
   .home-overview .metric-top svg { width:19px; height:19px; flex-basis:19px; }

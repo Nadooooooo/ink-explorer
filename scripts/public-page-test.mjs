@@ -146,7 +146,7 @@ test("missing documents have translated useful content and a network-scoped home
     assert(html.includes(heading));
     assert(html.includes(`href="${home}"`));
     assert(html.includes(message(language, "returnHome")));
-    assert(html.includes('alt="" />Ink Explorer'));
+    assert.match(html, /class="startup-brand"><img [^>]*src="\/brand\/block-lens\/wordmark\.svg"[^>]*alt="Ink Explorer"/);
     assert(!html.includes("Wrong page fixture"));
     assert(!html.includes('id="ink-startup-reload"'));
     assert(!html.includes('<h1 role="status">'));

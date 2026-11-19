@@ -17,6 +17,18 @@ const template = await readFile(path.join(dist, "index.html"));
 const assets = [...new Set([...String(template).matchAll(/(?:src|href)="(\/assets\/[^"?#]+)"/g)].map((match) => match[1]))];
 assert(assets.length > 0, "Expected built entry assets are required");
 const initialAssets = await initialBuildAssets(dist, assets);
+const brandResources = {
+  "/favicon.ico": ["image/x-icon", "image/vnd.microsoft.icon"],
+  "/manifest.webmanifest": "application/manifest+json",
+  "/brand/block-lens/symbol.svg": "image/svg+xml",
+  "/brand/block-lens/wordmark.svg": "image/svg+xml",
+  "/brand/block-lens/share.png": "image/png",
+  "/brand/block-lens/apple-touch-icon.png": "image/png",
+  "/brand/block-lens/icon-192.png": "image/png",
+  "/brand/block-lens/icon-512.png": "image/png",
+  "/brand/block-lens/x-profile.png": "image/png",
+  "/brand/block-lens/x-banner.png": "image/png",
+};
 const report = {
   startedAt: new Date().toISOString(),
   baseUrl: base.origin,
@@ -40,9 +52,14 @@ async function get(route) {
   return { response, bytes: Buffer.from(await response.arrayBuffer()) };
 }
 
-for (const asset of initialAssets) await check(`asset ${asset}`, async () => {
+for (const asset of [...initialAssets, ...Object.keys(brandResources)]) await check(`asset ${asset}`, async () => {
   const { response, bytes } = await get(asset);
   assert.equal(response.status, 200);
+  if (brandResources[asset]) {
+    const allowed = [brandResources[asset]].flat();
+    const mime = response.headers.get("content-type")?.split(";")[0];
+    assert(allowed.includes(mime), `Unexpected content type for ${asset}: ${mime}`);
+  }
   const expected = digest(await readFile(path.join(dist, asset)));
   const actual = digest(bytes);
   assert.equal(actual, expected, "Deployed asset differs from the expected build");
@@ -92,7 +109,7 @@ for (const [prefix, chainId] of [["", 57073], ["/testnet", 763373]]) {
     assert(String(bytes).includes(`Sitemap: ${canonicalOrigin}${prefix}/sitemap.xml`));
     assert(String(bytes).includes("Allow: /"));
     const disallowed = [...String(bytes).matchAll(/^Disallow:\s*(\S+)/gm)].map((match) => match[1]);
-    const required = ["/", `${prefix}/blocks`, `${prefix}/api/overview`, "/brand/ink-symbol.png", ...assets];
+    const required = ["/", `${prefix}/blocks`, `${prefix}/api/overview`, ...Object.keys(brandResources), ...assets];
     for (const path of required) {
       assert(!disallowed.some((rule) => path.startsWith(rule)), `Rendering resource blocked by robots.txt: ${path}`);
     }

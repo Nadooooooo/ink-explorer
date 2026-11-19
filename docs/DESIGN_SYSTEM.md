@@ -98,9 +98,9 @@ The shared tokens originate in `src/styles.css`; `redesign.css` and the visual-d
 
 Dark status cards, code areas, network illustrations and accent surfaces are functional variants. Keep their distinct appearance.
 
-Home, list, token and pool heroes use the official Ink symbol from `public/brand/ink-symbol.svg` as decoration. Its geometry remains intact; scaling, a 12° clockwise rotation and cropping integrate it into the background. The motif fades behind text and has no interaction.
+Ink Explorer’s Block Lens mark depicts an open angular lens around a block. The header, navigation drawer, footer and recovery pages use the same outlined signature, which reads “ink explorer” in both themes. The home link has a localized accessible name. Hero backgrounds use the standalone vector as decoration. [Product signature](../public/brand/block-lens/wordmark.svg) · [Product symbol](../public/brand/block-lens/symbol.svg)
 
-The header uses the official horizontal logo from `public/brand/ink-wordmark.svg` with “Explorer” as a subtitle. The footer shows the same logo in white on a dark background.
+The large link preview is a 1200 × 630 PNG. Its outlined name stays legible without downloading any fonts. Browser tabs use the vector symbol or the multi-size ICO. Installed shortcuts use the square violet artwork with room for circular masks. To regenerate the share card, installation icons and favicon, run `node scripts/render-brand-assets.mjs` with Google Chrome and the project’s development dependencies installed. The profile and banner are the original Block Lens v3.2 exports for X. [Share card](../public/brand/block-lens/share.png) · [X profile](../public/brand/block-lens/x-profile.png) · [X banner](../public/brand/block-lens/x-banner.png)
 
 ## Entity information hierarchy
 

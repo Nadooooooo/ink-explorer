@@ -21,7 +21,7 @@ for(const prefix of ['','/testnet']){
   ws.on('error',e=>{clearTimeout(timer);reject(e);});
  });results.push(socketResult);
 }
-for(const path of [expectedScript,'/brand/ink-symbol.svg','/assets/openapi.json','/theme.js','/manifest.webmanifest'])await check(path,(r,body)=>{assert.equal(r.status,200);assert(!body.startsWith('<!doctype'));assert.equal(r.headers.get('x-content-type-options'),'nosniff');if(path===expectedScript)assert.match(r.headers.get('cache-control'),/31536000.*immutable/);});
+for(const path of [expectedScript,'/brand/block-lens/symbol.svg','/assets/openapi.json','/theme.js','/manifest.webmanifest'])await check(path,(r,body)=>{assert.equal(r.status,200);assert(!body.startsWith('<!doctype'));assert.equal(r.headers.get('x-content-type-options'),'nosniff');if(path===expectedScript)assert.match(r.headers.get('cache-control'),/31536000.*immutable/);});
 await check('/wp-admin/install.php',(r)=>assert.equal(r.status,404));
 const www=await fetch('https://www.inkexplorer.xyz/blocks',{redirect:'manual',signal:AbortSignal.timeout(20000)});assert.equal(www.status,308);assert.equal(www.headers.get('location'),base+'/blocks');results.push({path:'https://www.inkexplorer.xyz/blocks',status:308,passed:true});
 const report={checkedAt:new Date().toISOString(),passed:true,expectedScript,results};

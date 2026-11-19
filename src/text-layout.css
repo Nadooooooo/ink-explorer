@@ -1,7 +1,5 @@
 /* Intrinsic text sizes also apply when the browser enforces a minimum font.
    Keep the compact layout until its labels actually need another row. */
-.brand > span { line-height:normal; }
-.app-header .brand { width:auto; flex:0 0 auto; }
 .stats-counters { display:flex; flex-wrap:wrap; }
 .stats-counters article { flex:1 1 calc(25% - 14px); min-width:auto; max-width:100%; }
 .stats-counters article > div,

@@ -424,6 +424,7 @@ const mime = {
   ".woff2": "font/woff2",
   ".woff": "font/woff",
   ".ico": "image/x-icon",
+  ".webmanifest": "application/manifest+json",
   ".json": "application/json; charset=utf-8",
 };
 

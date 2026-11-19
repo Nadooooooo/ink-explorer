@@ -1,4 +1,4 @@
-import { canonicalExplorerPath, pageStructuredData } from "../src/page-seo.ts";
+import { canonicalExplorerPath, pageStructuredData, socialPageMetadata } from "../src/page-seo.ts";
 import { defaultPageMetadata, notFoundPageCopy } from "../src/page-metadata.ts";
 import { ecosystemAppId } from "../src/ink-ecosystem-route.ts";
 import ecosystemIndex from "../src/ink-ecosystem-index.json" with { type: "json" };
@@ -81,20 +81,23 @@ export function renderPage(template, requestUrl, { origin, basePath = "", metada
     )
     .join("");
   const structured = JSON.stringify(pageStructuredData({ origin, basePath, canonical, title, description, locale: language })).replaceAll("<", "\\u003c");
+  const socialTags = socialPageMetadata({ origin, canonical, title, description, locale: language })
+    .map(([attribute, key, value]) => `<meta ${attribute}="${key}" content="${escapeHtml(value)}" />`)
+    .join("");
   let html = template
     .toString("utf8")
     .replace(
       /<html lang="[^"]+"(?: dir="[^"]+")?>/,
       `<html lang="${language}" dir="${language === "ar" ? "rtl" : "ltr"}"${forceNoindex ? ' data-robots-policy="noindex"' : ""}>`,
     )
-    .replace(/<title>[^<]*<\/title>/, `<title>${escapeHtml(title)}</title>`)
+    .replace(/<title>[^<]*<\/title>/, () => `<title>${escapeHtml(title)}</title>`)
     .replace(
       /<meta name="description" content="[^"]*"\s*\/>/,
-      `<meta name="description" content="${escapeHtml(description)}" />`,
+      () => `<meta name="description" content="${escapeHtml(description)}" />`,
     );
   html = html.replace(
     "</head>",
-    `<link rel="canonical" href="${escapeHtml(canonical)}" />${alternates}<meta name="robots" content="${robots}" /><meta property="og:type" content="website" /><meta property="og:site_name" content="Ink Explorer" /><meta property="og:title" content="${escapeHtml(title)}" /><meta property="og:description" content="${escapeHtml(description)}" /><meta property="og:url" content="${escapeHtml(canonical)}" /><meta property="og:image" content="${escapeHtml(origin)}/brand/ink-symbol.png" /><meta name="twitter:card" content="summary" /><meta name="twitter:image" content="${escapeHtml(origin)}/brand/ink-symbol.png" /><meta name="twitter:image:alt" content="Ink Explorer" /><meta property="og:image:alt" content="Ink Explorer" /><meta name="twitter:title" content="${escapeHtml(title)}" /><meta name="twitter:description" content="${escapeHtml(description)}" /><script id="ink-page-schema" type="application/ld+json">${structured}</script></head>`,
+    () => `<link rel="canonical" href="${escapeHtml(canonical)}" />${alternates}<meta name="robots" content="${robots}" />${socialTags}<script id="ink-page-schema" type="application/ld+json">${structured}</script></head>`,
   );
   html = html.replace("</head>", `${preload}</head>`);
   const styles = [...new Set(initialStyles)].filter(path => /^\/assets\/[a-zA-Z0-9_-]+\.css$/.test(path) && !html.includes(`href="${path}"`));

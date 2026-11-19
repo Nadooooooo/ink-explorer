@@ -37,7 +37,7 @@ export async function walletConnectProvider(projectId: string, signal?: AbortSig
       optionalMethods: ["eth_sendTransaction", "wallet_switchEthereumChain", "wallet_addEthereumChain"],
       optionalEvents: ["accountsChanged", "chainChanged"],
       rpcMap: { [network.chainId]: network.rpc }, showQrModal: false,
-      metadata: { name: "Ink Explorer", description: "Ink chain explorer", url: location.origin, icons: [new URL("/brand/ink-symbol.png", location.origin).href] },
+      metadata: { name: "Ink Explorer", description: "Ink chain explorer", url: location.origin, icons: [new URL("/brand/block-lens/icon-192.png", location.origin).href] },
       // No SDK analytics and no signing, message signing or batch permissions.
       telemetryEnabled: false,
       customStoragePrefix: storagePrefix,
